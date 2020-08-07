@@ -26,6 +26,7 @@ type Config struct {
 	NodeID string `toml:"node_id"`
 
 	Addr     string `toml:"addr"`
+	ObjAddr  string `toml:"obj_addr"`
 	DataRoot string `toml:"data_root"`
 
 	Log xlog.Config `toml:"log"`
