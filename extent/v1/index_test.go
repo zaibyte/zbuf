@@ -17,16 +17,17 @@
 package v1
 
 import (
-	"encoding/binary"
 	"math/rand"
+	"runtime"
+	"sync"
 	"testing"
 
-	"github.com/zaibyte/pkg/xdigest"
+	"github.com/templexxx/tsc"
 )
 
 func TestIndexInsertSearch(t *testing.T) {
-	cnt := int(bktCnt * 0.75)
-	ix := newIndex()
+	cnt := 1024
+	ix := newIndex(true)
 	exp := make(map[uint32]uint32)
 	expOK, failCnt := IndexInsertWithCntRand(ix, cnt, exp)
 	if failCnt >= 3 {
@@ -58,13 +59,10 @@ func IndexInsertWithCntRand(ix *index, cnt int, exp map[uint32]uint32) (okCnt, f
 		randU32[i], randU32[j] = randU32[j], randU32[i]
 	})
 
-	b := make([]byte, 8)
 	for i := 0; i < cnt; i++ {
-		binary.LittleEndian.PutUint64(b, uint64(i))
-		digest := xdigest.Checksum(b)
+		digest := uint32(i)
 		err := ix.insert(digest, randU32[i])
 		if err != nil {
-			//log.Fatal(err, i)
 			failCnt++
 		} else {
 			exp[digest] = randU32[i]
@@ -72,4 +70,150 @@ func IndexInsertWithCntRand(ix *index, cnt int, exp map[uint32]uint32) (okCnt, f
 		}
 	}
 	return
+}
+
+// TODO test delete
+
+func TestIndexConcurrentInsertSearch(t *testing.T) {
+	ix := newIndex(true)
+
+	var wg sync.WaitGroup
+	worker := runtime.NumCPU() * 2
+	wg.Add(worker)
+	jobPerWorker := 128
+
+	for i := 0; i < worker*jobPerWorker; i++ {
+		err := ix.insert(uint32(i), uint32(i+1))
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	for i := 0; i < worker; i++ {
+		go func(w int) {
+			defer wg.Done()
+			for j := w * jobPerWorker; j < w*jobPerWorker+jobPerWorker; j++ {
+
+				addr, err := ix.search(uint32(j))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if addr != uint32(j)+1 {
+					t.Fatal("search result mismtach")
+				}
+			}
+		}(i)
+	}
+	wg.Wait()
+}
+
+func TestIndexNonInsertOnly(t *testing.T) {
+	ix := newIndex(false)
+	err := ix.insert(1, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 1024; i++ {
+		err := ix.insert(1, uint32(i))
+		if err != nil {
+			t.Fatal(err)
+		}
+		addr, err := ix.search(1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if addr != uint32(i) {
+			t.Fatal("non-insertOnly not work")
+		}
+	}
+}
+
+func TestIndexInsertPerf(t *testing.T) {
+
+	ix := newIndex(true)
+	cnt := 1024 * 1024
+	ok := cnt
+	start := tsc.UnixNano()
+	for i := 0; i < cnt; i++ {
+		digest := uint32(i*32 + 1)
+		err := ix.insert(digest, uint32(i))
+		if err != nil {
+			ok--
+		}
+	}
+
+	end := tsc.UnixNano()
+	ops := float64(end-start) / float64(ok)
+	t.Logf("index insert perf: %.2f ns/op, total: %d, failed: %d, ok rate: %.8f", ops, cnt, cnt-ok, float64(ok)/float64(cnt))
+}
+
+func TestIndexSearchPerf(t *testing.T) {
+
+	ix := newIndex(true)
+	cnt := 1024 * 1024
+	ok := cnt
+	for i := 0; i < cnt; i++ {
+		digest := uint32(i*32 + 1)
+		err := ix.insert(digest, uint32(i))
+		if err != nil {
+			ok--
+		}
+	}
+
+	start := tsc.UnixNano()
+	for i := 0; i < cnt; i++ {
+		digest := uint32(i*32 + 1)
+		addr, err := ix.search(digest)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if addr != uint32(i) {
+			t.Fatal("index search result mismatch")
+		}
+	}
+	end := tsc.UnixNano()
+	ops := float64(end-start) / float64(ok)
+	t.Logf("index search perf: %.2f ns/op, total: %d, failed: %d, ok rate: %.8f", ops, cnt, cnt-ok, float64(ok)/float64(cnt))
+}
+
+func TestIndexSearchPerfConcurrency(t *testing.T) {
+
+	ix := newIndex(true)
+
+	jobPerWorker := 256 * 1024
+	worker := 4
+
+	cnt := jobPerWorker * worker
+	ok := cnt
+	for i := 0; i < cnt; i++ {
+		digest := uint32(i*32 + 1)
+		err := ix.insert(digest, uint32(i))
+		if err != nil {
+			ok--
+		}
+	}
+
+	start := tsc.UnixNano()
+	wg := new(sync.WaitGroup)
+	for i := 0; i < worker; i++ {
+		wg.Add(1)
+		go func(w int) {
+			defer wg.Done()
+			for j := w * jobPerWorker; j < w*jobPerWorker+jobPerWorker; j++ {
+
+				addr, err := ix.search(uint32(j*32 + 1))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if addr != uint32(j) {
+					t.Fatal("search result mismtach")
+				}
+			}
+		}(i)
+
+	}
+	wg.Wait()
+	end := tsc.UnixNano()
+	ops := float64(end-start) / float64(cnt)
+	t.Logf("index search concurrency perf: %.2f ns/op, total: %d, failed: %d, ok rate: %.8f", ops, cnt, cnt-ok, float64(ok)/float64(cnt))
 }

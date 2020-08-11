@@ -18,15 +18,14 @@ package v1
 
 import (
 	"errors"
-	"fmt"
 	"sync/atomic"
 
 	"github.com/zaibyte/pkg/xrpc"
 )
 
 // entry struct:
-// 64                                                            0
-// <--------------------------------------------------------------
+// 64                                                  0
+// <---------------------------------------------------
 // | deleted(1) | neigh_off(6) | digest(32) | addr (24)
 //
 // neigh_off: hopscotch hashing neighborhood offset
@@ -71,11 +70,15 @@ const (
 // index is the extent object index.
 type index struct {
 	buckets []uint64
+	// In some test, we will disable insertOnly for avoiding creating billions unique objects.
+	// e.g. In components benchmark test we need to create billions unique objects if insertOnly is true,
+	// it's almost impossible.
+	insertOnly bool
 }
 
 // newIndex creates a index with fixed size.
-func newIndex() *index {
-	return &index{buckets: make([]uint64, bktCnt)}
+func newIndex(insertOnly bool) *index {
+	return &index{buckets: make([]uint64, bktCnt), insertOnly: insertOnly}
 }
 
 // insert inserts entry to index.
@@ -97,9 +100,9 @@ func (ix *index) tryInsert(digest, addr uint64) (err error) {
 	bkt := digest & bktMask
 
 	// 1. Ensure digest is unique.
-	bktOff := neighbour // The offset: free_bucket - hash_bucket.
-	for i := 0; i < neighbour && bkt+uint64(i) < bktCnt; i++ {
+	bktOff := neighbour // Bucket offset: free_bucket - hash_bucket.
 
+	for i := 0; i < neighbour && bkt+uint64(i) < bktCnt; i++ {
 		entry := atomic.LoadUint64(&ix.buckets[bkt+uint64(i)])
 		if entry == 0 {
 			if i < bktOff {
@@ -107,9 +110,14 @@ func (ix *index) tryInsert(digest, addr uint64) (err error) {
 			}
 			continue
 		}
-		if entry>>digestShift&digestMask == digest {
-			fmt.Println("what the fuck")
-			return ErrDigestConflict
+		d := entry >> digestShift & digestMask
+		if d == digest {
+			if ix.insertOnly {
+				return ErrDigestConflict
+			} else {
+				bktOff = i
+				break
+			}
 		}
 	}
 
@@ -139,6 +147,7 @@ func (ix *index) tryInsert(digest, addr uint64) (err error) {
 
 // exchange exchanges the empty slot and the another one (closer to the bucket we want).
 func (ix *index) exchange(start uint64) (uint64, bool) {
+
 	for i := start; i < bktCnt; i++ {
 		if atomic.LoadUint64(&ix.buckets[i]) == 0 { // Find a free one.
 			for j := i - neighbour + 1; j < i; j++ { // Search forward.
@@ -165,6 +174,7 @@ func (ix *index) search(digest uint32) (addr uint32, err error) {
 	for i := 0; i < neighbour && i+int(bkt) < bktCnt; i++ {
 
 		entry := atomic.LoadUint64(&ix.buckets[bkt+uint64(i)])
+
 		if entry>>digestShift&digestMask == uint64(digest) {
 			deleted := entry >> deletedShift & deletedMask
 			if deleted == 1 { // Deleted.
