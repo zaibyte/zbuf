@@ -72,6 +72,44 @@ func IndexInsertWithCntRand(ix *index, cnt int, exp map[uint32]uint32) (okCnt, f
 	return
 }
 
+func TestIndexRaceDetection(t *testing.T) {
+	ix := newIndex(true)
+	cnt := 1024
+	wg := new(sync.WaitGroup)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < cnt; i++ {
+			err := ix.insert(uint32(i), uint32(i))
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	}()
+
+	go func() {
+		for i := 0; i < cnt; i++ {
+			addr, err := ix.search(uint32(i))
+			if err == nil {
+				if addr != uint32(i) {
+					t.Fatal("search result mismatch")
+				}
+			}
+		}
+	}()
+
+	wg.Wait()
+	for i := 0; i < cnt; i++ {
+		addr, err := ix.search(uint32(i))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if addr != uint32(i) {
+			t.Fatal("search result mismatch")
+		}
+	}
+}
+
 // TODO test delete
 
 func TestIndexConcurrentInsertSearch(t *testing.T) {

@@ -24,9 +24,9 @@ import (
 )
 
 // entry struct:
-// 64                                                  0
-// <---------------------------------------------------
-// | deleted(1) | neigh_off(6) | digest(32) | addr (24)
+// 64                                                           0
+// <-------------------------------------------------------------
+// |padding(0)| deleted(1) | neigh_off(6) | digest(32) | addr (24)
 //
 // neigh_off: hopscotch hashing neighborhood offset
 // P the probability a hopscotch hash table with load factor 0.75 (the biggest load for a extent in Zai(
@@ -102,6 +102,7 @@ func (ix *index) tryInsert(digest, addr uint64) (err error) {
 	// 1. Ensure digest is unique.
 	bktOff := neighbour // Bucket offset: free_bucket - hash_bucket.
 
+	// TODO use SIMD
 	for i := 0; i < neighbour && bkt+uint64(i) < bktCnt; i++ {
 		entry := atomic.LoadUint64(&ix.buckets[bkt+uint64(i)])
 		if entry == 0 {
