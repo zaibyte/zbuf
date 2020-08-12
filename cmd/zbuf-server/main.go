@@ -21,6 +21,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 
 	"github.com/zaibyte/pkg/xerrors"
@@ -34,6 +35,16 @@ import (
 const _appName = "zbuf"
 
 func main() {
+
+	// Store GOMAXPROCS bigger for these reasons:
+	//
+	// 1. SSD is superb, and assume ZBuf runs on a server with multi-SSD, so there is a problem:
+	// SSD's latency is very low, but it will take 20μs-10ms to find a thread blocked in Go.
+	// So the block may finish before notice it, the GO Process will be wasted in this situation,
+	// That's why we need more process
+	// (I found this trick from this discussion: https://groups.google.com/forum/#!topic/golang-nuts/jPb_h3TvlKE/discussion)
+	runtime.GOMAXPROCS(128)
+
 	config.Init(_appName)
 
 	var cfg scfg.Config

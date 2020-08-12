@@ -25,9 +25,12 @@ type Config struct {
 	BoxID  uint32 `toml:"box_id"`
 	NodeID string `toml:"node_id"`
 
-	Addr     string `toml:"addr"`
-	ObjAddr  string `toml:"obj_addr"`
-	DataRoot string `toml:"data_root"`
+	OpAddr  string `toml:"op_addr"`
+	ObjAddr string `toml:"obj_addr"`
 
-	Log xlog.Config `toml:"log"`
+	DataRoot     string `toml:"data_root"`
+	PendingFlush int64  `toml:"pending_flush"`
+	InsertOnly   bool   `toml:"insert_only"`
+
+	Log *xlog.Config `toml:"log"`
 }
