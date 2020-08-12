@@ -18,23 +18,23 @@ import (
 	"os"
 	"path/filepath"
 
-	gvfs "github.com/lni/goutils/vfs"
+	lvfs "github.com/lni/goutils/vfs"
 )
 
-// IFS is the vfs interface used by dragonboat.
-type IFS = gvfs.FS
+// FS is the vfs interface used by zbuf.
+type FS = lvfs.FS
 
 // MemFS is a memory backed file system for testing purposes.
-type MemFS = gvfs.MemFS
+type MemFS = lvfs.MemFS
 
 // DefaultFS is a vfs instance using underlying OS fs.
-var DefaultFS IFS = gvfs.Default
+var DefaultFS FS = lvfs.Default
 
 // MemStrictFS is a vfs instance using memfs.
-var MemStrictFS IFS = gvfs.NewStrictMem()
+var MemStrictFS FS = lvfs.NewStrictMem()
 
-// File is the file interface returned by IFS.
-type File = gvfs.File
+// File is the file interface returned by FS.
+type File = lvfs.File
 
 // IsNotExist returns a boolean value indicating whether the specified error is
 // to indicate that a file or directory does not exist.

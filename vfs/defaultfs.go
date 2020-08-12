@@ -17,11 +17,11 @@
 package vfs
 
 // GetFS returns the vfs instance used in normal run.
-func GetFS() IFS {
+func GetFS() FS {
 	return DefaultFS
 }
 
 // GetTestFS returns the vfs instance used in tests.
-func GetTestFS() IFS {
+func GetTestFS() FS {
 	return DefaultFS
 }

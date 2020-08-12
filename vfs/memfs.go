@@ -20,10 +20,10 @@ import (
 	gvfs "github.com/lni/goutils/vfs"
 )
 
-func GetFS() IFS {
+func GetFS() FS {
 	return MemStrictFS
 }
 
-func GetTestFS() IFS {
+func GetTestFS() FS {
 	return gvfs.NewStrictMem()
 }
