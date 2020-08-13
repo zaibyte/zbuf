@@ -17,7 +17,6 @@
 package v1
 
 import (
-	"errors"
 	"sync"
 	"sync/atomic"
 
@@ -55,8 +54,6 @@ func newRWCache(size int64, segmentCnt int) *rwCache {
 	}
 }
 
-var ErrFlushTooSlow = errors.New("cache full: disk flushing too slow")
-
 // write writes oid and its data into rwCache.
 func (rwc *rwCache) write(seg, nextSeg int, oid [16]byte, p []byte) (writeSeg int, offset, size int64) {
 
@@ -77,6 +74,9 @@ func (rwc *rwCache) write(seg, nextSeg int, oid [16]byte, p []byte) (writeSeg in
 
 	woff := atomic.LoadInt64(&c.writeOff)
 	if woff+n > rwc.size {
+		if nextSeg == -1 { // No space for write.
+			return -1, 0, 0
+		}
 		nc := &cache{
 			p: directio.AlignedBlock(int(rwc.size)),
 		}

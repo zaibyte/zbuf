@@ -25,10 +25,11 @@ import (
 
 // FlushJob is the job of a disk flushing.
 type FlushJob struct {
-	File    vfs.File
-	Offset  int64
-	Data    []byte
-	Results []*Result // We may have several flush requests in single flush job.
+	File   vfs.File
+	Offset int64
+	Data   []byte
+	Err    error
+	Done   chan struct{}
 }
 
 type Flusher struct {
@@ -50,10 +51,8 @@ func (f *Flusher) Do() {
 		select {
 		case job := <-f.Jobs:
 			_, err := job.File.WriteAt(job.Data, job.Offset)
-			for _, r := range job.Results {
-				r.Err = err
-				close(r.Done)
-			}
+			job.Err = err
+			close(job.Done)
 
 		case <-ctx.Done():
 			return

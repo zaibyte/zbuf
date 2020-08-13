@@ -14,15 +14,28 @@
  * limitations under the License.
  */
 
-package xio
+package extent
 
-// TODO try to write a tool to calculate these if not set in configs..
-// The tool also has a table to record results, saving time.
-const (
-	WriteThreadsPerDisk = 2 // ZBuf uses buffer write, 2 threads maybe enough for one disk sync.
-	// ZBuf has internal cache, these threads are used for access one disk.
-	// Beyond 16, we may get no benefit.
-	ReadThreadsPerDisk = 16
+import "github.com/zaibyte/pkg/xbytes"
 
-	SizePerWrite = 128 * 1024 // Flush to the disk every 128KB.
-)
+// Objecter is the interface that implements basic objects operations.
+type Objecter interface {
+	PutObj(reqid uint64, oid [16]byte, objData xbytes.Buffer) error
+	GetObj(reqid uint64, oid [16]byte) (objData xbytes.Buffer, err error)
+	DeleteObj(reqid uint64, oid [16]byte) error
+}
+
+type IOer interface {
+	RequestFlush()
+	RequestGet()
+}
+
+type Extenter interface {
+	Objecter
+	IOer
+	Close() error
+}
+
+// TODO interface of scheduler scrub
+// TODO interface of erasure code job
+// TODO interface of migrate

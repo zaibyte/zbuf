@@ -70,6 +70,9 @@ const (
 // index is the extent object index.
 type index struct {
 	buckets []uint64
+	// insertOnly is the index global insert configuration.
+	// When it's true, new object with the same digest will be failed in insert.
+	//
 	// In some test, we will disable insertOnly for avoiding creating billions unique objects.
 	// e.g. In components benchmark test we need to create billions unique objects if insertOnly is true,
 	// it's almost impossible.
@@ -88,7 +91,7 @@ func newIndex(insertOnly bool) *index {
 // (both of insert and delete use the same goroutine)
 func (ix *index) insert(digest, addr uint32) error {
 
-	return ix.tryInsert(uint64(digest), uint64(addr))
+	return ix.tryInsert(uint64(digest), uint64(addr), ix.insertOnly)
 }
 
 var (
@@ -96,7 +99,10 @@ var (
 	ErrIndexFull      = errors.New("index is full")
 )
 
-func (ix *index) tryInsert(digest, addr uint64) (err error) {
+// tryInsert tries to insert entry to index.
+// Set insertOnly false if you want to replace the older entry,
+// it's useful in test and extent GC process.
+func (ix *index) tryInsert(digest, addr uint64, insertOnly bool) (err error) {
 	bkt := digest & bktMask
 
 	// 1. Ensure digest is unique.
@@ -113,7 +119,7 @@ func (ix *index) tryInsert(digest, addr uint64) (err error) {
 		}
 		d := entry >> digestShift & digestMask
 		if d == digest {
-			if ix.insertOnly {
+			if insertOnly {
 				return ErrDigestConflict
 			} else {
 				bktOff = i
@@ -181,6 +187,7 @@ func (ix *index) search(digest uint32) (addr uint32, err error) {
 			if deleted == 1 { // Deleted.
 				return 0, xrpc.ErrNotFound
 			}
+			// TODO entry maybe modified after atomic load.
 			return uint32(entry & addrMask), nil
 		}
 	}
