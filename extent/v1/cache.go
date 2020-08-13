@@ -21,7 +21,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/zaibyte/zbuf/vfs/directio"
+	"github.com/zaibyte/pkg/directio"
 )
 
 // rwCache is the cache of extent write & read.
