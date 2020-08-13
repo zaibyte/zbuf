@@ -17,6 +17,7 @@
 package v1
 
 import (
+	"io"
 	"sync"
 	"sync/atomic"
 
@@ -107,20 +108,25 @@ func (rwc *rwCache) write(seg, nextSeg int, oid [16]byte, p []byte) (writeSeg in
 }
 
 // readData tries to read object data directly.
-func (rwc *rwCache) readData(addr uint32, p []byte, n int64) int64 {
+func (rwc *rwCache) readData(addr uint32, w io.Writer, n uint32) uint32 {
 
-	bytesOff := int64(addr) * grainSize
-	seg := bytesOff / rwc.size
-	off := bytesOff % rwc.size
-	if off > 0 {
-		seg++
-	}
+	seg, off := addrToSeg(addr, rwc.size)
+
 	rwc.mu.RLock()
 	c := rwc.caches[seg]
 	if c == nil {
+		rwc.mu.RUnlock()
 		return 0
 	}
-	copy(p, c.p[off+16:off+16+n])
+	_, _ = w.Write(c.p[off+16 : off+16+int64(n)])
 	rwc.mu.RUnlock()
 	return n
+}
+
+// addrToSeg finds which segment and its offset the address belongs to.
+// size is the per segment cache size. (Actually it's equal to segment)
+func addrToSeg(addr uint32, size int64) (int, int64) {
+	bytesOff := int64(addr) * grainSize
+	seg := bytesOff / size
+	return int(seg), bytesOff % size
 }
