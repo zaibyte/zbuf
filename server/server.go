@@ -18,6 +18,7 @@ package server
 
 import (
 	"context"
+	"net/http"
 	"sync"
 	"sync/atomic"
 
@@ -82,6 +83,13 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 	s.stopWg = new(sync.WaitGroup)
 
 	s.extenters = new(sync.Map)
+
+	s.objSvr = xtcp.NewServer(cfg.ObjAddr, nil, s.PutFunc, nil, nil)
+	s.opSvr = xhttp.NewServer(&xhttp.ServerConfig{
+		Address:   cfg.OpAddr,
+		Encrypted: false,
+	})
+	s.opSvr.AddHandler(http.MethodPut, "/extent/create/:version/:id/:segmentsize", s.createExtentHandler, 0)
 
 	disks, err := listDisks(vfs.DefaultFS, cfg.DataRoot)
 	if err != nil {

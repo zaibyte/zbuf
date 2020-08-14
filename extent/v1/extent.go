@@ -94,6 +94,8 @@ func (cfg *ExtentConfig) adjust() {
 // TODO max cacheSize is 1/16 extSize.
 func New(cfg *ExtentConfig, extID uint32, flushJobChan chan<- *xio.FlushJob, getJobChan chan<- *xio.GetJob) (ext *Extent, err error) {
 
+	cfg.adjust()
+
 	f, err := vfs.DirectFS.Create(filepath.Join(cfg.Path, strconv.FormatInt(int64(extID), 10)))
 	if err != nil {
 		return
