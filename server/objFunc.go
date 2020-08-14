@@ -54,3 +54,7 @@ func (s *Server) GetFunc(reqid uint64, oid [16]byte) (objData xbytes.Buffer, err
 	ext := v.(extent.Extenter)
 	return ext.GetObj(reqid, oid)
 }
+
+func (s *Server) DelFunc(reqid uint64, oid [16]byte) error {
+	return nil // TODO implement
+}

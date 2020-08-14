@@ -22,15 +22,12 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/zaibyte/zbuf/extent"
-
 	"github.com/zaibyte/pkg/xlog"
-
-	"github.com/zaibyte/zbuf/vfs"
-
 	"github.com/zaibyte/pkg/xnet/xhttp"
 	"github.com/zaibyte/pkg/xrpc/xtcp"
+	"github.com/zaibyte/zbuf/extent"
 	"github.com/zaibyte/zbuf/server/config"
+	"github.com/zaibyte/zbuf/vfs"
 	"github.com/zaibyte/zbuf/xio"
 )
 
@@ -84,7 +81,7 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 
 	s.extenters = new(sync.Map)
 
-	s.objSvr = xtcp.NewServer(cfg.ObjAddr, nil, s.PutFunc, s.GetFunc, nil)
+	s.objSvr = xtcp.NewServer(cfg.ObjAddr, nil, s.PutFunc, s.GetFunc, s.DelFunc)
 	s.opSvr = xhttp.NewServer(&xhttp.ServerConfig{
 		Address:   cfg.OpAddr,
 		Encrypted: false,
