@@ -25,17 +25,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/templexxx/tsc"
 	"github.com/templexxx/xhex"
 	"github.com/zaibyte/pkg/uid"
 	"github.com/zaibyte/pkg/xbytes"
 	"github.com/zaibyte/pkg/xdigest"
-	"github.com/zaibyte/pkg/xstrconv"
-
-	"github.com/templexxx/tsc"
-
-	"github.com/zaibyte/zbuf/xio"
-
 	_ "github.com/zaibyte/pkg/xlog/xlogtest"
+	"github.com/zaibyte/pkg/xstrconv"
+	"github.com/zaibyte/zbuf/xio"
 )
 
 func TestExtentWritePerf(t *testing.T) {

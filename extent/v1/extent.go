@@ -85,7 +85,16 @@ func New(cfg *ExtentConfig, extID uint32, flushJobChan chan<- *xio.FlushJob, get
 		return
 	}
 
-	// TODO preallocate
+	type fd interface {
+		Fd() uintptr
+	}
+
+	if d, ok := f.(fd); ok {
+		err = vfs.FAlloc(d.Fd(), cfg.SegmentSize*int64(cfg.SegmentCnt))
+		if err != nil {
+			return
+		}
+	}
 
 	ext = &Extent{
 		cfg:        cfg,
