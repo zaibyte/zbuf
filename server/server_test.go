@@ -25,7 +25,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
+
+	"github.com/zaibyte/pkg/xbytes"
 
 	"github.com/zaibyte/pkg/uid"
 	"github.com/zaibyte/pkg/xdigest"
@@ -86,7 +89,7 @@ func TestServerObjPutGet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resp, err := hc.Request(context.Background(), http.MethodPut, opAddr+"/extent/create/1/1/8192", "", nil)
+	resp, err := hc.Request(context.Background(), http.MethodPut, opAddr+"/extent/create/1/1/8", "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,4 +139,190 @@ func TestServerObjPutGet(t *testing.T) {
 		}
 		getObj.Close()
 	}
+}
+
+func TestServerObjPutPerf(t *testing.T) {
+
+	opAddr := getRandomAddr()
+	objAddr := getRandomAddr()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	dataRoot, err := ioutil.TempDir(os.TempDir(), "extent_write")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dataRoot)
+
+	err = os.Mkdir(filepath.Join(dataRoot, zbufDiskPrefix+"1"), 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s, err := Create(ctx, &config.Config{
+		BoxID:      0,
+		NodeID:     "test",
+		OpAddr:     opAddr,
+		ObjAddr:    objAddr,
+		DataRoot:   dataRoot,
+		InsertOnly: false,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+
+	err = s.Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	hc, err := xhttp.NewDefaultClient()
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := hc.Request(context.Background(), http.MethodPut, opAddr+"/extent/create/1/1/1024", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatal("status code mismatch")
+	}
+
+	c := xtcp.NewClient(objAddr, nil)
+	c.Start()
+	defer c.Stop()
+
+	obj := xbytes.GetNBytes(3952)
+	defer obj.Close()
+
+	rand.Read(obj.Bytes()[:3952])
+	obj.Set(obj.Bytes()[:3952])
+
+	digest := xdigest.Sum32(obj.Bytes()[:3952])
+
+	_, oid := uid.MakeOID(1, 1, digest, 3952, uid.NormalObj)
+
+	wg := new(sync.WaitGroup)
+	start := tsc.UnixNano()
+	for i := 0; i < 128; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 256; j++ {
+				err := c.PutObj(1, oid, obj.Bytes(), 0)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	end := tsc.UnixNano()
+	ops := float64(end-start) / float64(32768)
+	t.Logf("server put perf: %.2f ns/op", ops)
+}
+
+func TestServerObjGetPerf(t *testing.T) {
+
+	opAddr := getRandomAddr()
+	objAddr := getRandomAddr()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	dataRoot, err := ioutil.TempDir(os.TempDir(), "extent_write")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dataRoot)
+
+	err = os.Mkdir(filepath.Join(dataRoot, zbufDiskPrefix+"1"), 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s, err := Create(ctx, &config.Config{
+		BoxID:      0,
+		NodeID:     "test",
+		OpAddr:     opAddr,
+		ObjAddr:    objAddr,
+		DataRoot:   dataRoot,
+		InsertOnly: false,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+
+	err = s.Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	hc, err := xhttp.NewDefaultClient()
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := hc.Request(context.Background(), http.MethodPut, opAddr+"/extent/create/1/1/1024", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatal("status code mismatch")
+	}
+
+	c := xtcp.NewClient(objAddr, nil)
+	c.Start()
+	defer c.Stop()
+
+	obj := xbytes.GetNBytes(3952)
+	defer obj.Close()
+
+	rand.Read(obj.Bytes()[:3952])
+	obj.Set(obj.Bytes()[:3952])
+
+	digest := xdigest.Sum32(obj.Bytes()[:3952])
+
+	_, oid := uid.MakeOID(1, 1, digest, 3952, uid.NormalObj)
+
+	wg := new(sync.WaitGroup)
+	for i := 0; i < 128; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 256; j++ {
+				err := c.PutObj(1, oid, obj.Bytes(), 0)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+		}()
+	}
+	wg.Wait()
+
+	wg2 := new(sync.WaitGroup)
+	start := tsc.UnixNano()
+	for i := 0; i < 512; i++ {
+		wg2.Add(1)
+		go func() {
+			defer wg2.Done()
+			for j := 0; j < 64; j++ {
+				objData, err := c.GetObj(1, oid, 0)
+				if err != nil {
+					t.Fatal(err)
+				}
+				objData.Close()
+			}
+		}()
+	}
+	wg2.Wait()
+	end := tsc.UnixNano()
+	ops := float64(end-start) / float64(32768)
+	t.Logf("server get perf: %.2f ns/op", ops)
 }
