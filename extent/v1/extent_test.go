@@ -44,7 +44,7 @@ func TestExtentPutGet(t *testing.T) {
 	defer os.RemoveAll(dataRoot)
 
 	cfg := &ExtentConfig{
-		DataRoot:    dataRoot,
+		Path:        dataRoot,
 		SegmentCnt:  defaultSegmentCnt,
 		SegmentSize: 1024 * 1024,
 		FlushDelay:  time.Microsecond * 128,
@@ -52,7 +52,7 @@ func TestExtentPutGet(t *testing.T) {
 		InsertOnly:  false,
 	}
 
-	x := startXIOer()
+	x := startXIOer(false)
 	defer x.close()
 
 	ext, err := New(cfg, 1, x.flushJobChan, x.getJobChan)
@@ -115,7 +115,7 @@ func TestExtentPutPerf(t *testing.T) {
 	defer os.RemoveAll(dataRoot)
 
 	cfg := &ExtentConfig{
-		DataRoot:    dataRoot,
+		Path:        dataRoot,
 		SegmentCnt:  defaultSegmentCnt,
 		SegmentSize: 1024 * 1024,
 		FlushDelay:  time.Microsecond * 128,
@@ -123,7 +123,7 @@ func TestExtentPutPerf(t *testing.T) {
 		InsertOnly:  false,
 	}
 
-	x := startXIOer()
+	x := startXIOer(true)
 	defer x.close()
 
 	ext, err := New(cfg, 1, x.flushJobChan, x.getJobChan)
@@ -173,7 +173,7 @@ func TestExtentGetPerf(t *testing.T) {
 	defer os.RemoveAll(dataRoot)
 
 	cfg := &ExtentConfig{
-		DataRoot:    dataRoot,
+		Path:        dataRoot,
 		SegmentCnt:  defaultSegmentCnt,
 		SegmentSize: 1024 * 1024,
 		FlushDelay:  time.Microsecond * 128,
@@ -181,7 +181,7 @@ func TestExtentGetPerf(t *testing.T) {
 		InsertOnly:  false,
 	}
 
-	x := startXIOer()
+	x := startXIOer(false)
 	defer x.close()
 
 	ext, err := New(cfg, 1, x.flushJobChan, x.getJobChan)
@@ -248,7 +248,7 @@ type xioer struct {
 	getJobChan   chan *xio.GetJob
 }
 
-func startXIOer() *xioer {
+func startXIOer(onlyPut bool) *xioer {
 
 	x := new(xioer)
 
@@ -269,16 +269,19 @@ func startXIOer() *xioer {
 		go f.DoLoop()
 	}
 
-	g := &xio.Getter{
-		Jobs:   x.getJobChan,
-		Ctx:    x.ctx,
-		StopWg: x.stopWg,
+	if !onlyPut {
+		g := &xio.Getter{
+			Jobs:   x.getJobChan,
+			Ctx:    x.ctx,
+			StopWg: x.stopWg,
+		}
+
+		for i := 0; i < xio.ReadThreadsPerDisk; i++ {
+			x.stopWg.Add(1)
+			go g.DoLoop()
+		}
 	}
 
-	for i := 0; i < xio.ReadThreadsPerDisk; i++ {
-		x.stopWg.Add(1)
-		go g.DoLoop()
-	}
 	return x
 }
 
