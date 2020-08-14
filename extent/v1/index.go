@@ -132,7 +132,6 @@ func (ix *index) tryInsert(digest, addr uint64, insertOnly bool) (err error) {
 	if bktOff < neighbour { // There is bktOff bucket within neighbour.
 		entry := uint64(bktOff)<<neighOffShift | digest<<digestShift | addr
 		atomic.StoreUint64(&ix.buckets[bkt+uint64(bktOff)], entry)
-
 		return nil
 	}
 

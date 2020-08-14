@@ -22,6 +22,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/zaibyte/pkg/directio"
+
 	"github.com/zaibyte/zbuf/xio"
 
 	"github.com/zaibyte/pkg/xrpc"
@@ -50,7 +52,42 @@ type putResult struct {
 	err  error
 }
 
-func (ext *Extent) putObjLoop(stopChan <-chan struct{}) {
+func (ext *Extent) putObjAsync(oid [16]byte, objData xbytes.Buffer) (pr *putResult, err error) {
+
+	pr = acquirePutResult()
+	pr.done = make(chan struct{})
+	pr.oid = oid
+	pr.objData = objData
+
+	select {
+	case ext.putChan <- pr:
+		return pr, nil
+	default:
+		select {
+		case pr2 := <-ext.putChan:
+			if pr2.done != nil {
+				pr2.err = xrpc.ErrDiskWriteStall
+				close(pr2.done)
+			} else {
+				releasePutResult(pr2)
+			}
+		default:
+
+		}
+
+		select {
+		case ext.putChan <- pr:
+			return pr, nil
+		default:
+			releasePutResult(pr)
+			return nil, xrpc.ErrDiskWriteStall
+		}
+	}
+}
+
+// TODO should handler flush error better, deal with kinds of errors.
+func (ext *Extent) putObjLoop() {
+	defer ext.stopWg.Done()
 
 	t := time.NewTimer(ext.flushDelay)
 	var flushChan <-chan time.Time
@@ -70,7 +107,7 @@ func (ext *Extent) putObjLoop(stopChan <-chan struct{}) {
 			runtime.Gosched()
 
 			select {
-			case <-stopChan:
+			case <-ext.stopChan:
 				return
 			case pr = <-ext.putChan:
 			case <-flushChan:
@@ -81,9 +118,11 @@ func (ext *Extent) putObjLoop(stopChan <-chan struct{}) {
 				unflushedIndex = unflushedIndex[:0]
 
 				written = 0
-				offset += written
+				offset += written // TODO if err2 is not nil, what's the next?
 
-				releaseFlushJob(fj)
+				if fj != nil {
+					xio.ReleaseFlushJob(fj)
+				}
 
 				flushChan = nil
 				continue
@@ -100,7 +139,7 @@ func (ext *Extent) putObjLoop(stopChan <-chan struct{}) {
 			continue
 		}
 
-		if seg >= ext.cfg.segmentCnt-defaultReservedSeg {
+		if seg >= ext.cfg.SegmentCnt-defaultReservedSeg {
 			pr.err = xrpc.ErrExtentFull
 			close(pr.done)
 			continue
@@ -122,7 +161,9 @@ func (ext *Extent) putObjLoop(stopChan <-chan struct{}) {
 			offset = 0
 			written = 0
 
-			releaseFlushJob(fj)
+			if fj != nil {
+				xio.ReleaseFlushJob(fj)
+			}
 			continue
 		}
 
@@ -138,14 +179,16 @@ func (ext *Extent) putObjLoop(stopChan <-chan struct{}) {
 			written = 0
 			seg = wseg
 			nextSeg = wseg + 1 // TODO should be chosen by extent logic.
-			if nextSeg >= ext.cfg.segmentCnt {
+			if nextSeg >= ext.cfg.SegmentCnt {
 				nextSeg = -1
 			}
-			releaseFlushJob(fj)
+			if fj != nil {
+				xio.ReleaseFlushJob(fj)
+			}
 		}
 
 		digest := binary.LittleEndian.Uint32(pr.oid[8:12])
-		addr := uint32(wseg)*uint32(ext.cfg.segmentSize) + uint32(off)
+		addr := (uint32(wseg)*uint32(ext.cfg.SegmentSize) + uint32(off)) / grainSize
 		index := uint64(addr)<<32 | uint64(digest)
 		unflushedCnt++
 		unflushedPut = append(unflushedPut, pr)
@@ -162,9 +205,44 @@ func (ext *Extent) putObjLoop(stopChan <-chan struct{}) {
 			written = 0
 			offset += written
 
-			releaseFlushJob(fj)
+			if fj != nil {
+				xio.ReleaseFlushJob(fj)
+			}
 		}
 	}
+}
+
+// TODO may need to limit getObj concurrency.
+func (ext *Extent) getObj(digest, size uint32) (obj xbytes.Buffer, err error) {
+
+	addr, err := ext.index.search(digest)
+	if err != nil {
+		return nil, err
+	}
+
+	obj = directio.GetNBytes(int(size + 16)) // 16 for oid.
+	n := ext.cache.readData(addr, obj, size)
+	if n != 0 {
+		obj.Set(obj.Bytes()[:n])
+		return
+	}
+
+	gj := xio.AcquireGetJob()
+	gj.File = ext.file
+	gj.Offset = int64(addr) * grainSize
+	gj.Data = obj.Bytes()[:writeSpace(int64(size))]
+	gj.Done = make(chan struct{})
+
+	ext.getJobChan <- gj // TODO may block too long
+
+	<-gj.Done
+
+	obj.Set(gj.Data[16 : 16+size])
+	err = gj.Err
+
+	xio.ReleaseGetJob(gj)
+
+	return
 }
 
 func (ext *Extent) updateIndex(cnt int, unflushedPut []*putResult, unflushedIndex []uint64, flushErr error) {
@@ -189,13 +267,17 @@ func (ext *Extent) updateIndex(cnt int, unflushedPut []*putResult, unflushedInde
 }
 
 func (ext *Extent) flushPut(seg int, offset, size int64) (*xio.FlushJob, error) {
-	fj := acquireFlushJob()
+	if size == 0 {
+		return nil, nil
+	}
+
+	fj := xio.AcquireFlushJob()
 	fj.File = ext.file
 	fj.Offset = offset
 	fj.Data = ext.cache.caches[seg].p[offset : offset+size]
 	fj.Done = make(chan struct{})
 
-	ext.flushJobChan <- fj
+	ext.flushJobChan <- fj // TODO may wait to long here.
 
 	// Block until flush returns for two reasons:
 	// 1. If disk is broken, we'll find it soon (Important).
@@ -203,26 +285,6 @@ func (ext *Extent) flushPut(seg int, offset, size int64) (*xio.FlushJob, error) 
 	<-fj.Done
 
 	return fj, fj.Err
-}
-
-var flushJobPool sync.Pool
-
-func acquireFlushJob() *xio.FlushJob {
-	v := flushJobPool.Get()
-	if v == nil {
-		return &xio.FlushJob{}
-	}
-	return v.(*xio.FlushJob)
-}
-
-func releaseFlushJob(fj *xio.FlushJob) {
-	fj.Done = nil
-	fj.Err = nil
-	fj.File = nil
-	fj.Offset = 0
-	fj.Data = nil
-
-	flushJobPool.Put(fj)
 }
 
 var putResultPool sync.Pool

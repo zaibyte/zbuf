@@ -151,8 +151,8 @@ func TestIndexNonInsertOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for i := 0; i < 1024; i++ {
-		err := ix.insert(1, uint32(i))
+	for i := 0; i < bktCnt; i++ {
+		err := ix.insert(1, uint32(i)&addrMask)
 		if err != nil {
 			t.Fatal(err)
 		}

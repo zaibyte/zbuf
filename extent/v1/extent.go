@@ -16,9 +16,15 @@
 
 // The struct of extent is mostly come from the Paper: <Reaping the performance of fast NVM storage with uDepot>,
 // with these optimizations:
+//
 // Index:
 // 1. Redesign for Zai's oid, reducing hash calculating cost.
 // 2. Use atomic to replace lock. Lock free.
+//
+// Cache:
+// 1. Combine write buffer & read cache
+// 2. Use direct I/O saving memory copy
+//
 // Other:
 // 1. Extent has more meta for Erasure Codes in the future.
 // 2. GC algorithm is more like the one in SSD firmware.
@@ -26,19 +32,16 @@
 package v1
 
 import (
+	"encoding/binary"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
-	"github.com/zaibyte/pkg/xlog"
-
-	"github.com/zaibyte/pkg/xrpc"
-
-	"github.com/zaibyte/zbuf/xio"
-
-	"github.com/zaibyte/zbuf/vfs"
-
 	"github.com/zaibyte/pkg/xbytes"
+	"github.com/zaibyte/pkg/xlog"
+	"github.com/zaibyte/zbuf/vfs"
+	"github.com/zaibyte/zbuf/xio"
 )
 
 const (
@@ -56,37 +59,53 @@ type Extent struct {
 	flushDelay time.Duration
 
 	putChan      chan *putResult
-	flushJobChan chan *xio.FlushJob
+	flushJobChan chan<- *xio.FlushJob
+	getJobChan   chan<- *xio.GetJob
+
+	stopChan chan struct{}
+	stopWg   sync.WaitGroup
 }
 
 type ExtentConfig struct {
-	dataRoot    string
-	segmentCnt  int
-	segmentSize int64
-	flushDelay  time.Duration
-	putPending  int // TODO default 256?
-	insertOnly  bool
+	DataRoot    string
+	SegmentCnt  int
+	SegmentSize int64
+	FlushDelay  time.Duration
+	PutPending  int // TODO default 256?
+	InsertOnly  bool
 }
 
 // Create a new extent.
 // TODO add segment config.
 // TODO max cacheSize is 1/16 extSize.
-func New(cfg *ExtentConfig, extID uint32, flushJobChan chan *xio.FlushJob) (ext *Extent, err error) {
+func New(cfg *ExtentConfig, extID uint32, flushJobChan chan<- *xio.FlushJob, getJobChan chan<- *xio.GetJob) (ext *Extent, err error) {
 
-	f, err := vfs.DirectFS.Open(filepath.Join(cfg.dataRoot, strconv.FormatInt(int64(extID), 10)))
+	f, err := vfs.DirectFS.Create(filepath.Join(cfg.DataRoot, strconv.FormatInt(int64(extID), 10)))
 	if err != nil {
 		return
 	}
-	return &Extent{
-		cfg:          cfg,
-		id:           extID,
-		file:         f,
-		index:        newIndex(cfg.insertOnly),
-		cache:        newRWCache(cfg.segmentSize, cfg.segmentCnt),
-		flushDelay:   cfg.flushDelay,
-		putChan:      make(chan *putResult, cfg.putPending),
+
+	// TODO preallocate
+
+	ext = &Extent{
+		cfg:        cfg,
+		id:         extID,
+		file:       f,
+		index:      newIndex(cfg.InsertOnly),
+		cache:      newRWCache(cfg.SegmentSize, cfg.SegmentCnt),
+		flushDelay: cfg.FlushDelay,
+		putChan:    make(chan *putResult, cfg.PutPending),
+
 		flushJobChan: flushJobChan,
-	}, nil
+		getJobChan:   getJobChan,
+
+		stopChan: make(chan struct{}),
+	}
+
+	ext.stopWg.Add(1)
+	go ext.putObjLoop()
+
+	return ext, nil
 }
 
 func (ext *Extent) PutObj(reqid uint64, oid [16]byte, objData xbytes.Buffer) (err error) {
@@ -103,35 +122,24 @@ func (ext *Extent) PutObj(reqid uint64, oid [16]byte, objData xbytes.Buffer) (er
 	return
 }
 
-func (ext *Extent) putObjAsync(oid [16]byte, objData xbytes.Buffer) (pr *putResult, err error) {
+func (ext *Extent) GetObj(reqid uint64, oid [16]byte) (objData xbytes.Buffer, err error) {
+	digest := binary.LittleEndian.Uint32(oid[8:12])
+	so := binary.LittleEndian.Uint32(oid[12:16])
+	size := so >> 8
 
-	pr = acquirePutResult()
-	pr.done = make(chan struct{})
-	pr.oid = oid
-	pr.objData = objData
-
-	select {
-	case ext.putChan <- pr:
-		return pr, nil
-	default:
-		select {
-		case pr2 := <-ext.putChan:
-			if pr2.done != nil {
-				pr2.err = xrpc.ErrDiskWriteStall
-				close(pr2.done)
-			} else {
-				releasePutResult(pr2)
-			}
-		default:
-
-		}
-
-		select {
-		case ext.putChan <- pr:
-			return pr, nil
-		default:
-			releasePutResult(pr)
-			return nil, xrpc.ErrDiskWriteStall
-		}
+	objData, err = ext.getObj(digest, size)
+	if err != nil {
+		xlog.ErrorIDf(reqid, "failed to get object: %s", err.Error())
 	}
+	return
+}
+
+func (ext *Extent) Close() error {
+	if ext.stopChan == nil {
+		xlog.Panic("extent must be new before closing it")
+	}
+	close(ext.stopChan)
+	ext.stopWg.Wait()
+	ext.stopChan = nil
+	return nil
 }
