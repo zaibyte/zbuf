@@ -55,6 +55,10 @@ func (f *Flusher) DoLoop() {
 			close(job.Done)
 		default:
 			select {
+			case job := <-f.Jobs:
+				_, err := job.File.WriteAt(job.Data, job.Offset)
+				job.Err = err
+				close(job.Done)
 			case <-ctx.Done():
 				return
 			}
