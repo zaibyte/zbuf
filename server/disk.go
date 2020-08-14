@@ -17,32 +17,38 @@
 package server
 
 import (
-	"context"
-	"sync"
+	"errors"
+	"path/filepath"
+	"strings"
 
 	"github.com/zaibyte/zbuf/vfs"
-	"github.com/zaibyte/zbuf/xio"
 )
 
-type disks struct {
-	root string
-	fs   vfs.FS
-	sets []*disk
-
-	pendingFlush int
-
-	ctx    context.Context
-	stopWg *sync.WaitGroup
-}
-
-type disk struct {
-	path      string
-	exts      []uint32
-	flusher   *xio.Flusher
-	flushJobs chan *xio.FlushJob
-}
+// TODO deal with new disk & broken disk
 
 const zbufDiskPrefix = "zbuf_"
+
+var ErrNoDisk = errors.New("no disk for ZBuf")
+
+func listDisks(fs vfs.FS, root string) (disks []string, err error) {
+	diskFns, err := fs.List(root)
+	if err != nil {
+		return
+	}
+
+	disks = make([]string, 0, len(diskFns))
+	cnt := 0
+	for _, fn := range diskFns {
+		if strings.HasPrefix(fn, zbufDiskPrefix) {
+			cnt++
+			disks = append(disks, filepath.Join(root, fn))
+		}
+	}
+	if cnt == 0 {
+		return nil, ErrNoDisk
+	}
+	return disks[:cnt], nil
+}
 
 //func (d *disks) load() error {
 //	diskFns, err := d.fs.List(d.root)
