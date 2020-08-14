@@ -25,12 +25,14 @@ import (
 func (s *Server) createExtent(version uint16, extentID uint32, segmentSize int64) error {
 	version = 1 // TODO support more version
 
+	// TODO the police is too simple.
 	rootPath := s.disks[atomic.LoadInt64(&s.nextDisk)%int64(len(s.disks))]
 	atomic.AddInt64(&s.nextDisk, 1)
 
 	cfg := &v1.ExtentConfig{
-		Path:       rootPath,
-		InsertOnly: false,
+		Path:        rootPath,
+		SegmentSize: segmentSize,
+		InsertOnly:  false,
 	}
 
 	ext, err := v1.New(cfg, extentID, s.xioers[rootPath].flushJobChan, s.xioers[rootPath].getJobChan)
