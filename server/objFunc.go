@@ -40,3 +40,17 @@ func (s *Server) PutFunc(reqid uint64, oid [16]byte, objData xbytes.Buffer) erro
 	ext := v.(extent.Extenter)
 	return ext.PutObj(reqid, oid, objData)
 }
+
+func (s *Server) GetFunc(reqid uint64, oid [16]byte) (objData xbytes.Buffer, err error) {
+	_, extID, _, _, _, _ := uid.ParseOIDBytes(oid[:])
+
+	v, ok := s.extenters.Load(extID)
+	if !ok {
+		err := xerrors.WithMessage(xrpc.ErrNotFound, fmt.Sprintf("extent: %d not found", extID))
+		xlog.ErrorID(reqid, err.Error())
+		return nil, err
+	}
+
+	ext := v.(extent.Extenter)
+	return ext.GetObj(reqid, oid)
+}

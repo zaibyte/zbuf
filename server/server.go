@@ -84,7 +84,7 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 
 	s.extenters = new(sync.Map)
 
-	s.objSvr = xtcp.NewServer(cfg.ObjAddr, nil, s.PutFunc, nil, nil)
+	s.objSvr = xtcp.NewServer(cfg.ObjAddr, nil, s.PutFunc, s.GetFunc, nil)
 	s.opSvr = xhttp.NewServer(&xhttp.ServerConfig{
 		Address:   cfg.OpAddr,
 		Encrypted: false,
