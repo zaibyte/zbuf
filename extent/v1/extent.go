@@ -79,7 +79,7 @@ type ExtentConfig struct {
 
 const (
 	defaultFlushDelay = 128 * time.Microsecond
-	defaultPutPending = 256
+	defaultPutPending = 512
 )
 
 func (cfg *ExtentConfig) adjust() {
