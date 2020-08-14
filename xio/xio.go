@@ -16,13 +16,20 @@
 
 package xio
 
-// TODO try to write a tool to calculate these if not set in configs..
+// TODO try to write a tool to calculate these if not set in configs.
+// TODO these should just be default values.
 // The tool also has a table to record results, saving time.
 const (
-	WriteThreadsPerDisk = 2 // ZBuf uses buffer write, 2 threads maybe enough for one disk sync.
-	// ZBuf has internal cache, these threads are used for access one disk.
-	// Beyond 16, we may get no benefit.
-	ReadThreadsPerDisk = 16
+	// WriteThreadsPerDisk is the single disk concurrent writers.
+	WriteThreadsPerDisk = 2 // ZBuf uses buffer write, 2 threads maybe enough for one disk sync direct I/O in sequence.
 
-	SizePerWrite = 128 * 1024 // Flush to the disk every 128KB.
+	// ReadThreadsPerDisk is the single disk concurrent readers.
+	// ZBuf has internal cache, these threads are used for access one disk.
+	// Beyond 64, we may get no benefit.
+	ReadThreadsPerDisk = 64
+
+	SizePerWrite = 128 * 1024 // Flush to the disk every 128KB. Too big will impact latency.
+
+	DefaultWriteDepth = 256
+	DefaultReadDepth  = 256
 )

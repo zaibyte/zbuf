@@ -28,7 +28,8 @@ type GetJob struct {
 	File   vfs.File
 	Offset int64
 	Data   []byte
-	Result *Result
+	Err    error
+	Done   chan struct{}
 }
 
 type Getter struct {
@@ -40,19 +41,43 @@ type Getter struct {
 	StopWg *sync.WaitGroup
 }
 
-func (g *Getter) Do() {
+func (g *Getter) DoLoop() {
 	defer g.StopWg.Done()
 
 	ctx, cancel := context.WithCancel(g.Ctx)
 	defer cancel()
 
-	select {
-	case job := <-g.Jobs:
-		_, err := job.File.ReadAt(job.Data, job.Offset)
-		job.Result.Err = err
-		close(job.Result.Done)
-
-	case <-ctx.Done():
-		return
+	for {
+		select {
+		case job := <-g.Jobs:
+			_, err := job.File.ReadAt(job.Data, job.Offset)
+			job.Err = err
+			close(job.Done)
+		default:
+			select {
+			case <-ctx.Done():
+				return
+			}
+		}
 	}
+}
+
+var GetJobPool sync.Pool
+
+func AcquireGetJob() *GetJob {
+	v := GetJobPool.Get()
+	if v == nil {
+		return &GetJob{}
+	}
+	return v.(*GetJob)
+}
+
+func ReleaseGetJob(gj *GetJob) {
+	gj.Done = nil
+	gj.Err = nil
+	gj.File = nil
+	gj.Offset = 0
+	gj.Data = nil
+
+	GetJobPool.Put(gj)
 }

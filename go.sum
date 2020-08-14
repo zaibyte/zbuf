@@ -109,6 +109,7 @@ github.com/zaibyte/pkg v0.0.0-20200813065837-57ec6f7455d2/go.mod h1:9h4X8F3/VB7y
 github.com/zaibyte/pkg v0.0.0-20200813124354-1438e079c5f0 h1:s+VZamx9zuy8R16JYRMcmyjSDa3KMIrzZif7OUqSXSk=
 github.com/zaibyte/pkg v0.0.0-20200813124354-1438e079c5f0/go.mod h1:9h4X8F3/VB7yX2n/JT5HbAXu2cF5/TS14pmuVFzRRLg=
 github.com/zaibyte/pkg v0.0.0-20200813150729-1f690ed23d21/go.mod h1:9h4X8F3/VB7yX2n/JT5HbAXu2cF5/TS14pmuVFzRRLg=
+github.com/zaibyte/pkg v0.0.0-20200813160943-79ac0cb34082/go.mod h1:9h4X8F3/VB7yX2n/JT5HbAXu2cF5/TS14pmuVFzRRLg=
 go.uber.org/atomic v1.6.0 h1:Ezj3JGmsOnG1MoRWQkPBsKLe9DwWD9QeXzTRzzldNVk=
 go.uber.org/atomic v1.6.0/go.mod h1:sABNBOSYdrvTF6hTgEIbc7YasKWGhgEQZyfxyTvoXHQ=
 go.uber.org/goleak v1.0.0 h1:qsup4IcBdlmsnGfqyLl4Ntn3C2XCCuKAE7DwHpScyUo=

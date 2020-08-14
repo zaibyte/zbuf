@@ -41,7 +41,7 @@ type Flusher struct {
 	StopWg *sync.WaitGroup
 }
 
-func (f *Flusher) Do() {
+func (f *Flusher) DoLoop() {
 	defer f.StopWg.Done()
 
 	ctx, cancel := context.WithCancel(f.Ctx)
@@ -53,9 +53,31 @@ func (f *Flusher) Do() {
 			_, err := job.File.WriteAt(job.Data, job.Offset)
 			job.Err = err
 			close(job.Done)
-
-		case <-ctx.Done():
-			return
+		default:
+			select {
+			case <-ctx.Done():
+				return
+			}
 		}
 	}
+}
+
+var FlushJobPool sync.Pool
+
+func AcquireFlushJob() *FlushJob {
+	v := FlushJobPool.Get()
+	if v == nil {
+		return &FlushJob{}
+	}
+	return v.(*FlushJob)
+}
+
+func ReleaseFlushJob(fj *FlushJob) {
+	fj.Done = nil
+	fj.Err = nil
+	fj.File = nil
+	fj.Offset = 0
+	fj.Data = nil
+
+	FlushJobPool.Put(fj)
 }
