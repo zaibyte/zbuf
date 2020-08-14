@@ -37,7 +37,8 @@ func reqIDStrToInt(s string) uint64 {
 	return u
 }
 
-//  /extent/create/:version/:id/:segmentsize
+// Path: /extent/create/:version/:id/:segmentsize
+// segmentsize's unit is KB.
 func (s *Server) createExtentHandler(w http.ResponseWriter, _ *http.Request, p httprouter.Params) {
 	reqIDS := w.Header().Get(xhttp.ReqIDHeader) // TODO deal with version & segmentsize
 	reqid := reqIDStrToInt(reqIDS)
@@ -56,6 +57,7 @@ func (s *Server) createExtentHandler(w http.ResponseWriter, _ *http.Request, p h
 		xhttp.ReplyError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	segSize = segSize * 1024
 
 	id := uint32(idInt)
 	err = s.createExtent(0, id, segSize)
