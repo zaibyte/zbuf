@@ -19,7 +19,6 @@ package v1
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -42,8 +41,7 @@ func TestExtentPutGet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Println(dataRoot)
-	//defer os.RemoveAll(dataRoot)
+	defer os.RemoveAll(dataRoot)
 
 	cfg := &ExtentConfig{
 		DataRoot:    dataRoot,
