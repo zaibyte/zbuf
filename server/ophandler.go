@@ -49,8 +49,16 @@ func (s *Server) createExtentHandler(w http.ResponseWriter, _ *http.Request, p h
 		return
 	}
 
+	segSize, err := strconv.ParseInt(p.ByName("segmentsize"), 10, 64)
+	if err != nil {
+		err = xerrors.WithMessage(err, "illegal segment size")
+		xlog.ErrorID(reqid, err.Error())
+		xhttp.ReplyError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	id := uint32(idInt)
-	err = s.createExtent(0, id, 0)
+	err = s.createExtent(0, id, segSize)
 	if err != nil {
 		err = xerrors.WithMessage(err, "create extent failed")
 		xlog.ErrorID(reqid, err.Error())
