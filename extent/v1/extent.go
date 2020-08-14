@@ -38,6 +38,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/zaibyte/pkg/config"
+
 	"github.com/zaibyte/pkg/xbytes"
 	"github.com/zaibyte/pkg/xlog"
 	"github.com/zaibyte/zbuf/vfs"
@@ -67,7 +69,7 @@ type Extent struct {
 }
 
 type ExtentConfig struct {
-	DataRoot    string
+	Path        string
 	SegmentCnt  int
 	SegmentSize int64
 	FlushDelay  time.Duration
@@ -75,12 +77,24 @@ type ExtentConfig struct {
 	InsertOnly  bool
 }
 
+const (
+	defaultFlushDelay = 128 * time.Microsecond
+	defaultPutPending = 256
+)
+
+func (cfg *ExtentConfig) adjust() {
+	config.Adjust(&cfg.SegmentCnt, defaultSegmentCnt)
+	config.Adjust(&cfg.SegmentSize, defaultSegmentSize)
+	config.Adjust(&cfg.FlushDelay, defaultFlushDelay)
+	config.Adjust(&cfg.PutPending, defaultPutPending)
+}
+
 // Create a new extent.
 // TODO add segment config.
 // TODO max cacheSize is 1/16 extSize.
 func New(cfg *ExtentConfig, extID uint32, flushJobChan chan<- *xio.FlushJob, getJobChan chan<- *xio.GetJob) (ext *Extent, err error) {
 
-	f, err := vfs.DirectFS.Create(filepath.Join(cfg.DataRoot, strconv.FormatInt(int64(extID), 10)))
+	f, err := vfs.DirectFS.Create(filepath.Join(cfg.Path, strconv.FormatInt(int64(extID), 10)))
 	if err != nil {
 		return
 	}
@@ -149,6 +163,7 @@ func (ext *Extent) Close() error {
 	}
 	close(ext.stopChan)
 	ext.stopWg.Wait()
+	_ = ext.file.Close()
 	ext.stopChan = nil
 	return nil
 }
