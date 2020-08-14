@@ -32,7 +32,7 @@ func (s *Server) createExtent(version uint16, extentID uint32, segmentSize int64
 	cfg := &v1.ExtentConfig{
 		Path:        rootPath,
 		SegmentSize: segmentSize,
-		InsertOnly:  false,
+		InsertOnly:  s.cfg.InsertOnly,
 	}
 
 	ext, err := v1.New(cfg, extentID, s.xioers[rootPath].flushJobChan, s.xioers[rootPath].getJobChan)

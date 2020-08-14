@@ -28,9 +28,8 @@ type Config struct {
 	OpAddr  string `toml:"op_addr"`
 	ObjAddr string `toml:"obj_addr"`
 
-	DataRoot     string `toml:"data_root"`
-	PendingFlush int64  `toml:"pending_flush"`
-	InsertOnly   bool   `toml:"insert_only"`
+	DataRoot   string `toml:"data_root"`
+	InsertOnly bool   `toml:"insert_only"`
 
 	Log *xlog.Config `toml:"log"`
 }
