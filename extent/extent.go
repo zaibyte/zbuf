@@ -22,17 +22,12 @@ import "github.com/zaibyte/pkg/xbytes"
 type Objecter interface {
 	PutObj(reqid uint64, oid [16]byte, objData xbytes.Buffer) error
 	GetObj(reqid uint64, oid [16]byte) (objData xbytes.Buffer, err error)
-	DeleteObj(reqid uint64, oid [16]byte) error
-}
-
-type IOer interface {
-	RequestFlush()
-	RequestGet()
+	// TODO implement Delete
+	// DeleteObj(reqid uint64, oid [16]byte) error
 }
 
 type Extenter interface {
 	Objecter
-	IOer
 	Close() error
 }
 
