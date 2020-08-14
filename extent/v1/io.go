@@ -18,7 +18,6 @@ package v1
 
 import (
 	"encoding/binary"
-	"runtime"
 	"sync"
 	"time"
 
@@ -92,9 +91,9 @@ func (ext *Extent) putObjLoop() {
 	t := time.NewTimer(ext.flushDelay)
 	var flushChan <-chan time.Time
 
-	seg, nextSeg := 0, 1 // TODO tmp solution, when start from disk, it'll be replaced
-	var written int64 = 0
-	var offset int64 = 0
+	seg, nextSeg := 0, 1  // TODO tmp solution, when start from disk, it'll be replaced
+	var written int64 = 0 // Dirty written in cache.
+	var offset int64 = 0  // Segment offset.
 	unflushedCnt := 0
 	unflushedPut := make([]*putResult, 0, xio.SizePerWrite/grainSize)
 	unflushedIndex := make([]uint64, 0, xio.SizePerWrite/grainSize)
@@ -104,12 +103,10 @@ func (ext *Extent) putObjLoop() {
 		select {
 		case pr = <-ext.putChan:
 		default:
-			runtime.Gosched()
-
 			select {
+			case pr = <-ext.putChan:
 			case <-ext.stopChan:
 				return
-			case pr = <-ext.putChan:
 			case <-flushChan:
 				fj, err2 := ext.flushPut(seg, offset, written)
 				ext.updateIndex(unflushedCnt, unflushedPut, unflushedIndex, err2)
@@ -117,8 +114,8 @@ func (ext *Extent) putObjLoop() {
 				unflushedPut = unflushedPut[:0]
 				unflushedIndex = unflushedIndex[:0]
 
-				written = 0
 				offset += written // TODO if err2 is not nil, what's the next?
+				written = 0
 
 				if fj != nil {
 					xio.ReleaseFlushJob(fj)
@@ -126,7 +123,6 @@ func (ext *Extent) putObjLoop() {
 
 				flushChan = nil
 				continue
-
 			}
 		}
 
@@ -142,7 +138,7 @@ func (ext *Extent) putObjLoop() {
 		if seg >= ext.cfg.SegmentCnt-defaultReservedSeg {
 			pr.err = xrpc.ErrExtentFull
 			close(pr.done)
-			continue
+			continue // TODO deal with it better?
 		}
 
 		wseg, off, size := ext.cache.write(seg, nextSeg, pr.oid, pr.objData.Bytes())
@@ -202,8 +198,8 @@ func (ext *Extent) putObjLoop() {
 			unflushedPut = unflushedPut[:0]
 			unflushedIndex = unflushedIndex[:0]
 
-			written = 0
 			offset += written
+			written = 0
 
 			if fj != nil {
 				xio.ReleaseFlushJob(fj)
@@ -231,15 +227,21 @@ func (ext *Extent) getObj(digest, size uint32) (obj xbytes.Buffer, err error) {
 	gj.File = ext.file
 	gj.Offset = int64(addr) * grainSize
 	gj.Data = obj.Bytes()[:writeSpace(int64(size))]
+
 	gj.Done = make(chan struct{})
 
 	ext.getJobChan <- gj // TODO may block too long
 
 	<-gj.Done
 
-	obj.Set(gj.Data[16 : 16+size])
+	if gj.Err == nil {
+		obj.Set(gj.Data[16 : 16+size])
+		err = nil
+		xio.ReleaseGetJob(gj)
+		return
+	}
 	err = gj.Err
-
+	_ = obj.Close()
 	xio.ReleaseGetJob(gj)
 
 	return
@@ -273,7 +275,7 @@ func (ext *Extent) flushPut(seg int, offset, size int64) (*xio.FlushJob, error) 
 
 	fj := xio.AcquireFlushJob()
 	fj.File = ext.file
-	fj.Offset = offset
+	fj.Offset = int64(seg)*ext.cfg.SegmentSize + offset
 	fj.Data = ext.cache.caches[seg].p[offset : offset+size]
 	fj.Done = make(chan struct{})
 
