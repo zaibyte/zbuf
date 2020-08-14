@@ -36,6 +36,7 @@ import (
 	"github.com/zaibyte/zbuf/xio"
 )
 
+// TODO concurrency test
 func TestExtentPutGet(t *testing.T) {
 	dataRoot, err := ioutil.TempDir(os.TempDir(), "extent_write")
 	if err != nil {
@@ -61,7 +62,7 @@ func TestExtentPutGet(t *testing.T) {
 	}
 	defer ext.Close()
 
-	for i := 0; i < 1024; i++ {
+	for i := 1; i < 1024; i++ {
 		obj := xbytes.GetNBytes(i)
 		b := obj.Bytes()[:i]
 		for j := range b {
@@ -82,7 +83,7 @@ func TestExtentPutGet(t *testing.T) {
 		obj.Close()
 	}
 
-	for i := 0; i < 1024; i++ {
+	for i := 1; i < 1024; i++ {
 		b := make([]byte, i)
 		for j := range b {
 			b[j] = uint8(i)

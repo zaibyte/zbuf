@@ -94,6 +94,7 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 	}
 	s.disks = disks
 
+	s.xioers = make(map[string]*xioer, len(s.disks))
 	for _, disk := range disks {
 		flushJobChan := make(chan *xio.FlushJob, xio.DefaultWriteDepth)
 		flusher := &xio.Flusher{
@@ -110,6 +111,7 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 		}
 
 		s.xioers[disk] = &xioer{
+			stopWg:       s.stopWg,
 			flusher:      flusher,
 			flushJobChan: flushJobChan,
 			getter:       getter,
@@ -149,7 +151,7 @@ func (s *Server) Close() {
 	xlog.Info("closing server")
 
 	s.objSvr.Stop()
-	_ = s.opSvr.Close()
+	s.opSvr.Close()
 
 	s.cancel()
 	s.stopWg.Wait()

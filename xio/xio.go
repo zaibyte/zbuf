@@ -25,8 +25,8 @@ const (
 
 	// ReadThreadsPerDisk is the single disk concurrent readers.
 	// ZBuf has internal cache, these threads are used for access one disk.
-	// Beyond 64, we may get no benefit.
-	ReadThreadsPerDisk = 64
+	// Beyond 32, we may get no benefit.
+	ReadThreadsPerDisk = 32
 
 	SizePerWrite = 128 * 1024 // Flush to the disk every 128KB. Too big will impact latency.
 
