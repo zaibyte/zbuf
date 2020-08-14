@@ -55,6 +55,10 @@ func (g *Getter) DoLoop() {
 			close(job.Done)
 		default:
 			select {
+			case job := <-g.Jobs:
+				_, err := job.File.ReadAt(job.Data, job.Offset)
+				job.Err = err
+				close(job.Done)
 			case <-ctx.Done():
 				return
 			}
