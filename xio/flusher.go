@@ -26,7 +26,7 @@ import (
 // FlushJob is the job of a disk flushing.
 type FlushJob struct {
 	File   vfs.File
-	Offset int64
+	Offset int64 // Extent offset.
 	Data   []byte
 	Err    error
 	Done   chan struct{}
