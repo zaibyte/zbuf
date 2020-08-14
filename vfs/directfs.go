@@ -22,7 +22,7 @@ import (
 	"syscall"
 
 	"github.com/templexxx/fnc"
-	"github.com/zaibyte/zbuf/vfs/directio"
+	"github.com/zaibyte/pkg/directio"
 
 	lvfs "github.com/lni/goutils/vfs"
 )
