@@ -23,6 +23,7 @@ import (
 	"github.com/zaibyte/pkg/xrpc"
 )
 
+// TODO may put digest as last 32bits for SIMD
 // entry struct:
 // 64                                                           0
 // <-------------------------------------------------------------
