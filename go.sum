@@ -105,6 +105,7 @@ github.com/zaibyte/nanozap v0.0.3 h1:opOIFFHu63sXu2FqiCcPFptNL68z8x/scHCunYR4vnE
 github.com/zaibyte/nanozap v0.0.3/go.mod h1:sObsuIlWGRGkBrAyHMtJR1DzUGPKU9asgvwbYWa3nwQ=
 github.com/zaibyte/pkg v0.0.0-20200814190610-19097ecca107 h1:GJCsV2sRCr9Q0OtctGdG+sRJxWDYR9sz0nsE4ydVvfg=
 github.com/zaibyte/pkg v0.0.0-20200814190610-19097ecca107/go.mod h1:9h4X8F3/VB7yX2n/JT5HbAXu2cF5/TS14pmuVFzRRLg=
+github.com/zaibyte/pkg v0.0.0-20200815130046-e20018d25265/go.mod h1:9h4X8F3/VB7yX2n/JT5HbAXu2cF5/TS14pmuVFzRRLg=
 go.uber.org/atomic v1.6.0 h1:Ezj3JGmsOnG1MoRWQkPBsKLe9DwWD9QeXzTRzzldNVk=
 go.uber.org/atomic v1.6.0/go.mod h1:sABNBOSYdrvTF6hTgEIbc7YasKWGhgEQZyfxyTvoXHQ=
 go.uber.org/goleak v1.0.0 h1:qsup4IcBdlmsnGfqyLl4Ntn3C2XCCuKAE7DwHpScyUo=
