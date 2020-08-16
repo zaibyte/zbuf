@@ -63,7 +63,7 @@ func (ext *Extent) putObjAsync(oid [16]byte, objData xbytes.Buffer) (pr *putResu
 		return pr, nil
 	default:
 		select {
-		case pr2 := <-ext.putChan:
+		case pr2 := <-ext.putChan: // TODO should I pop it out?
 			if pr2.done != nil {
 				pr2.err = xrpc.ErrDiskWriteStall
 				close(pr2.done)
