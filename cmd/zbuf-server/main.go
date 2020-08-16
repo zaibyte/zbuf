@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package zbuf_server
+package main
 
 import (
 	"context"
