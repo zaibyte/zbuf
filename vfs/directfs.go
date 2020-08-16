@@ -28,7 +28,10 @@ import (
 )
 
 // DirectFS is a FS implementation backed by the underlying operating system's
-// file system with direct I/O.
+// file system with direct I/O and it will sync every write.
+//
+// It's ok to sync write on enterprise NVMe drivers, because all they have
+// persistent write buffer to handle write, it's fast and reliable.
 var DirectFS FS = directFS{}
 
 type directFS struct{}
@@ -38,7 +41,7 @@ func (fs directFS) OpenDir(name string) (lvfs.File, error) {
 }
 
 func (directFS) Create(name string) (File, error) {
-	return directio.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_TRUNC|syscall.O_CLOEXEC|fnc.O_NOATIME, 0666)
+	return directio.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_TRUNC|syscall.O_CLOEXEC|fnc.O_NOATIME|syscall.O_SYNC, 0666)
 }
 
 func (directFS) Link(oldname, newname string) error {
@@ -46,7 +49,7 @@ func (directFS) Link(oldname, newname string) error {
 }
 
 func (directFS) Open(name string, opts ...lvfs.OpenOption) (File, error) {
-	file, err := directio.OpenFile(name, os.O_RDONLY|syscall.O_CLOEXEC|fnc.O_NOATIME, 0)
+	file, err := directio.OpenFile(name, os.O_RDONLY|syscall.O_CLOEXEC|fnc.O_NOATIME|syscall.O_SYNC, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +60,7 @@ func (directFS) Open(name string, opts ...lvfs.OpenOption) (File, error) {
 }
 
 func (directFS) OpenForAppend(name string) (File, error) {
-	return directio.OpenFile(name, os.O_RDWR|os.O_APPEND|syscall.O_CLOEXEC|fnc.O_NOATIME, 0)
+	return directio.OpenFile(name, os.O_RDWR|os.O_APPEND|syscall.O_CLOEXEC|fnc.O_NOATIME|syscall.O_SYNC, 0)
 }
 
 func (directFS) Remove(name string) error {
@@ -76,7 +79,7 @@ func (fs directFS) ReuseForWrite(oldname, newname string) (File, error) {
 	if err := fs.Rename(oldname, newname); err != nil {
 		return nil, err
 	}
-	return directio.OpenFile(newname, os.O_RDWR|os.O_CREATE|syscall.O_CLOEXEC|fnc.O_NOATIME, 0666)
+	return directio.OpenFile(newname, os.O_RDWR|os.O_CREATE|syscall.O_CLOEXEC|fnc.O_NOATIME|syscall.O_SYNC, 0666)
 }
 
 func (directFS) MkdirAll(dir string, perm os.FileMode) error {
