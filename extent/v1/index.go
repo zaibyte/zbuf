@@ -30,10 +30,10 @@ import (
 // |padding(0)| deleted(1) | neigh_off(6) | digest(32) | addr (24)
 //
 // neigh_off: hopscotch hashing neighborhood offset
-// P the probability a hopscotch hash table with load factor 0.75 (the biggest load for a extent in Zai(
+// P the probability a hopscotch hash table with load factor 0.75 (the biggest load for an extent in Zai)
 // and the neighborhood size 64 must be rehashed:
 // 7.95e-98 < P < 1e-8
-// It's good enough for our user case.
+// It's good enough, almost impossible.
 //
 // tag: the upper 8bits in digest
 // For matching search.
@@ -104,6 +104,7 @@ var (
 // Set insertOnly false if you want to replace the older entry,
 // it's useful in test and extent GC process.
 func (ix *index) tryInsert(digest, addr uint64, insertOnly bool) (err error) {
+
 	bkt := digest & bktMask
 
 	// 1. Ensure digest is unique.
