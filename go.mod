@@ -8,5 +8,5 @@ require (
 	github.com/templexxx/fnc v1.0.0
 	github.com/templexxx/tsc v0.0.1
 	github.com/templexxx/xhex v0.0.0-20200614015412-aed53437177b
-	github.com/zaibyte/pkg v0.0.0-20200815130046-e20018d25265
+	github.com/zaibyte/pkg v0.0.0-20200816125345-341ffff3269a
 )

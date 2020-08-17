@@ -124,11 +124,3 @@ func (rwc *rwCache) readData(addr uint32, w io.Writer, n uint32) uint32 {
 	rwc.mu.RUnlock()
 	return n
 }
-
-// addrToSeg finds which segment and its offset the address belongs to.
-// size is the per segment cache size. (Actually it's equal to segment)
-func addrToSeg(addr uint32, size int64) (int, int64) {
-	bytesOff := int64(addr) * grainSize
-	seg := bytesOff / size
-	return int(seg), bytesOff % size
-}
