@@ -21,15 +21,15 @@ package xio
 // The tool also has a table to record results, saving time.
 const (
 	// WriteThreadsPerDisk is the single disk concurrent writers.
-	WriteThreadsPerDisk = 2 // ZBuf uses buffer write, 2 threads maybe enough for one disk sync direct I/O in sequence.
+	WriteThreadsPerDisk = 4 // ZBuf uses buffer write, 2 threads maybe enough for one disk sync direct I/O in sequence.
 
 	// ReadThreadsPerDisk is the single disk concurrent readers.
 	// ZBuf has internal cache, these threads are used for access one disk.
-	// Beyond 32, we may get no benefit.
-	ReadThreadsPerDisk = 32
+	// Beyond 64, we may get no benefit.
+	ReadThreadsPerDisk = 64
 
 	SizePerWrite = 128 * 1024 // Flush to the disk every 128KB. Too big will impact latency.
 
-	DefaultWriteDepth = 256
+	DefaultWriteDepth = 128
 	DefaultReadDepth  = 256
 )
