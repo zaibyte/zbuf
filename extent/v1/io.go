@@ -47,8 +47,9 @@ type putResult struct {
 	oid     [16]byte
 	objData xbytes.Buffer
 
-	done chan struct{}
-	err  error
+	canceled uint32
+	done     chan struct{}
+	err      error
 }
 
 func (ext *Extent) putObjAsync(oid [16]byte, objData xbytes.Buffer) (pr *putResult, err error) {
@@ -91,9 +92,9 @@ func (ext *Extent) putObjLoop() {
 	t := time.NewTimer(ext.flushDelay)
 	var flushChan <-chan time.Time
 
-	seg, nextSeg := 0, 1  // TODO tmp solution, when start from disk, it'll be replaced
-	var written int64 = 0 // Dirty written in cache.
-	var offset int64 = 0  // Segment offset.
+	var seg, nextSeg uint16 = 0, 1 // TODO tmp solution, when start from disk, it'll be replaced
+	var written int64 = 0          // Dirty written in cache.
+	var offset int64 = 0           // Segment offset.
 	unflushedCnt := 0
 	unflushedPut := make([]*putResult, 0, xio.SizePerWrite/grainSize)
 	unflushedIndex := make([]uint64, 0, xio.SizePerWrite/grainSize)
@@ -120,7 +121,6 @@ func (ext *Extent) putObjLoop() {
 				if fj != nil {
 					xio.ReleaseFlushJob(fj)
 				}
-
 				flushChan = nil
 				continue
 			}
@@ -135,14 +135,15 @@ func (ext *Extent) putObjLoop() {
 			continue
 		}
 
-		if seg >= ext.cfg.SegmentCnt-defaultReservedSeg {
+		if seg >= uint16(segmentCnt-defaultReservedSeg) { // TODO tmp solution.
 			pr.err = xrpc.ErrExtentFull
 			close(pr.done)
 			continue // TODO deal with it better?
 		}
 
-		wseg, off, size := ext.cache.write(seg, nextSeg, pr.oid, pr.objData.Bytes())
-		if wseg == -1 { // Write cache failed, because extent is full.
+		wseg, off, size := ext.cache.write(nextSeg, pr.oid, pr.objData.Bytes())
+
+		if wseg == sealedFlag {
 
 			fj, err2 := ext.flushPut(seg, offset, written) // Flush any.
 			ext.updateIndex(unflushedCnt, unflushedPut, unflushedIndex, err2)
@@ -174,9 +175,9 @@ func (ext *Extent) putObjLoop() {
 			offset = 0
 			written = 0
 			seg = wseg
-			nextSeg = wseg + 1 // TODO should be chosen by extent logic.
-			if nextSeg >= ext.cfg.SegmentCnt {
-				nextSeg = -1
+			nextSeg = wseg + 1                                    // TODO should be chosen by extent logic.
+			if nextSeg >= uint16(segmentCnt-defaultReservedSeg) { // TODO tmp solution.
+				nextSeg = sealedFlag
 			}
 			if fj != nil {
 				xio.ReleaseFlushJob(fj)
@@ -230,12 +231,13 @@ func (ext *Extent) getObj(digest, size uint32) (obj xbytes.Buffer, err error) {
 
 	gj.Done = make(chan struct{})
 
+	// TODO may too many threads try to send msg to getJobChan
 	ext.getJobChan <- gj // TODO may block too long
 
 	<-gj.Done
 
 	if gj.Err == nil {
-		obj.Set(gj.Data[16 : 16+size])
+		obj.Set(gj.Data[16 : 16+size]) // TODO compare digest, when update index inplace, it may read wrong addr
 		err = nil
 		xio.ReleaseGetJob(gj)
 		return
@@ -268,7 +270,8 @@ func (ext *Extent) updateIndex(cnt int, unflushedPut []*putResult, unflushedInde
 	}
 }
 
-func (ext *Extent) flushPut(seg int, offset, size int64) (*xio.FlushJob, error) {
+func (ext *Extent) flushPut(seg uint16, offset, size int64) (*xio.FlushJob, error) {
+
 	if size == 0 {
 		return nil, nil
 	}
@@ -276,7 +279,7 @@ func (ext *Extent) flushPut(seg int, offset, size int64) (*xio.FlushJob, error) 
 	fj := xio.AcquireFlushJob()
 	fj.File = ext.file
 	fj.Offset = int64(seg)*ext.cfg.SegmentSize + offset
-	fj.Data = ext.cache.caches[seg].p[offset : offset+size]
+	fj.Data = ext.cache.getBytesBySeg(seg)[offset : offset+size]
 	fj.Done = make(chan struct{})
 
 	ext.flushJobChan <- fj // TODO may wait to long here.
@@ -284,6 +287,7 @@ func (ext *Extent) flushPut(seg int, offset, size int64) (*xio.FlushJob, error) 
 	// Block until flush returns for two reasons:
 	// 1. If disk is broken, we'll find it soon (Important).
 	// 2. It's more easy to implement.
+	// 3. There are multi-threads (every extent has one) writing to the disk, it's okay to block.
 	<-fj.Done
 
 	return fj, fj.Err
