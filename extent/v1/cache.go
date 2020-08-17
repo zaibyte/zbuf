@@ -43,7 +43,7 @@ type rwCache struct {
 
 type cache struct {
 	writeOff int64  // Write offset.
-	p        []byte // Underlay cache pool.
+	p        []byte // Underlay bytes.
 }
 
 func newRWCache(size int64, segmentCnt int) *rwCache {
@@ -112,12 +112,14 @@ func (rwc *rwCache) readData(addr uint32, w io.Writer, n uint32) uint32 {
 
 	seg, off := addrToSeg(addr, rwc.size)
 
-	rwc.mu.RLock()
+	rwc.mu.RLock() // TODO lock is a bad idea, RWMutex perf in multi-cores is poor
 	c := rwc.caches[seg]
 	if c == nil {
 		rwc.mu.RUnlock()
 		return 0
 	}
+	// Addr is come from index, which means the data must have been flushed,
+	// and before flushing, it must be in cache.
 	_, _ = w.Write(c.p[off+16 : off+16+int64(n)])
 	rwc.mu.RUnlock()
 	return n

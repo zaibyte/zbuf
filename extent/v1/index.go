@@ -188,7 +188,8 @@ func (ix *index) search(digest uint32) (addr uint32, err error) {
 			if deleted == 1 { // Deleted.
 				return 0, xrpc.ErrNotFound
 			}
-			// TODO entry maybe modified after atomic load.
+			// entry maybe modified after atomic load.
+			// Check it after read from disk.
 			return uint32(entry & addrMask), nil
 		}
 	}
