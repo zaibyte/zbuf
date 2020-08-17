@@ -79,14 +79,16 @@ type ExtentConfig struct {
 const (
 	defaultFlushDelay = -1 // Flush immediately. Rely on disk latency.
 	defaultPutPending = 64 // Each extent has 64 pending put.
-	defaultGetPending = 128
+	defaultGetPending = 1024
 	defaultGetThread  = 4
 )
 
 func (cfg *ExtentConfig) adjust() {
 	config.Adjust(&cfg.SegmentSize, defaultSegmentSize)
 	config.Adjust(&cfg.PutPending, defaultPutPending)
-	config.Adjust(&cfg.FlushDelay, defaultFlushDelay)
+	if cfg.FlushDelay == 0 {
+		cfg.FlushDelay = defaultFlushDelay
+	}
 	config.Adjust(&cfg.GetPending, defaultGetPending)
 	config.Adjust(&cfg.GetThread, defaultGetThread)
 }
