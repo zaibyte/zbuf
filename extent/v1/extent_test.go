@@ -46,7 +46,6 @@ func TestExtentPutGet(t *testing.T) {
 
 	cfg := &ExtentConfig{
 		Path:        dataRoot,
-		SegmentCnt:  defaultSegmentCnt,
 		SegmentSize: 1024 * 1024,
 		FlushDelay:  time.Microsecond * 128,
 		PutPending:  2048,
@@ -117,10 +116,7 @@ func TestExtentPutPerf(t *testing.T) {
 
 	cfg := &ExtentConfig{
 		Path:        dataRoot,
-		SegmentCnt:  defaultSegmentCnt,
 		SegmentSize: 1024 * 1024,
-		FlushDelay:  time.Microsecond * 128,
-		PutPending:  256,
 		InsertOnly:  false,
 	}
 
@@ -146,12 +142,11 @@ func TestExtentPutPerf(t *testing.T) {
 	xhex.Decode(oid[:], xstrconv.ToBytes(oids))
 
 	wg := new(sync.WaitGroup)
-	start := tsc.UnixNano()
-	for i := 0; i < 128; i++ {
+	for i := 0; i < 2; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for j := 0; j < 256; j++ {
+			for j := 0; j < 4096*2*2; j++ {
 				err := ext.PutObj(1, oid, obj)
 				if err != nil {
 					t.Fatal(err)
@@ -159,6 +154,7 @@ func TestExtentPutPerf(t *testing.T) {
 			}
 		}()
 	}
+	start := tsc.UnixNano()
 	wg.Wait()
 	end := tsc.UnixNano()
 	ops := float64(end-start) / float64(32768)
@@ -175,7 +171,6 @@ func TestExtentGetPerf(t *testing.T) {
 
 	cfg := &ExtentConfig{
 		Path:        dataRoot,
-		SegmentCnt:  defaultSegmentCnt,
 		SegmentSize: 1024 * 1024,
 		FlushDelay:  time.Microsecond * 128,
 		PutPending:  256,
@@ -205,11 +200,11 @@ func TestExtentGetPerf(t *testing.T) {
 
 	// Fast write.
 	wg := new(sync.WaitGroup)
-	for i := 0; i < 128; i++ {
+	for i := 0; i < 64; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for j := 0; j < 256; j++ {
+			for j := 0; j < 512; j++ {
 				err := ext.PutObj(1, oid, obj)
 				if err != nil {
 					t.Fatal(err)
@@ -221,11 +216,11 @@ func TestExtentGetPerf(t *testing.T) {
 
 	wg2 := new(sync.WaitGroup)
 	start := tsc.UnixNano()
-	for i := 0; i < 512; i++ {
+	for i := 0; i < 4; i++ {
 		wg2.Add(1)
 		go func() {
 			defer wg2.Done()
-			for j := 0; j < 64; j++ {
+			for j := 0; j < 512*16; j++ {
 				objData, err := ext.GetObj(1, oid)
 				if err != nil {
 					t.Fatal(err)
