@@ -43,7 +43,7 @@ func main() {
 	// So the block may finish before notice it, the GO Process will be wasted in this situation,
 	// That's why we need more process
 	// (I found this trick from this discussion: https://groups.google.com/forum/#!topic/golang-nuts/jPb_h3TvlKE/discussion)
-	runtime.GOMAXPROCS(128)
+	runtime.GOMAXPROCS(128) // TODO maybe 512 if you got lots of cores and NVMe SSD
 
 	config.Init(_appName)
 
