@@ -59,7 +59,7 @@ type Extent struct {
 	putChan      chan *putResult
 	flushJobChan chan<- *xio.FlushJob
 
-	getChan    chan *getResult
+	//getChan    chan *getResult
 	getJobChan chan<- *xio.GetJob
 
 	stopChan chan struct{}
@@ -123,7 +123,7 @@ func New(cfg *ExtentConfig, extID uint32, flushJobChan chan<- *xio.FlushJob, get
 		putChan:      make(chan *putResult, cfg.PutPending),
 		flushJobChan: flushJobChan,
 
-		getChan:    make(chan *getResult, cfg.GetPending),
+		//getChan:    make(chan *getResult, cfg.GetPending),
 		getJobChan: getJobChan,
 
 		stopChan: make(chan struct{}),
@@ -132,10 +132,10 @@ func New(cfg *ExtentConfig, extID uint32, flushJobChan chan<- *xio.FlushJob, get
 	ext.stopWg.Add(1)
 	go ext.putObjLoop()
 
-	for i := 0; i < cfg.GetThread; i++ {
-		ext.stopWg.Add(1)
-		go ext.getObjLoop()
-	}
+	//for i := 0; i < cfg.GetThread; i++ {
+	//	ext.stopWg.Add(1)
+	//	go ext.getObjLoop()
+	//}
 
 	return ext, nil
 }
