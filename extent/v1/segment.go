@@ -16,7 +16,11 @@
 
 package v1
 
-const defaultSegmentSize = 256 * 1024 * 1024
+const (
+	defaultSegmentSize = 256 * 1024 * 1024
+	segmentCnt         = 256 // Each extent has the same segment count: 256.
+	defaultReservedSeg = 64  // There are 64 segments are reserved for GC in future.
+)
 
 // Segment status
 const (
