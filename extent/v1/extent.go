@@ -46,23 +46,21 @@ import (
 	"github.com/zaibyte/zbuf/xio"
 )
 
-const (
-	defaultSegmentCnt  = 256 // Each extent has the same segment count: 256.
-	defaultReservedSeg = 64  // There are 64 segments are reserved for GC in future.
-)
-
+// Extent is version 1 extent.
 type Extent struct {
 	cfg *ExtentConfig
 
 	id         uint32
 	file       vfs.File
 	index      *index
-	cache      *rwCache
+	cache      *hotCache
 	flushDelay time.Duration
 
 	putChan      chan *putResult
 	flushJobChan chan<- *xio.FlushJob
-	getJobChan   chan<- *xio.GetJob
+
+	getChan    chan *getResult
+	getJobChan chan<- *xio.GetJob
 
 	stopChan chan struct{}
 	stopWg   sync.WaitGroup
@@ -70,28 +68,30 @@ type Extent struct {
 
 type ExtentConfig struct {
 	Path        string
-	SegmentCnt  int
 	SegmentSize int64
 	FlushDelay  time.Duration
-	PutPending  int // TODO default 256?
+	GetThread   int
+	GetPending  int
+	PutPending  int
 	InsertOnly  bool
 }
 
 const (
-	defaultFlushDelay = 128 * time.Microsecond
-	defaultPutPending = 512
+	defaultFlushDelay = -1 // Flush immediately. Rely on disk latency.
+	defaultPutPending = 64 // Each extent has 64 pending put.
+	defaultGetPending = 128
+	defaultGetThread  = 4
 )
 
 func (cfg *ExtentConfig) adjust() {
-	config.Adjust(&cfg.SegmentCnt, defaultSegmentCnt)
 	config.Adjust(&cfg.SegmentSize, defaultSegmentSize)
-	config.Adjust(&cfg.FlushDelay, defaultFlushDelay)
 	config.Adjust(&cfg.PutPending, defaultPutPending)
+	config.Adjust(&cfg.FlushDelay, defaultFlushDelay)
+	config.Adjust(&cfg.GetPending, defaultGetPending)
+	config.Adjust(&cfg.GetThread, defaultGetThread)
 }
 
 // Create a new extent.
-// TODO add segment config.
-// TODO max cacheSize is 1/16 extSize.
 func New(cfg *ExtentConfig, extID uint32, flushJobChan chan<- *xio.FlushJob, getJobChan chan<- *xio.GetJob) (ext *Extent, err error) {
 
 	cfg.adjust()
@@ -106,7 +106,7 @@ func New(cfg *ExtentConfig, extID uint32, flushJobChan chan<- *xio.FlushJob, get
 	}
 
 	if d, ok := f.(fd); ok {
-		err = vfs.FAlloc(d.Fd(), cfg.SegmentSize*int64(cfg.SegmentCnt))
+		err = vfs.FAlloc(d.Fd(), cfg.SegmentSize*segmentCnt)
 		if err != nil {
 			return
 		}
@@ -117,18 +117,25 @@ func New(cfg *ExtentConfig, extID uint32, flushJobChan chan<- *xio.FlushJob, get
 		id:         extID,
 		file:       f,
 		index:      newIndex(cfg.InsertOnly),
-		cache:      newRWCache(cfg.SegmentSize, cfg.SegmentCnt),
+		cache:      newHotCache(cfg.SegmentSize, 0), // TODO it should start by extent assigning.
 		flushDelay: cfg.FlushDelay,
-		putChan:    make(chan *putResult, cfg.PutPending),
 
+		putChan:      make(chan *putResult, cfg.PutPending),
 		flushJobChan: flushJobChan,
-		getJobChan:   getJobChan,
+
+		getChan:    make(chan *getResult, cfg.GetPending),
+		getJobChan: getJobChan,
 
 		stopChan: make(chan struct{}),
 	}
 
 	ext.stopWg.Add(1)
 	go ext.putObjLoop()
+
+	for i := 0; i < cfg.GetThread; i++ {
+		ext.stopWg.Add(1)
+		go ext.getObjLoop()
+	}
 
 	return ext, nil
 }
