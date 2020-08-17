@@ -17,3 +17,4 @@ In present, lacking of:
 7. Performance tuning
 8. Fully test
 9. ...
+10. Documents about deploy (Choose the right hardware, etc)
