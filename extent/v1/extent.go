@@ -147,6 +147,7 @@ func New(cfg *ExtentConfig, extID uint32, flushJobChan chan<- *xio.FlushJob, get
 
 func (ext *Extent) PutObj(reqid uint64, oid [16]byte, objData xbytes.Buffer) (err error) {
 
+	// TODO should check groupID in oid.
 	var pr *putResult
 	if pr, err = ext.putObjAsync(oid, objData); err != nil {
 		xlog.ErrorIDf(reqid, "failed to put object: %s", err.Error())
@@ -160,6 +161,8 @@ func (ext *Extent) PutObj(reqid uint64, oid [16]byte, objData xbytes.Buffer) (er
 }
 
 func (ext *Extent) GetObj(reqid uint64, oid [16]byte) (objData xbytes.Buffer, err error) {
+
+	// TODO should check groupID in oid., co
 	digest := binary.LittleEndian.Uint32(oid[8:12])
 	so := binary.LittleEndian.Uint32(oid[12:16])
 	size := so >> 8
