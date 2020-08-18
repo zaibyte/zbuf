@@ -89,6 +89,8 @@ func (ext *Extent) putObjAsync(oid [16]byte, objData xbytes.Buffer) (pr *putResu
 func (ext *Extent) putObjLoop() {
 	defer ext.stopWg.Done()
 
+	sizePerWrite := ext.cfg.SizePerWrite
+
 	t := time.NewTimer(ext.flushDelay)
 	var flushChan <-chan time.Time
 
@@ -96,8 +98,8 @@ func (ext *Extent) putObjLoop() {
 	var written int64 = 0          // Dirty written in cache.
 	var offset int64 = 0           // Segment offset.
 	unflushedCnt := 0
-	unflushedPut := make([]*putResult, 0, xio.SizePerWrite/grainSize)
-	unflushedIndex := make([]uint64, 0, xio.SizePerWrite/grainSize)
+	unflushedPut := make([]*putResult, 0, sizePerWrite/grainSize)
+	unflushedIndex := make([]uint64, 0, sizePerWrite/grainSize)
 	for {
 		var pr *putResult
 
@@ -192,7 +194,7 @@ func (ext *Extent) putObjLoop() {
 		unflushedIndex = append(unflushedIndex, index)
 		written += size
 
-		if written >= xio.SizePerWrite {
+		if written >= sizePerWrite {
 			fj, err2 := ext.flushPut(seg, offset, written)
 			ext.updateIndex(unflushedCnt, unflushedPut, unflushedIndex, err2)
 			unflushedCnt = 0

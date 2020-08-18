@@ -142,11 +142,11 @@ func TestExtentPutPerf(t *testing.T) {
 	xhex.Decode(oid[:], xstrconv.ToBytes(oids))
 
 	wg := new(sync.WaitGroup)
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 8; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for j := 0; j < 4096*2*2; j++ {
+			for j := 0; j < 1024*4; j++ {
 				err := ext.PutObj(1, oid, obj)
 				if err != nil {
 					t.Fatal(err)
@@ -220,7 +220,7 @@ func TestExtentGetPerf(t *testing.T) {
 		wg2.Add(1)
 		go func() {
 			defer wg2.Done()
-			for j := 0; j < 512*16; j++ {
+			for j := 0; j < 8192; j++ {
 				objData, err := ext.GetObj(1, oid)
 				if err != nil {
 					t.Fatal(err)

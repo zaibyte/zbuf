@@ -50,11 +50,12 @@ import (
 type Extent struct {
 	cfg *ExtentConfig
 
-	id         uint32
-	file       vfs.File
-	index      *index
-	cache      *hotCache
-	flushDelay time.Duration
+	id           uint32
+	file         vfs.File
+	index        *index
+	cache        *hotCache
+	SizePerWrite int64
+	flushDelay   time.Duration
 
 	putChan      chan *putResult
 	flushJobChan chan<- *xio.FlushJob
@@ -67,13 +68,14 @@ type Extent struct {
 }
 
 type ExtentConfig struct {
-	Path        string
-	SegmentSize int64
-	FlushDelay  time.Duration
-	GetThread   int
-	GetPending  int
-	PutPending  int
-	InsertOnly  bool
+	Path         string
+	SegmentSize  int64
+	SizePerWrite int64
+	FlushDelay   time.Duration
+	GetThread    int
+	GetPending   int
+	PutPending   int
+	InsertOnly   bool
 }
 
 const (
@@ -89,6 +91,7 @@ func (cfg *ExtentConfig) adjust() {
 	if cfg.FlushDelay == 0 {
 		cfg.FlushDelay = defaultFlushDelay
 	}
+	config.Adjust(&cfg.SizePerWrite, xio.DefaultSizePerWrite)
 	config.Adjust(&cfg.GetPending, defaultGetPending)
 	config.Adjust(&cfg.GetThread, defaultGetThread)
 }

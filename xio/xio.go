@@ -28,7 +28,7 @@ const (
 	// Beyond 64, we may get no benefit.
 	ReadThreadsPerDisk = 64
 
-	SizePerWrite = 128 * 1024 // Flush to the disk every 128KB. Too big will impact latency.
+	DefaultSizePerWrite = 32 * 1024 // Flush to the disk every DefaultSizePerWrite. Too big will impact latency.
 
 	DefaultWriteDepth = 128
 	DefaultReadDepth  = 256
