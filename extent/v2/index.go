@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package v1
+package v2
 
 import (
 	"errors"
@@ -41,7 +41,7 @@ import (
 // size: object size
 //
 // addr: the address of object in extent
-// 256GB for 16KB grains
+// 64GB for 4KB grains
 
 const (
 	neighOffBits = 6
