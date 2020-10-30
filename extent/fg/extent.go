@@ -46,14 +46,15 @@ import (
 	"g.tesamc.com/IT/zbuf/xio"
 )
 
-// Extent is version 1 extent.
+// Extent is the first generation extent.
 type Extent struct {
 	cfg *ExtentConfig
 
-	id           uint32
+	id uint32
+
 	file         vfs.File
 	index        *index
-	cache        *hotCache
+	cache        *wbCache
 	SizePerWrite int64
 	flushDelay   time.Duration
 

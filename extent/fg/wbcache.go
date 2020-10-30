@@ -23,9 +23,11 @@ import (
 	"g.tesamc.com/IT/zaipkg/directio"
 )
 
-// hotCache is cache for hot objects in extent.
+// wbCache is write-back cache for hot objects in extent.
 // It'll keep at most two segments data which have the newest objects.
-type hotCache struct {
+// Write will fill the cache first, then flush to disk.
+// Read will search the cache first, then try to read from disk directly.
+type wbCache struct {
 	size int64
 	// two segID (uint16) combines into one uint32,
 	// which means we can use one atomic op to change the cache status
@@ -51,7 +53,7 @@ type segCache struct {
 // sealedFlag is a segID flag which indicates no more data should be written.
 const sealedFlag = segmentCnt
 
-func newHotCache(size int64, writingSegID uint16) *hotCache {
+func newHotCache(size int64, writingSegID uint16) *wbCache {
 
 	sc0 := &segCache{
 		writeOff: 0,
@@ -62,7 +64,7 @@ func newHotCache(size int64, writingSegID uint16) *hotCache {
 		p:        directio.AlignedBlock(int(size)),
 	}
 
-	return &hotCache{
+	return &wbCache{
 		size: size,
 		ids:  makeHotCacheSegIDs(0, writingSegID, sealedFlag),
 		scs:  [2]*segCache{sc0, sc1},
@@ -80,9 +82,9 @@ func getHotCacheSegIDs(ids uint32) (idx, writeID, lastID uint16) {
 	return
 }
 
-// write writes oid and its data into hotCache.
+// write writes oid and its data into wbCache.
 // Only one goroutine could write at the same time.
-func (h *hotCache) write(nextSeg uint16, oid [16]byte, p []byte) (ws uint16, offset, size int64) {
+func (h *wbCache) write(nextSeg uint16, oid [16]byte, p []byte) (ws uint16, offset, size int64) {
 
 	n := writeSpace(int64(len(p)))
 	idx, writeSeg, _ := getHotCacheSegIDs(atomic.LoadUint32(&h.ids))
@@ -113,7 +115,7 @@ func (h *hotCache) write(nextSeg uint16, oid [16]byte, p []byte) (ws uint16, off
 }
 
 // readData tries to read object data directly.
-func (h *hotCache) readData(addr uint32, w io.Writer, n uint32) uint32 {
+func (h *wbCache) readData(addr uint32, w io.Writer, n uint32) uint32 {
 
 	seg, off := addrToSeg(addr, h.size)
 	ids := atomic.LoadUint32(&h.ids)
@@ -141,7 +143,7 @@ func (h *hotCache) readData(addr uint32, w io.Writer, n uint32) uint32 {
 
 // getBytesBySeg gets byte slice from cache by segment id.
 // This will be called in put loop process, it's safe and must have data, because put loop will block on it.
-func (h *hotCache) getBytesBySeg(seg uint16) []byte {
+func (h *wbCache) getBytesBySeg(seg uint16) []byte {
 	ids := atomic.LoadUint32(&h.ids)
 	idx, writeSeg, _ := getHotCacheSegIDs(ids)
 	var c *segCache
