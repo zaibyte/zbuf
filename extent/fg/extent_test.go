@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package v2
+package fg
 
 import (
 	"bytes"
@@ -26,14 +26,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/templexxx/tsc"
-	"github.com/templexxx/xhex"
 	"g.tesamc.com/IT/zaipkg/uid"
 	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zaipkg/xdigest"
 	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
 	"g.tesamc.com/IT/zaipkg/xstrconv"
 	"g.tesamc.com/IT/zbuf/xio"
+	"github.com/templexxx/tsc"
+	"github.com/templexxx/xhex"
 )
 
 // TODO concurrency test

@@ -17,6 +17,7 @@
 package server
 
 import (
+	"g.tesamc.com/IT/zbuf/extent/fg"
 	"net/http"
 	"strconv"
 	"sync/atomic"
@@ -27,8 +28,6 @@ import (
 	"g.tesamc.com/IT/zaipkg/xnet/xhttp"
 
 	"github.com/julienschmidt/httprouter"
-
-	v1 "g.tesamc.com/IT/zbuf/extent/v1"
 )
 
 // TODO make it public in xhttp.
@@ -77,13 +76,13 @@ func (s *Server) createExtent(version uint16, extentID uint32, segmentSize int64
 	rootPath := s.disks[atomic.LoadInt64(&s.nextDisk)%int64(len(s.disks))]
 	atomic.AddInt64(&s.nextDisk, 1)
 
-	cfg := &v1.ExtentConfig{
+	cfg := &fg.ExtentConfig{
 		Path:        rootPath,
 		SegmentSize: segmentSize,
 		InsertOnly:  s.cfg.InsertOnly,
 	}
 
-	ext, err := v1.New(cfg, extentID, s.xioers[rootPath].flushJobChan, s.xioers[rootPath].getJobChan)
+	ext, err := fg.New(cfg, extentID, s.xioers[rootPath].flushJobChan, s.xioers[rootPath].getJobChan)
 	if err != nil {
 		return err
 	}

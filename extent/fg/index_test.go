@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-package v2
+package fg
 
 import (
+	"fmt"
 	"math/rand"
 	"runtime"
 	"sync"
@@ -24,6 +25,13 @@ import (
 
 	"github.com/templexxx/tsc"
 )
+
+func TestIndexSize(t *testing.T) {
+	s := (1 << 24) * 8
+	disk := 8
+	dcnt := 4
+	fmt.Println(disk*dcnt*1024/64*s/1024/1024/1024)
+}
 
 func TestIndexInsertSearch(t *testing.T) {
 	cnt := 1024
