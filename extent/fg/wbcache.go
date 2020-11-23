@@ -29,18 +29,14 @@ import (
 // Read will search the cache first, then try to read from disk directly.
 type wbCache struct {
 	size int64
-	// two segID (uint16) combines into one uint32,
-	// which means we can use one atomic op to change the cache status
-	// the low 16bits segID is the writing cache,
-	// the high 16bits segID is the last cache.
-	// Although the max of segID is 255, but there is no atomic operation on uint8 in stdlib,
-	// for convenience, using uint16 as segID.
-	//
-	// write_cache_index is write cache position in scs.
+	// ids is write cache position in scs.
 	//
 	// 32                                                           0
 	// <-------------------------------------------------------------
 	// |padding(13) | write_cache_index(1) | lastID (9) | writeID (9)
+	//
+	// Although the max of segID is 255, but there is no atomic operation on uint8 in stdlib,
+	// for convenience, using uint16 as segID.
 	ids uint32
 	scs [2]*segCache
 }
