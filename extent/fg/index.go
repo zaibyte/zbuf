@@ -23,17 +23,32 @@ import (
 	"g.tesamc.com/IT/zaipkg/xrpc"
 )
 
+// TODO re-design entry:
+// there is no need to keep whole digest, because the bucket already has the part of digest
+// 64                                                           0
+// <-------------------------------------------------------------
+// | tag(10) | neigh_off(6) | size(24) | addr (24)
+//
+// addr: 24bits, could support 256GB extent for 16KB grains.
+//
+// size: 24bits, maximum object size is < 16MB.
+//
+// neigh_off: 6bits, hopscotch hashing neighborhood offset
+// P the probability a hopscotch hash table with load factor 0.75 (the biggest load for an extent in Zai)
+// and the neighborhood size 64 must be rehashed:
+// 7.95e-98 < P < 1e-8
+// It's good enough, almost impossible.
+//
+// tag: 10bits, the upper 10bits in object digest for reconstructing the original digest without extra I/O & recompute.
+// 10bits is enough to cover 2^24 buckets.
+
 // TODO may put digest as last 32bits for SIMD
 // entry struct:
 // 64                                                           0
 // <-------------------------------------------------------------
 // |padding(1)| deleted(1) | neigh_off(6) | digest(32) | addr (24)
 //
-// neigh_off: hopscotch hashing neighborhood offset
-// P the probability a hopscotch hash table with load factor 0.75 (the biggest load for an extent in Zai)
-// and the neighborhood size 64 must be rehashed:
-// 7.95e-98 < P < 1e-8
-// It's good enough, almost impossible.
+
 //
 // tag: the upper 8bits in digest
 // For matching search.
