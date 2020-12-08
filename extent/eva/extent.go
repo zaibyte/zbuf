@@ -29,7 +29,7 @@
 // 1. Extent has more meta for Erasure Codes in the future.
 // 2. GC algorithm is more like the one in SSD firmware.
 
-package fg
+package eva
 
 import (
 	"encoding/binary"

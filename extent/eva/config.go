@@ -1,4 +1,4 @@
-package fg
+package eva
 
 import (
 	"time"
@@ -7,7 +7,7 @@ import (
 	"g.tesamc.com/IT/zbuf/xio"
 )
 
-// There are default configs for fg.
+// There are default configs for eva.
 const (
 	defaultFlushDelay = -1 // Flush immediately. Rely on disk latency.
 	defaultPutPending = 64 // Each extent has 64 pending put.

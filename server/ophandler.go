@@ -17,10 +17,11 @@
 package server
 
 import (
-	"g.tesamc.com/IT/zbuf/extent/fg"
 	"net/http"
 	"strconv"
 	"sync/atomic"
+
+	"g.tesamc.com/IT/zbuf/extent/eva"
 
 	"g.tesamc.com/IT/zaipkg/xerrors"
 	"g.tesamc.com/IT/zaipkg/xlog"
@@ -76,13 +77,13 @@ func (s *Server) createExtent(version uint16, extentID uint32, segmentSize int64
 	rootPath := s.disks[atomic.LoadInt64(&s.nextDisk)%int64(len(s.disks))]
 	atomic.AddInt64(&s.nextDisk, 1)
 
-	cfg := &fg.ExtentConfig{
+	cfg := &eva.ExtentConfig{
 		Path:        rootPath,
 		SegmentSize: segmentSize,
 		InsertOnly:  s.cfg.InsertOnly,
 	}
 
-	ext, err := fg.New(cfg, extentID, s.xioers[rootPath].flushJobChan, s.xioers[rootPath].getJobChan)
+	ext, err := eva.New(cfg, extentID, s.xioers[rootPath].flushJobChan, s.xioers[rootPath].getJobChan)
 	if err != nil {
 		return err
 	}

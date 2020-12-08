@@ -1,7 +1,7 @@
-The First Generation
+EVA
 ====
 
-The first generation of Extent.
+The first generation of Extent. The Name is from `EVA-01`, a hero in a famous cartoon.
 
 Designed for NVMe Drivers.
 

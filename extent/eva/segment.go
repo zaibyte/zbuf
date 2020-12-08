@@ -14,23 +14,20 @@
  * limitations under the License.
  */
 
-package fg
+package eva
 
-import "testing"
+const (
+	defaultSegmentSize = 256 * 1024 * 1024
+	segmentCnt         = 256 // Each extent has the same segment count: 256.
+	defaultReservedSeg = 64  // There are 64 segments are reserved for GC in future.
+)
 
-func TestAlignSize(t *testing.T) {
-	var align int64 = 1 << 12
-	var i int64
-	for i = 1; i <= align; i++ {
-		n := alignSize(i, align)
-		if n != align {
-			t.Fatal("align mismatch", n, i)
-		}
-	}
-	for i = align + 1; i < align*2; i++ {
-		n := alignSize(i, align)
-		if n != align*2 {
-			t.Fatal("align mismatch")
-		}
-	}
-}
+// Segment status
+const (
+	segWriting  = 1
+	segSealed   = 2
+	segWritable = 3
+	segReserved = 4
+	segNeedGC   = 5
+	segGCing    = 6
+)
