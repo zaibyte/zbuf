@@ -20,7 +20,7 @@ import (
 	"errors"
 	"sync/atomic"
 
-	"g.tesamc.com/IT/zaipkg/xrpc"
+	"g.tesamc.com/IT/zaipkg/orpc"
 )
 
 // TODO re-design entry:
@@ -201,7 +201,7 @@ func (ix *index) search(digest uint32) (addr uint32, err error) {
 		if entry>>digestShift&digestMask == uint64(digest) {
 			deleted := entry >> deletedShift & deletedMask
 			if deleted == 1 { // Deleted.
-				return 0, xrpc.ErrNotFound
+				return 0, orpc.ErrNotFound
 			}
 			// entry maybe modified after atomic load.
 			// Check it after read from disk.
@@ -209,7 +209,7 @@ func (ix *index) search(digest uint32) (addr uint32, err error) {
 		}
 	}
 
-	return 0, xrpc.ErrNotFound
+	return 0, orpc.ErrNotFound
 }
 
 func (ix *index) delete(digest uint32) {

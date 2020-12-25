@@ -22,9 +22,9 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"g.tesamc.com/IT/zaipkg/orpc/otcp"
 	"g.tesamc.com/IT/zaipkg/xlog"
 	"g.tesamc.com/IT/zaipkg/xnet/xhttp"
-	"g.tesamc.com/IT/zaipkg/xrpc/xtcp"
 	"g.tesamc.com/IT/zbuf/extent"
 	"g.tesamc.com/IT/zbuf/server/config"
 	"g.tesamc.com/IT/zbuf/vfs"
@@ -36,7 +36,7 @@ type Server struct {
 	isRunning int64
 
 	cfg    *config.Config
-	objSvr *xtcp.Server
+	objSvr *otcp.Server
 	opSvr  *xhttp.Server // Operator server.
 
 	nextDisk int64 // Next disk for creating new extent.
@@ -81,7 +81,7 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 
 	s.extenters = new(sync.Map)
 
-	s.objSvr = xtcp.NewServer(cfg.ObjAddr, nil, s.PutFunc, s.GetFunc, s.DelFunc)
+	s.objSvr = otcp.NewServer(cfg.ObjAddr, nil, s.PutFunc, s.GetFunc, s.DelFunc)
 	s.opSvr = xhttp.NewServer(&xhttp.ServerConfig{
 		Address:   cfg.OpAddr,
 		Encrypted: false,

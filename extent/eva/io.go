@@ -22,12 +22,9 @@ import (
 	"time"
 
 	"g.tesamc.com/IT/zaipkg/directio"
-
-	"g.tesamc.com/IT/zbuf/xio"
-
-	"g.tesamc.com/IT/zaipkg/xrpc"
-
+	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/xbytes"
+	"g.tesamc.com/IT/zbuf/xio"
 )
 
 // grainSize is the unit of extent, read/write should be aligned to grainSize size.
@@ -66,7 +63,7 @@ func (ext *Extent) putObjAsync(oid [16]byte, objData xbytes.Buffer) (pr *putResu
 		select {
 		case pr2 := <-ext.putChan: // TODO should I pop it out?
 			if pr2.done != nil {
-				pr2.err = xrpc.ErrDiskWriteStall
+				pr2.err = orpc.ErrDiskWriteStall
 				close(pr2.done)
 			} else {
 				releasePutResult(pr2)
@@ -80,7 +77,7 @@ func (ext *Extent) putObjAsync(oid [16]byte, objData xbytes.Buffer) (pr *putResu
 			return pr, nil
 		default:
 			releasePutResult(pr)
-			return nil, xrpc.ErrDiskWriteStall
+			return nil, orpc.ErrDiskWriteStall
 		}
 	}
 }
@@ -138,7 +135,7 @@ func (ext *Extent) putObjLoop() {
 		}
 
 		if seg >= uint16(segmentCnt-defaultReservedSeg) { // TODO tmp solution.
-			pr.err = xrpc.ErrExtentFull
+			pr.err = orpc.ErrExtentFull
 			close(pr.done)
 			continue // TODO deal with it better?
 		}
@@ -154,7 +151,7 @@ func (ext *Extent) putObjLoop() {
 			unflushedPut = unflushedPut[:0]
 			unflushedIndex = unflushedIndex[:0]
 
-			pr.err = xrpc.ErrExtentFull
+			pr.err = orpc.ErrExtentFull
 			close(pr.done)
 
 			offset = 0

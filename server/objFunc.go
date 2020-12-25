@@ -19,11 +19,11 @@ package server
 import (
 	"fmt"
 
+	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/uid"
 	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zaipkg/xerrors"
 	"g.tesamc.com/IT/zaipkg/xlog"
-	"g.tesamc.com/IT/zaipkg/xrpc"
 	"g.tesamc.com/IT/zbuf/extent"
 )
 
@@ -32,7 +32,7 @@ func (s *Server) PutFunc(reqid uint64, oid [16]byte, objData xbytes.Buffer) erro
 
 	v, ok := s.extenters.Load(extID)
 	if !ok {
-		err := xerrors.WithMessage(xrpc.ErrNotFound, fmt.Sprintf("extent: %d not found", extID))
+		err := xerrors.WithMessage(orpc.ErrNotFound, fmt.Sprintf("extent: %d not found", extID))
 		xlog.ErrorID(reqid, err.Error())
 		return err
 	}
@@ -46,7 +46,7 @@ func (s *Server) GetFunc(reqid uint64, oid [16]byte) (objData xbytes.Buffer, err
 
 	v, ok := s.extenters.Load(extID)
 	if !ok {
-		err := xerrors.WithMessage(xrpc.ErrNotFound, fmt.Sprintf("extent: %d not found", extID))
+		err := xerrors.WithMessage(orpc.ErrNotFound, fmt.Sprintf("extent: %d not found", extID))
 		xlog.ErrorID(reqid, err.Error())
 		return nil, err
 	}

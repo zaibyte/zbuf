@@ -28,20 +28,14 @@ import (
 	"sync"
 	"testing"
 
-	"g.tesamc.com/IT/zaipkg/xbytes"
-
+	"g.tesamc.com/IT/zaipkg/orpc/otcp"
 	"g.tesamc.com/IT/zaipkg/uid"
+	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zaipkg/xdigest"
-
-	"g.tesamc.com/IT/zaipkg/xrpc/xtcp"
-
-	"g.tesamc.com/IT/zaipkg/xnet/xhttp"
-
-	"g.tesamc.com/IT/zbuf/server/config"
-
-	"github.com/templexxx/tsc"
-
 	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
+	"g.tesamc.com/IT/zaipkg/xnet/xhttp"
+	"g.tesamc.com/IT/zbuf/server/config"
+	"github.com/templexxx/tsc"
 )
 
 func getRandomAddr() string {
@@ -99,7 +93,7 @@ func TestServerObjPutGet(t *testing.T) {
 		t.Fatal("status code mismatch")
 	}
 
-	c := xtcp.NewClient(objAddr, nil)
+	c := otcp.NewClient(objAddr, nil)
 	c.Start()
 	defer c.Stop()
 
@@ -192,7 +186,7 @@ func TestServerObjPutPerf(t *testing.T) {
 		t.Fatal("status code mismatch")
 	}
 
-	c := xtcp.NewClient(objAddr, nil)
+	c := otcp.NewClient(objAddr, nil)
 	c.Start()
 	defer c.Stop()
 
@@ -277,7 +271,7 @@ func TestServerObjGetPerf(t *testing.T) {
 		t.Fatal("status code mismatch")
 	}
 
-	c := xtcp.NewClient(objAddr, nil)
+	c := otcp.NewClient(objAddr, nil)
 	c.Start()
 	defer c.Stop()
 
