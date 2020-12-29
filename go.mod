@@ -1,6 +1,6 @@
 module g.tesamc.com/IT/zbuf
 
-go 1.14
+go 1.15
 
 require (
 	g.tesamc.com/IT/zaipkg v0.0.0-20201224072144-39f3c22f8d7b
