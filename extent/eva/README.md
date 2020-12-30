@@ -14,10 +14,13 @@ Designed for NVMe Drivers.
 
 ##Design
 
+The struct of extent is mostly come from the Paper: <Reaping the performance of fast NVM storage with uDepot> with these optimizations:
+
 ###Index
 
 Based on Hopscotch Hashing with these optimizations:
 
+1. Redesign for Zai's oid, reducing overhead of key.
 1. Wait-free Searching
 2. Online Scaling
 
@@ -25,4 +28,14 @@ For a server with 8T/disk * 4disk, it will cost up to 16GB for index (with 16KB 
 
 Which means 0.5GB/TB.
 
-###
+###Cache
+
+1. Combine write buffer & read cache. Only one goroutine could write, read is wait-free.
+   
+###I/O
+
+1. Use direct I/O saving memory copy cost
+
+###Garbage Collection
+
+1. Algorithm is more like the one in SSD firmware.
