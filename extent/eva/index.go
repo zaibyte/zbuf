@@ -57,6 +57,12 @@ import (
 //
 // addr: the address of object in extent
 // 256GB for 16KB grains
+//
+// The total memory usage of index is about: (512KB-32MB)*x, x is the amplification.
+// The x is up to 1.6(0.5 for the middle status in expanding process, 0.1 for load factor overhead),
+// so the real memory usage is about:
+// 820KB (for all objects are 4MB)
+// 52MB (for all objects is <= 16KB)
 
 const (
 	neighOffBits = 6
