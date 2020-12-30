@@ -85,7 +85,7 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 	s.opSvr = xhttp.NewServer(&xhttp.ServerConfig{
 		Address:   cfg.OpAddr,
 	})
-	s.opSvr.AddHandler(http.MethodPut, "/extent/create/:version/:id/:segmentsize", s.createExtentHandler)
+	s.opSvr.AddHandler(http.MethodPut, "/v1/extent/create/:version/:id/:segmentsize", s.createExtentHandler)
 
 	disks, err := listDisks(vfs.DefaultFS, cfg.DataRoot)
 	if err != nil {
