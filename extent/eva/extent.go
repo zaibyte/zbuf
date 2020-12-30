@@ -1,34 +1,3 @@
-/*
- * Copyright (c) 2020. Temple3x (temple3x@gmail.com)
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-// The struct of extent is mostly come from the Paper: <Reaping the performance of fast NVM storage with uDepot>,
-// with these optimizations:
-//
-// Index:
-// 1. Redesign for Zai's oid, reducing hash calculating cost.
-// 2. Use atomic to replace lock. Lock free.
-//
-// Cache:
-// 1. Combine write buffer & read cache
-// 2. Use direct I/O saving memory copy
-//
-// Other:
-// 1. Extent has more meta for Erasure Codes in the future.
-// 2. GC algorithm is more like the one in SSD firmware.
-
 package eva
 
 import (

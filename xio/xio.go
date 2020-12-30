@@ -7,6 +7,8 @@
 // the ZBuf has to create control feedback loops that guarantee the system progresses at a good, stable pace.
 package xio
 
+import "g.tesamc.com/IT/zbuf/vfs"
+
 // TODO try to write a tool to calculate these if not set in configs.
 // The tool also has a table to record results, saving time.
 const (
@@ -31,3 +33,18 @@ const (
 	DefaultWriteDepth = 128
 	DefaultReadDepth  = 256
 )
+
+const (
+	JobObjWrite = iota
+	JobObjRead
+)
+
+// Job is the I/O job of ZBuf.
+type Job struct {
+	Type   uint64
+	File   vfs.File
+	Offset int64
+	Data   []byte
+	Err    error
+	Done   chan struct{}
+}

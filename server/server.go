@@ -61,11 +61,11 @@ type xioer struct {
 }
 
 func (x *xioer) start() {
-	for i := 0; i < xio.WriteThreadsPerDisk; i++ { // TODO make it config.
+	for i := 0; i < xio.DefaultWriteThreadsPerDisk; i++ { // TODO make it config.
 		x.stopWg.Add(1)
 		go x.flusher.DoLoop()
 	}
-	for i := 0; i < xio.ReadThreadsPerDisk; i++ { // TODO make it config.
+	for i := 0; i < xio.DefaultReadThreadsPerDisk; i++ { // TODO make it config.
 		x.stopWg.Add(1)
 		go x.getter.DoLoop()
 	}

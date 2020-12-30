@@ -260,7 +260,7 @@ func startXIOer(onlyPut bool) *xioer {
 		StopWg: x.stopWg,
 	}
 
-	for i := 0; i < xio.WriteThreadsPerDisk; i++ {
+	for i := 0; i < xio.DefaultWriteThreadsPerDisk; i++ {
 		x.stopWg.Add(1)
 		go f.DoLoop()
 	}
@@ -272,7 +272,7 @@ func startXIOer(onlyPut bool) *xioer {
 			StopWg: x.stopWg,
 		}
 
-		for i := 0; i < xio.ReadThreadsPerDisk; i++ {
+		for i := 0; i < xio.DefaultReadThreadsPerDisk; i++ {
 			x.stopWg.Add(1)
 			go g.DoLoop()
 		}
