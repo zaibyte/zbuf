@@ -1,34 +1,31 @@
-/*
- * Copyright (c) 2020. Temple3x (temple3x@gmail.com)
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
+// Package xio provides io controller for ZBuf:
+// 1. Each disk has its own I/O controller, including: Threads management, QoS.
+//
+// In one word, xio is the guarantee of disk I/O workload conditioning.
+// p.s.
+// Workload Conditioning is the use of the various metrics that
+// the ZBuf has to create control feedback loops that guarantee the system progresses at a good, stable pace.
 package xio
 
 // TODO try to write a tool to calculate these if not set in configs.
-// TODO these should just be default values.
 // The tool also has a table to record results, saving time.
 const (
-	// WriteThreadsPerDisk is the single disk concurrent writers.
-	WriteThreadsPerDisk = 4 // ZBuf uses buffer write, 2 threads maybe enough for one disk sync direct I/O in sequence.
+	// DefaultWriteThreadsPerDisk is the single disk concurrent writers.
+	// Although NVMe driver has multi queues to handle I/O requests, but the reading is much heavier than writing,
+	// leaving more abilities for reading is a better choice.
+	//
+	// This value is the result of combination of Intel manual & my experience.
+	DefaultWriteThreadsPerDisk = 4
 
-	// ReadThreadsPerDisk is the single disk concurrent readers.
-	// ZBuf has internal cache, these threads are used for access one disk.
-	// Beyond 64, we may get no benefit.
-	ReadThreadsPerDisk = 64
+	// DefaultReadThreadsPerDisk is the single disk concurrent readers.
+	// ZBuf has internal cache, these threads are used for accessing disk.
+	// Beyond 64, we may get higher IOPS, but much higher latency.
+	//
+	// In an enterprise-class TLC/QLC NVMe driver, 32-64 would be a good choice.
+	//
+	// This value is the result of combination of Intel manual & my experience.
+	DefaultReadThreadsPerDisk = 64
 
-	// TODO just for version1
 	DefaultSizePerWrite = 32 * 1024 // Flush to the disk every DefaultSizePerWrite. Too big will impact latency.
 
 	DefaultWriteDepth = 128
