@@ -81,12 +81,11 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 
 	s.extenters = new(sync.Map)
 
-	s.objSvr = otcp.NewServer(cfg.ObjAddr, nil, s.PutFunc, s.GetFunc, s.DelFunc)
+	s.objSvr = otcp.NewServer(cfg.ObjAddr, s)
 	s.opSvr = xhttp.NewServer(&xhttp.ServerConfig{
 		Address:   cfg.OpAddr,
-		Encrypted: false,
 	})
-	s.opSvr.AddHandler(http.MethodPut, "/extent/create/:version/:id/:segmentsize", s.createExtentHandler, 0)
+	s.opSvr.AddHandler(http.MethodPut, "/extent/create/:version/:id/:segmentsize", s.createExtentHandler)
 
 	disks, err := listDisks(vfs.DefaultFS, cfg.DataRoot)
 	if err != nil {
