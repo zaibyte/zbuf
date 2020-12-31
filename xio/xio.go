@@ -35,12 +35,29 @@ const (
 )
 
 const (
-	JobObjWrite = iota
-	JobObjRead
+	// ReqObjWrite/Read is I/O requests of object write/read.
+	// Should have the highest priority.
+	ReqObjWrite = iota
+	ReqObjRead
+
+	// ReqChunkWrite/Read is I/O requests of data chunk write/read.
+	// e.g. repairing, migration.
+	// Should have the lowest priority.
+	ReqChunkWrite
+	ReqChunkRead
+
+	// ReqGCWrite/Read is I/O requests of extent GC write/read.
+	// Should have low/mid priority.
+	ReqGCWrite
+	ReqGCRead
+
+	// ReqMetaWrite is I/O requests of extent meta write.
+	// Should have high/highest priority.
+	ReqMetaWrite
 )
 
-// Job is the I/O job of ZBuf.
-type Job struct {
+// Request is the I/O job of ZBuf.
+type Request struct {
 	Type   uint64
 	File   vfs.File
 	Offset int64
