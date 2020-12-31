@@ -59,6 +59,6 @@ func New(ctx context.Context, stopWg *sync.WaitGroup, cfg *Config) *DiskQueue {
 	return dq
 }
 
-func (d *DiskQueue) AddJob(j *xio.Request) {
+func (d *DiskQueue) Add(r *xio.Request) {
 	panic("implement me")
 }
