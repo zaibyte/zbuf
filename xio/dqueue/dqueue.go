@@ -88,6 +88,6 @@ func New(ctx context.Context, stopWg *sync.WaitGroup) *DiskQueue {
 
 }
 
-func (d *DiskQueue) AddJob(j *xio.Job) {
+func (d *DiskQueue) AddJob(j *xio.Request) {
 	panic("implement me")
 }
