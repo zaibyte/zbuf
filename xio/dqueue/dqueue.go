@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"g.tesamc.com/IT/zaipkg/typeutil"
+
 	"g.tesamc.com/IT/zaipkg/config"
 
 	"g.tesamc.com/IT/zbuf/xio"
@@ -13,6 +15,11 @@ import (
 // DiskQueue is I/O queue each disk will have on.
 type DiskQueue struct {
 	cfg *Config
+
+	objQueue   *PriorityClassQueue
+	chunkQueue *PriorityClassQueue
+	gcQueue    *PriorityClassQueue
+	metaQueue  *PriorityClassQueue
 
 	ctx    context.Context
 	stopWg *sync.WaitGroup
@@ -45,19 +52,19 @@ const (
 type Config struct {
 	// The maximum number of concurrent read/write.
 	// Default is DefaultIODepth.
-	IODepth int
+	IODepth int `json:"io_depth"`
 	// The maximum number of pending different write/read requests in the queue.
-	ObjPending   int
-	ChunkPending int
-	GCPending    int
-	MetaPending  int
+	ObjPending   int `json:"obj_pending"`
+	ChunkPending int `json:"chunk_pending"`
+	GCPending    int `json:"gc_pending"`
+	MetaPending  int `json:"meta_pending"`
 
 	// Size of write buffer per writes in bytes.
 	// Default value is DefaultWriteBufferSize.
-	WriteBufferSize int
+	WriteBufferSize int `json:"write_buffer_size"`
 	// Size of write buffer per reads in bytes.
 	// Default value is DefaultReadBufferSize.
-	ReadBufferSize int
+	ReadBufferSize int `json:"read_buffer_size"`
 
 	// Delay between request flushes.
 	//
@@ -66,15 +73,44 @@ type Config struct {
 	// of higher CPU and disk usage.
 	//
 	// Default value is DefaultFlushDelay.
-	FlushDelay time.Duration
+	FlushDelay typeutil.Duration `json:"flush_delay"`
 }
+
+const (
+	objShares   = 100
+	chunkShares = 20
+	gcShares    = 20
+	metaShares  = 100
+)
 
 func New(ctx context.Context, stopWg *sync.WaitGroup, cfg *Config) *DiskQueue {
 
 	cfg.adjust()
 
 	dq := &DiskQueue{
-		cfg:    cfg,
+		cfg: cfg,
+
+		objQueue: &PriorityClassQueue{
+			shares:    objShares,
+			totalCost: 0,
+			requests:  &ReqQueue{queue: make(chan *xio.AsyncRequest, cfg.ObjPending)},
+		},
+		chunkQueue: &PriorityClassQueue{
+			shares:    chunkShares,
+			totalCost: 0,
+			requests:  &ReqQueue{queue: make(chan *xio.AsyncRequest, cfg.ChunkPending)},
+		},
+		gcQueue: &PriorityClassQueue{
+			shares:    gcShares,
+			totalCost: 0,
+			requests:  &ReqQueue{queue: make(chan *xio.AsyncRequest, cfg.GCPending)},
+		},
+		metaQueue: &PriorityClassQueue{
+			shares:    metaShares,
+			totalCost: 0,
+			requests:  &ReqQueue{queue: make(chan *xio.AsyncRequest, cfg.MetaPending)},
+		},
+
 		ctx:    ctx,
 		stopWg: stopWg,
 	}
