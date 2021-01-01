@@ -95,6 +95,6 @@ func (c *Config) adjust() {
 	config.Adjust(&c.FlushDelay, DefaultFlushDelay)
 }
 
-func (d *DiskQueue) Add(r *xio.Request) {
+func (d *DiskQueue) Add(r *xio.AsyncRequest) {
 	panic("implement me")
 }
