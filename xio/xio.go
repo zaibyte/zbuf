@@ -7,7 +7,11 @@
 // the ZBuf has to create control feedback loops that guarantee the system progresses at a good, stable pace.
 package xio
 
-import "g.tesamc.com/IT/zbuf/vfs"
+import (
+	"sync"
+
+	"g.tesamc.com/IT/zbuf/vfs"
+)
 
 // TODO try to write a tool to calculate these if not set in configs.
 // The tool also has a table to record results, saving time.
@@ -35,9 +39,11 @@ const (
 )
 
 const (
+	ReqNull = iota
+
 	// ReqObjWrite/Read is I/O requests of object write/read.
 	// Should have the highest priority.
-	ReqObjWrite = iota
+	ReqObjWrite
 	ReqObjRead
 
 	// ReqChunkWrite/Read is I/O requests of data chunk write/read.
@@ -56,12 +62,33 @@ const (
 	ReqMetaWrite
 )
 
-// Request is the I/O job of ZBuf.
-type Request struct {
+// AsyncRequest is the I/O async request of ZBuf.
+type AsyncRequest struct {
 	Type   uint64
 	File   vfs.File
 	Offset int64
 	Data   []byte
 	Err    error
 	Done   chan struct{}
+}
+
+var AsyncRequestPool sync.Pool
+
+func AcquireAsyncRequest() *AsyncRequest {
+	v := AsyncRequestPool.Get()
+	if v == nil {
+		return &AsyncRequest{}
+	}
+	return v.(*AsyncRequest)
+}
+
+func ReleaseAsyncRequest(ar *AsyncRequest) {
+	ar.Type = 0
+	ar.File = nil
+	ar.Offset = 0
+	ar.Data = nil
+	ar.Err = nil
+	ar.Done = nil
+
+	AsyncRequestPool.Put(ar)
 }
