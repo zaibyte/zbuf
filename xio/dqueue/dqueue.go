@@ -16,10 +16,10 @@ import (
 type DiskQueue struct {
 	cfg *Config
 
-	objQueue   *PriorityClassQueue
-	chunkQueue *PriorityClassQueue
-	gcQueue    *PriorityClassQueue
-	metaQueue  *PriorityClassQueue
+	objQueue   *PriorityQueue
+	chunkQueue *PriorityQueue
+	gcQueue    *PriorityQueue
+	metaQueue  *PriorityQueue
 
 	ctx    context.Context
 	stopWg *sync.WaitGroup
@@ -77,10 +77,10 @@ type Config struct {
 }
 
 const (
-	objShares   = 100
-	chunkShares = 20
-	gcShares    = 20
-	metaShares  = 100
+	objShares   = 1000
+	chunkShares = 200
+	gcShares    = 200
+	metaShares  = 1000
 )
 
 func New(ctx context.Context, stopWg *sync.WaitGroup, cfg *Config) *DiskQueue {
@@ -90,22 +90,22 @@ func New(ctx context.Context, stopWg *sync.WaitGroup, cfg *Config) *DiskQueue {
 	dq := &DiskQueue{
 		cfg: cfg,
 
-		objQueue: &PriorityClassQueue{
+		objQueue: &PriorityQueue{
 			shares:    objShares,
 			totalCost: 0,
 			requests:  &ReqQueue{queue: make(chan *xio.AsyncRequest, cfg.ObjPending)},
 		},
-		chunkQueue: &PriorityClassQueue{
+		chunkQueue: &PriorityQueue{
 			shares:    chunkShares,
 			totalCost: 0,
 			requests:  &ReqQueue{queue: make(chan *xio.AsyncRequest, cfg.ChunkPending)},
 		},
-		gcQueue: &PriorityClassQueue{
+		gcQueue: &PriorityQueue{
 			shares:    gcShares,
 			totalCost: 0,
 			requests:  &ReqQueue{queue: make(chan *xio.AsyncRequest, cfg.GCPending)},
 		},
-		metaQueue: &PriorityClassQueue{
+		metaQueue: &PriorityQueue{
 			shares:    metaShares,
 			totalCost: 0,
 			requests:  &ReqQueue{queue: make(chan *xio.AsyncRequest, cfg.MetaPending)},
