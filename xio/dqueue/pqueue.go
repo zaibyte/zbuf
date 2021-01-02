@@ -5,7 +5,7 @@ import "g.tesamc.com/IT/zbuf/xio"
 // PriorityQueue provides requests queue for a certain priority class.
 type PriorityQueue struct {
 	shares    uint64
-	totalCost uint64
+	totalCost int64
 	requests  *ReqQueue
 }
 
