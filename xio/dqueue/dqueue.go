@@ -12,14 +12,18 @@ import (
 	"g.tesamc.com/IT/zbuf/xio"
 )
 
+const (
+	objq = iota
+	chunkq
+	gcq
+	metaq
+)
+
 // DiskQueue is I/O queue each disk will have on.
 type DiskQueue struct {
 	cfg *Config
 
-	objQueue   *PriorityQueue
-	chunkQueue *PriorityQueue
-	gcQueue    *PriorityQueue
-	metaQueue  *PriorityQueue
+	queues []*PriorityQueue
 
 	ctx    context.Context
 	stopWg *sync.WaitGroup
@@ -90,30 +94,16 @@ func New(ctx context.Context, stopWg *sync.WaitGroup, cfg *Config) *DiskQueue {
 	dq := &DiskQueue{
 		cfg: cfg,
 
-		objQueue: &PriorityQueue{
-			shares:    objShares,
-			totalCost: 0,
-			requests:  &ReqQueue{queue: make(chan *xio.AsyncRequest, cfg.ObjPending)},
-		},
-		chunkQueue: &PriorityQueue{
-			shares:    chunkShares,
-			totalCost: 0,
-			requests:  &ReqQueue{queue: make(chan *xio.AsyncRequest, cfg.ChunkPending)},
-		},
-		gcQueue: &PriorityQueue{
-			shares:    gcShares,
-			totalCost: 0,
-			requests:  &ReqQueue{queue: make(chan *xio.AsyncRequest, cfg.GCPending)},
-		},
-		metaQueue: &PriorityQueue{
-			shares:    metaShares,
-			totalCost: 0,
-			requests:  &ReqQueue{queue: make(chan *xio.AsyncRequest, cfg.MetaPending)},
-		},
-
 		ctx:    ctx,
 		stopWg: stopWg,
 	}
+
+	dq.queues = make([]*PriorityQueue, 4)
+	dq.queues[objq] = NewPriorityQueue(objShares, cfg.ObjPending)
+	dq.queues[chunkq] = NewPriorityQueue(chunkShares, cfg.ChunkPending)
+	dq.queues[gcq] = NewPriorityQueue(gcShares, cfg.GCPending)
+	dq.queues[metaq] = NewPriorityQueue(metaShares, cfg.MetaPending)
+
 	return dq
 }
 
