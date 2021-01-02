@@ -39,11 +39,11 @@ const (
 )
 
 const (
-	ReqNull = iota
+	ReqNull = 65535
 
 	// ReqObjWrite/Read is I/O requests of object write/read.
 	// Should have the highest priority.
-	ReqObjWrite
+	ReqObjWrite = iota
 	ReqObjRead
 
 	// ReqChunkWrite/Read is I/O requests of data chunk write/read.
