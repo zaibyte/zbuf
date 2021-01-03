@@ -49,19 +49,30 @@ func (s *Scheduler) FindRunnableLoop() {
 
 }
 
-const pageSize = 4 * 1024
-
+// calcCost calculates the cost of a request.
+// n is request length,
+// pts is the put in queue timestamp,
+// now is the executing timestamp,
+// shares is the queue shares.
 func calcCost(n, pts, now, shares int64) float64 {
 	c0 := calcWeight(n) / float64(shares)
 	return c0 * calcWaitCoeff(pts, now)
 }
 
+// waitExpCoeff controls the decay speed.
 const waitExpCoeff = -0.003
 
+// calcWaitCoeff calculates coefficient according request waiting time in queue,
+// it's an exponential decay.
+// It helps to let request which wait longer be executed faster.
+//
+// coeff = e^(waitExpCoeff * waiting_time)
 func calcWaitCoeff(pts, now int64) float64 {
 	delta := (now - pts) / int64(time.Microsecond) // Using microsecond as unit.
 	return math.Pow(math.E, waitExpCoeff*float64(delta))
 }
+
+const pageSize = 4 * 1024
 
 // calcWeight calculates I/O request weight in scheduler.
 // It's sublinear function: w = 200 + 0.25*n^0.6.
