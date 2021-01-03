@@ -62,6 +62,12 @@ const (
 	ReqMetaWrite = 6
 )
 
+// IsReqRead returns request is a read or not.
+// If false, it's a write.
+func IsReqRead(t uint64) bool {
+	return t&1 == 1
+}
+
 // AsyncRequest is the I/O async request of ZBuf.
 // TODO add canceled flag?
 type AsyncRequest struct {
