@@ -41,8 +41,8 @@ const (
 	// This value is the result of combination of Intel manual & my experience.
 	DefaultIODepth = 64
 
-	// Each extent has 1024 pending, and for a 8TB disk we will have 64 extents.
-	DefaultObjPending   = 1024 * 64
+	// Each extent has 64 pending, and for a 8TB disk we will have 64 extents.
+	DefaultObjPending   = 64 * 64
 	DefaultChunkPending = 64
 	DefaultGCPending    = 64
 	DefaultMetaPending  = 64
@@ -58,19 +58,19 @@ const (
 type Config struct {
 	// The maximum number of concurrent read/write.
 	// Default is DefaultIODepth.
-	IODepth int `json:"io_depth"`
+	IODepth int `toml:"io_depth"`
 	// The maximum number of pending different write/read requests in the queue.
-	ObjPending   int `json:"obj_pending"`
-	ChunkPending int `json:"chunk_pending"`
-	GCPending    int `json:"gc_pending"`
-	MetaPending  int `json:"meta_pending"`
+	ObjPending   int `toml:"obj_pending"`
+	ChunkPending int `toml:"chunk_pending"`
+	GCPending    int `toml:"gc_pending"`
+	MetaPending  int `toml:"meta_pending"`
 
 	// Size of write buffer per writes in bytes.
 	// Default value is DefaultWriteBufferSize.
-	WriteBufferSize int `json:"write_buffer_size"`
+	WriteBufferSize int `toml:"write_buffer_size"`
 	// Size of write buffer per reads in bytes.
 	// Default value is DefaultReadBufferSize.
-	ReadBufferSize int `json:"read_buffer_size"`
+	ReadBufferSize int `toml:"read_buffer_size"`
 
 	// Delay between request flushes.
 	//
@@ -79,7 +79,7 @@ type Config struct {
 	// of higher CPU and disk usage.
 	//
 	// Default value is DefaultFlushDelay.
-	FlushDelay typeutil.Duration `json:"flush_delay"`
+	FlushDelay typeutil.Duration `toml:"flush_delay"`
 }
 
 const (
