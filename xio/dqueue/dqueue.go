@@ -25,7 +25,7 @@ const (
 type DiskQueue struct {
 	cfg *Config
 
-	queues []*PriorityQueue
+	queues PriorityQueues
 
 	ctx    context.Context
 	stopWg *sync.WaitGroup

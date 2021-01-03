@@ -13,17 +13,26 @@ type PriorityQueue struct {
 
 type PriorityQueues []*PriorityQueue
 
-func (p *PriorityQueues) Len() int {
-	return len(*p)
+// clone clones a PriorityQueues.
+func (p PriorityQueues) clone() PriorityQueues {
+	ret := make([]*PriorityQueue, p.Len())
+	for i, q := range p {
+		ret[i] = q
+	}
+	return ret
 }
 
-func (p *PriorityQueues) Swap(i, j int) {
-	s := *p
+func (p PriorityQueues) Len() int {
+	return len(p)
+}
+
+func (p PriorityQueues) Swap(i, j int) {
+	s := p
 	s[i], s[j] = s[j], s[i]
 }
 
-func (p *PriorityQueues) Less(i, j int) bool {
-	s := *p
+func (p PriorityQueues) Less(i, j int) bool {
+	s := p
 	return s[i].totalCost < s[j].totalCost
 }
 
