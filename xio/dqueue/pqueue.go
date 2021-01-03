@@ -6,7 +6,7 @@ import (
 
 // PriorityQueue provides requests queue for a certain priority class.
 type PriorityQueue struct {
-	shares    uint64
+	shares    int64
 	totalCost float64
 	requests  *ReqQueue
 }
@@ -36,7 +36,7 @@ func (p PriorityQueues) Less(i, j int) bool {
 	return s[i].totalCost < s[j].totalCost
 }
 
-func NewPriorityQueue(shares uint64, pending int) *PriorityQueue {
+func NewPriorityQueue(shares int64, pending int) *PriorityQueue {
 	return &PriorityQueue{
 		shares:    shares,
 		totalCost: 0,
