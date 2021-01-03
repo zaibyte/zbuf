@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/templexxx/tsc"
+
 	"g.tesamc.com/IT/zaipkg/typeutil"
 
 	"g.tesamc.com/IT/zaipkg/config"
@@ -122,5 +124,8 @@ func (c *Config) adjust() {
 }
 
 func (d *DiskQueue) Add(r *xio.AsyncRequest) {
+
+	pts := tsc.UnixNano()
+	r.PTS = pts
 	panic("implement me")
 }

@@ -70,6 +70,8 @@ type AsyncRequest struct {
 	Data   []byte
 	Err    error
 	Done   chan struct{}
+
+	PTS int64 // Timestamp of put into queue.
 }
 
 var AsyncRequestPool sync.Pool
