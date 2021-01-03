@@ -1,9 +1,5 @@
-g.tesamc.com/IT/zaipkg v0.0.0-20201224072144-39f3c22f8d7b h1:DBBPh8+2K4morVZ3mTYTswJJViYuXZuvNKh2vYRuAW8=
-g.tesamc.com/IT/zaipkg v0.0.0-20201224072144-39f3c22f8d7b/go.mod h1:H4Y8KPQg3ljbGGM0sfjXMiv7DRyVyp23emko3iC+qdA=
-g.tesamc.com/IT/zaipkg v0.0.0-20201230100216-770017c907db h1:CBJvutVWct8LOVR93Y+IMbGcYZOXA/+ARUlXQzO1Uns=
-g.tesamc.com/IT/zaipkg v0.0.0-20201230100216-770017c907db/go.mod h1:H4Y8KPQg3ljbGGM0sfjXMiv7DRyVyp23emko3iC+qdA=
-g.tesamc.com/IT/zaipkg v0.0.0-20201231083442-cac35688331e h1:aLwyLzYK3o9aFuxxpBBxAkroEbu2yU+wtsmvsNMutKA=
-g.tesamc.com/IT/zaipkg v0.0.0-20201231083442-cac35688331e/go.mod h1:93fcdDtGKTRGaC34lLZbyR63/eO2tpy2xKN34oOIJ9A=
+g.tesamc.com/IT/zaipkg v0.0.0-20210103052003-34022d1e6104 h1:Vk6ehFN5tX/bwLxsd/ODCDPRJdbKxq0v7nkT7Yt0pBQ=
+g.tesamc.com/IT/zaipkg v0.0.0-20210103052003-34022d1e6104/go.mod h1:93fcdDtGKTRGaC34lLZbyR63/eO2tpy2xKN34oOIJ9A=
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
@@ -69,6 +65,7 @@ github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd/go.mod h1:6dJ
 github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742/go.mod h1:bx2lNnkwVCuqBIxFjflWJWanXIb3RllmbCylyMrvgv0=
 github.com/modern-go/reflect2 v1.0.1/go.mod h1:bx2lNnkwVCuqBIxFjflWJWanXIb3RllmbCylyMrvgv0=
 github.com/mwitkow/go-conntrack v0.0.0-20161129095857-cc309e4a2223/go.mod h1:qRWi+5nqEBWmkhHvq77mSJWrCKwh8bxhgT7d/eI7P4U=
+github.com/panjf2000/ants/v2 v2.4.3 h1:wHghL17YKFanB62QjPQ9o+DuM4q7WrQ7zAhoX8+eBXU=
 github.com/panjf2000/ants/v2 v2.4.3/go.mod h1:f6F0NZVFsGCp5A7QW/Zj/m92atWwOkY0OIhFxRNFr4A=
 github.com/pkg/errors v0.8.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
