@@ -4,7 +4,6 @@ import (
 	"context"
 	"math"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -24,8 +23,8 @@ func NewScheduler(ctx context.Context, stopWg *sync.WaitGroup, dqueue *DiskQueue
 }
 
 // That balancing is expected to happen over a specific time window,
-// default is 100ms.
-const balanceWindow = int64(100 * time.Millisecond)
+// default is 10ms.
+const balanceWindow = int64(10 * time.Millisecond)
 
 func (s *Scheduler) FindRunnableLoop() {
 	defer s.stopWg.Done()
@@ -52,6 +51,18 @@ func (s *Scheduler) FindRunnableLoop() {
 
 const pageSize = 4 * 1024
 
+func calcCost(n, pts, now, shares int64) float64 {
+	c0 := calcWeight(n) / float64(shares)
+	return c0 * calcWaitCoeff(pts, now)
+}
+
+const waitExpCoeff = -0.003
+
+func calcWaitCoeff(pts, now int64) float64 {
+	delta := (now - pts) / int64(time.Microsecond) // Using microsecond as unit.
+	return math.Pow(math.E, waitExpCoeff*float64(delta))
+}
+
 // calcWeight calculates I/O request weight in scheduler.
 // It's sublinear function: w = 200 + 0.25*n^0.6.
 // 200 is the init weight,
@@ -59,14 +70,14 @@ const pageSize = 4 * 1024
 // 0.6 is an experience value,
 // 0.25 makes the result in a reasonable range
 // (each request won't be out of 4MB, so in 0.6, the shares still matters.)
-func calcWeight(n int64) int64 {
+func calcWeight(n int64) float64 {
 	n = n / pageSize
-	return 200 + int64(math.Pow(float64(n), 0.6)*0.25)
+	return 200 + (math.Pow(float64(n), 0.6) * 0.25)
 }
 
 // set all totalCosted zero after meet the balance window.
 func (s *Scheduler) setCostedsZero() {
 	for _, q := range s.dqueue.queues {
-		atomic.StoreInt64(&q.totalCost, 0)
+		q.totalCost.Store(0)
 	}
 }
