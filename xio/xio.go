@@ -43,26 +43,27 @@ const (
 
 	// ReqObjWrite/Read is I/O requests of object write/read.
 	// Should have the highest priority.
-	ReqObjWrite = iota
-	ReqObjRead
+	ReqObjWrite = 0
+	ReqObjRead  = 1
 
 	// ReqChunkWrite/Read is I/O requests of data chunk write/read.
 	// e.g. repairing, migration.
 	// Should have the lowest priority.
-	ReqChunkWrite
-	ReqChunkRead
+	ReqChunkWrite = 2
+	ReqChunkRead  = 3
 
 	// ReqGCWrite/Read is I/O requests of extent GC write/read.
 	// Should have low/mid priority.
-	ReqGCWrite
-	ReqGCRead
+	ReqGCWrite = 4
+	ReqGCRead  = 5
 
 	// ReqMetaWrite is I/O requests of extent meta write.
 	// Should have high/highest priority.
-	ReqMetaWrite
+	ReqMetaWrite = 6
 )
 
 // AsyncRequest is the I/O async request of ZBuf.
+// TODO add canceled flag?
 type AsyncRequest struct {
 	Type   uint64
 	File   vfs.File
