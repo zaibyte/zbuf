@@ -3,8 +3,12 @@ package dqueue
 import (
 	"context"
 	"math"
+	"sort"
 	"sync"
 	"time"
+
+	"g.tesamc.com/IT/zbuf/xio"
+	"github.com/templexxx/tsc"
 )
 
 type Scheduler struct {
@@ -34,33 +38,59 @@ func NewScheduler(ctx context.Context, stopWg *sync.WaitGroup, dqueue *DiskQueue
 // default is 10ms.
 const balanceWindow = int64(10 * time.Millisecond)
 
-//func (s *Scheduler) FindRunnableLoop() {
-//	defer s.stopWg.Done()
-//
-//	ctx, cancel := context.WithCancel(s.ctx)
-//	defer cancel()
-//
-//	start := tsc.UnixNano()
-//	for {
-//
-//		qs := s.dqueue.queues.clone()
-//		sort.Sort(qs)
-//		for i, q := range qs {	// TODO find a fast way to check chan len
-//			if q.requests.queue
-// TODO try to pop one if len > 0, then break
-// TODO before execute update cost
-//		}
-//
-//
-//
-//		now := tsc.UnixNano()
-//		if now-start >= balanceWindow {
-//			s.setCostsZero()
-//			start = now
-//		}
-//	}
-//
-//}
+// FindRunnableLoop finds runnable request by scheduler rules round and round.
+func (s *Scheduler) FindRunnableLoop() {
+	defer s.stopWg.Done()
+
+	ctx, cancel := context.WithCancel(s.ctx)
+	defer cancel()
+
+	start := tsc.UnixNano()
+	for {
+
+		select {
+		case <-ctx.Done():
+			return
+		default:
+
+		}
+
+		qs := s.dqueue.queues.clone()
+		sort.Sort(qs)
+
+		var req *xio.AsyncRequest
+		var idx int
+		for i, q := range qs {
+			if len(q.requests.queue) > 0 {
+				req = <-q.requests.queue
+				idx = i
+				break
+			}
+		}
+
+		now := tsc.UnixNano()
+
+		go func(r *xio.AsyncRequest) {
+			var err error
+			if xio.IsReqRead(r.Type) {
+				_, err = req.File.ReadAt(r.Data, r.Offset)
+			} else {
+				_, err = req.File.WriteAt(r.Data, r.Offset)
+			}
+			r.Err = err
+			close(r.Done)
+		}(req)
+
+		if now-start >= balanceWindow {
+			s.setCostsZero()
+			start = now
+			continue
+		}
+
+		c := calcCost(int64(len(req.Data)), req.PTS, now, qs[idx].shares)
+		qs[idx].totalCost += c
+	}
+}
 
 // calcCost calculates the cost of a request.
 // n is request length,
