@@ -10,13 +10,21 @@ import (
 type Scheduler struct {
 	dqueue *DiskQueue
 
+	workersCh chan struct{}
+
 	ctx    context.Context
 	stopWg *sync.WaitGroup
 }
 
 func NewScheduler(ctx context.Context, stopWg *sync.WaitGroup, dqueue *DiskQueue) *Scheduler {
+
+	workersCh := make(chan struct{}, dqueue.cfg.IODepth)
+
 	return &Scheduler{
 		dqueue: dqueue,
+
+		workersCh: workersCh,
+
 		ctx:    ctx,
 		stopWg: stopWg,
 	}
@@ -26,28 +34,33 @@ func NewScheduler(ctx context.Context, stopWg *sync.WaitGroup, dqueue *DiskQueue
 // default is 10ms.
 const balanceWindow = int64(10 * time.Millisecond)
 
-func (s *Scheduler) FindRunnableLoop() {
-	defer s.stopWg.Done()
-
-	//ctx, cancel := context.WithCancel(s.ctx)
-	//defer cancel()
-
-	//start := tsc.UnixNano()
-	for {
-
-		//go func(c *int64) {
-		//	cost :=
-		//		atomic.AddInt64(c, cost)
-		//}(costed)
-		//
-		//now := tsc.UnixNano()
-		//if now-start >= balanceWindow {
-		//	s.setCostedsZero()
-		//	start = now
-		//}
-	}
-
-}
+//func (s *Scheduler) FindRunnableLoop() {
+//	defer s.stopWg.Done()
+//
+//	ctx, cancel := context.WithCancel(s.ctx)
+//	defer cancel()
+//
+//	start := tsc.UnixNano()
+//	for {
+//
+//		qs := s.dqueue.queues.clone()
+//		sort.Sort(qs)
+//		for i, q := range qs {	// TODO find a fast way to check chan len
+//			if q.requests.queue
+// TODO try to pop one if len > 0, then break
+// TODO before execute update cost
+//		}
+//
+//
+//
+//		now := tsc.UnixNano()
+//		if now-start >= balanceWindow {
+//			s.setCostsZero()
+//			start = now
+//		}
+//	}
+//
+//}
 
 // calcCost calculates the cost of a request.
 // n is request length,
@@ -86,9 +99,9 @@ func calcWeight(n int64) float64 {
 	return 200 + (math.Pow(float64(n), 0.6) * 0.25)
 }
 
-// set all totalCosted zero after meet the balance window.
-func (s *Scheduler) setCostedsZero() {
+// set all totalCost zero after meet the balance window.
+func (s *Scheduler) setCostsZero() {
 	for _, q := range s.dqueue.queues {
-		q.totalCost.Store(0)
+		q.totalCost = 0
 	}
 }
