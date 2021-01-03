@@ -91,6 +91,7 @@ func ReleaseAsyncRequest(ar *AsyncRequest) {
 	ar.Data = nil
 	ar.Err = nil
 	ar.Done = nil
+	ar.PTS = 0
 
 	AsyncRequestPool.Put(ar)
 }
