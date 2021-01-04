@@ -2,6 +2,7 @@ package sched
 
 import (
 	"g.tesamc.com/IT/zaipkg/orpc"
+	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zbuf/xio"
 )
 
@@ -10,7 +11,7 @@ type ReqQueue struct {
 	queue chan *xio.AsyncRequest
 }
 
-func (p *ReqQueue) add(r *xio.AsyncRequest) error {
+func (p *ReqQueue) add(reqType uint64, f vfs.File, offset int64, d []byte) error {
 	select {
 	case p.queue <- r:
 		return nil

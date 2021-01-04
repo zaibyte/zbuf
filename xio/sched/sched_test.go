@@ -1,4 +1,4 @@
-package dqueue
+package sched
 
 import (
 	"context"
@@ -44,14 +44,16 @@ func TestCalcWaitCoeff(t *testing.T) {
 
 func TestScheduler_FindRunnableLoopIsFair(t *testing.T) {
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	wg := new(sync.WaitGroup)
-	s := NewScheduler(ctx, wg, NewDiskQueue(ctx, wg, &DiskQueueConfig{}))
 }
 
 func testScheduler_FindRunnableLoopIsFair(t *testing.T,
 	totalSpeed, iodepth int, highRatio int, totalTime time.Duration, reqSize int64) {
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	wg := new(sync.WaitGroup)
+	s := New(ctx, wg, &Config{
+		IODepth: iodepth})
 
 	speed := totalSpeed / iodepth
 	sf := &vfs.SpeedFile{Speed: speed}
@@ -74,7 +76,7 @@ func testScheduler_FindRunnableLoopIsFair(t *testing.T,
 			} else {
 				req.Type = xio.ReqGCRead
 			}
-
+			err := s.Add(req)
 		}
 	}
 

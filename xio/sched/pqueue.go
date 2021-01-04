@@ -8,7 +8,7 @@ import (
 type PriorityQueue struct {
 	shares    int64
 	totalCost float64
-	requests  *ReqQueue
+	reqQueue  *ReqQueue
 }
 
 type PriorityQueues []*PriorityQueue
@@ -40,6 +40,6 @@ func NewPriorityQueue(shares int64, pending int) *PriorityQueue {
 	return &PriorityQueue{
 		shares:    shares,
 		totalCost: 0,
-		requests:  &ReqQueue{queue: make(chan *xio.AsyncRequest, pending)},
+		reqQueue:  &ReqQueue{queue: make(chan *xio.AsyncRequest, pending)},
 	}
 }

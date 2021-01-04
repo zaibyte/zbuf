@@ -1,9 +1,8 @@
 package sched
 
 import (
-	"github.com/templexxx/tsc"
-
 	"g.tesamc.com/IT/zaipkg/config"
+	"g.tesamc.com/IT/zbuf/vfs"
 
 	"g.tesamc.com/IT/zbuf/xio"
 )
@@ -67,8 +66,16 @@ func (c *QueueConfig) adjust() {
 	config.Adjust(&c.MetaPending, DefaultMetaPending)
 }
 
-func (d *Queue) Add(r *xio.AsyncRequest) {
+func (q *Queue) Add(reqType uint64, f vfs.File, offset int64, d []byte) error {
 
-	r.PTS = tsc.UnixNano()
-	panic("implement me")
+	switch reqType {
+	case xio.ReqObjRead, xio.ReqObjWrite:
+		return q.pqs[objq].reqQueue.add(reqType, f, offset, d)
+	case xio.ReqChunkRead, xio.ReqChunkWrite:
+		return q.pqs[chunkq].reqQueue.add(reqType, f, offset, d)
+	case xio.ReqGCRead, xio.ReqGCWrite:
+		return q.pqs[gcq].reqQueue.add(reqType, f, offset, d)
+	default:
+		return q.pqs[metaq].reqQueue.add(reqType, f, offset, d)
+	}
 }
