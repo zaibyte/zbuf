@@ -20,7 +20,7 @@ const (
 
 // DiskQueue is I/O queue each disk will have on.
 type DiskQueue struct {
-	cfg *Config
+	cfg *DiskQueueConfig
 
 	queues PriorityQueues
 
@@ -45,8 +45,8 @@ const (
 	DefaultMetaPending  = 64
 )
 
-// Config of DiskQueue.
-type Config struct {
+// DiskQueueConfig of DiskQueue.
+type DiskQueueConfig struct {
 	// The maximum number of concurrent read/write.
 	// Default is DefaultIODepth.
 	IODepth int `toml:"io_depth"`
@@ -64,7 +64,7 @@ const (
 	metaShares  = 1000
 )
 
-func New(ctx context.Context, stopWg *sync.WaitGroup, cfg *Config) *DiskQueue {
+func NewDiskQueue(ctx context.Context, stopWg *sync.WaitGroup, cfg *DiskQueueConfig) *DiskQueue {
 
 	cfg.adjust()
 
@@ -84,7 +84,7 @@ func New(ctx context.Context, stopWg *sync.WaitGroup, cfg *Config) *DiskQueue {
 	return dq
 }
 
-func (c *Config) adjust() {
+func (c *DiskQueueConfig) adjust() {
 	config.Adjust(&c.IODepth, DefaultIODepth)
 
 	config.Adjust(&c.ObjPending, DefaultObjPending)
