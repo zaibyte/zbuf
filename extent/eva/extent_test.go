@@ -26,6 +26,8 @@ import (
 	"testing"
 	"time"
 
+	"g.tesamc.com/IT/zaipkg/typeutil"
+
 	"g.tesamc.com/IT/zaipkg/uid"
 	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zaipkg/xdigest"
@@ -47,7 +49,7 @@ func TestExtentPutGet(t *testing.T) {
 	cfg := &ExtentConfig{
 		Path:        dataRoot,
 		SegmentSize: 1024 * 1024,
-		FlushDelay:  time.Microsecond * 128,
+		flushDelay:  time.Microsecond * 128,
 		PutPending:  2048,
 		InsertOnly:  false,
 	}
@@ -172,7 +174,7 @@ func TestExtentGetPerf(t *testing.T) {
 	cfg := &ExtentConfig{
 		Path:        dataRoot,
 		SegmentSize: 1024 * 1024,
-		FlushDelay:  time.Microsecond * 128,
+		FlushDelay:  typeutil.NewDuration(time.Microsecond * 128),
 		PutPending:  256,
 		InsertOnly:  false,
 	}
