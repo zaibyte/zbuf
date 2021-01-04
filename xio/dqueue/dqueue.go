@@ -43,10 +43,6 @@ const (
 	DefaultChunkPending = 64
 	DefaultGCPending    = 64
 	DefaultMetaPending  = 64
-
-	// 128KB is enough for NVMe device read/write sequentially.
-	DefaultWriteBufferSize = 128 * 1024
-	DefaultReadBufferSize  = 128 * 1024
 )
 
 // Config of DiskQueue.
@@ -59,13 +55,6 @@ type Config struct {
 	ChunkPending int `toml:"chunk_pending"`
 	GCPending    int `toml:"gc_pending"`
 	MetaPending  int `toml:"meta_pending"`
-
-	// Size of write buffer per writes in bytes.
-	// Default value is DefaultWriteBufferSize.
-	WriteBufferSize int `toml:"write_buffer_size"`
-	// Size of write buffer per reads in bytes.
-	// Default value is DefaultReadBufferSize.
-	ReadBufferSize int `toml:"read_buffer_size"`
 }
 
 const (
@@ -102,9 +91,6 @@ func (c *Config) adjust() {
 	config.Adjust(&c.ChunkPending, DefaultChunkPending)
 	config.Adjust(&c.GCPending, DefaultGCPending)
 	config.Adjust(&c.MetaPending, DefaultMetaPending)
-
-	config.Adjust(&c.WriteBufferSize, DefaultWriteBufferSize)
-	config.Adjust(&c.ReadBufferSize, DefaultReadBufferSize)
 }
 
 func (d *DiskQueue) Add(r *xio.AsyncRequest) {
