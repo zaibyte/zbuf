@@ -1,4 +1,4 @@
-package dqueue
+package sched
 
 import (
 	"g.tesamc.com/IT/zaipkg/orpc"

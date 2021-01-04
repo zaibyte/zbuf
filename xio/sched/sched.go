@@ -1,4 +1,4 @@
-package dqueue
+package sched
 
 import (
 	"context"
@@ -7,12 +7,34 @@ import (
 	"sync"
 	"time"
 
+	"g.tesamc.com/IT/zaipkg/config"
+
 	"g.tesamc.com/IT/zbuf/xio"
 	"github.com/templexxx/tsc"
 )
 
+// DefaultIODepth is the single disk concurrent readers/writers.
+// ZBuf has internal cache, these threads are used for accessing disk.
+// Beyond 64, we may get higher IOPS, but much higher latency.
+//
+// In an enterprise-class TLC/QLC NVMe driver, 32-64 would be a good choice.
+//
+// This value is the result of combination of Intel manual & my experience.
+const DefaultIODepth = 64
+
+// Config is Scheduler's config.
+type Config struct {
+	// The maximum number of concurrent read/write.
+	// Default is DefaultIODepth.
+	IODepth     int          `toml:"io_depth"`
+	QueueConfig *QueueConfig `toml:"queue_config"`
+}
+
+// Scheduler is disk I/O scheduler provides fair scheduling with priority classes.
 type Scheduler struct {
-	dqueue *DiskQueue
+	cfg *Config
+
+	queue *Queue
 
 	workersCh chan struct{}
 
@@ -20,18 +42,25 @@ type Scheduler struct {
 	stopWg *sync.WaitGroup
 }
 
-func NewScheduler(ctx context.Context, stopWg *sync.WaitGroup, dqueue *DiskQueue) *Scheduler {
+// New creates a scheduler instance.
+func New(ctx context.Context, stopWg *sync.WaitGroup, cfg *Config) *Scheduler {
 
-	workersCh := make(chan struct{}, dqueue.cfg.IODepth)
+	cfg.adjust()
 
 	return &Scheduler{
-		dqueue: dqueue,
+		cfg: cfg,
 
-		workersCh: workersCh,
+		queue: NewQueue(cfg.QueueConfig),
+
+		workersCh: make(chan struct{}, cfg.IODepth),
 
 		ctx:    ctx,
 		stopWg: stopWg,
 	}
+}
+
+func (c *Config) adjust() {
+	config.Adjust(&c.IODepth, DefaultIODepth)
 }
 
 // That balancing is expected to happen over a specific time window,
@@ -55,7 +84,7 @@ func (s *Scheduler) FindRunnableLoop() {
 
 		}
 
-		qs := s.dqueue.queues.clone()
+		qs := s.queue.pqs.clone()
 		sort.Sort(qs)
 
 		var req *xio.AsyncRequest
@@ -142,7 +171,7 @@ func calcWeight(n int64) float64 {
 
 // set all totalCost zero after meet the balance window.
 func (s *Scheduler) setCostsZero() {
-	for _, q := range s.dqueue.queues {
+	for _, q := range s.queue.pqs {
 		q.totalCost = 0
 	}
 }

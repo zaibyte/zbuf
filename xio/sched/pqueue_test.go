@@ -1,4 +1,4 @@
-package dqueue
+package sched
 
 import (
 	"sort"
