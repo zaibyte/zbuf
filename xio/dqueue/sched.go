@@ -68,9 +68,19 @@ func (s *Scheduler) FindRunnableLoop() {
 			}
 		}
 
+		select { // Block until we have free goroutine.
+		case s.workersCh <- struct{}{}:
+		default:
+			select {
+			case s.workersCh <- struct{}{}:
+			case <-ctx.Done():
+				return
+			}
+		}
+
 		now := tsc.UnixNano()
 
-		go func(r *xio.AsyncRequest) {
+		go func(r *xio.AsyncRequest, workersChan <-chan struct{}) {
 			var err error
 			if xio.IsReqRead(r.Type) {
 				_, err = req.File.ReadAt(r.Data, r.Offset)
@@ -79,7 +89,8 @@ func (s *Scheduler) FindRunnableLoop() {
 			}
 			r.Err = err
 			close(r.Done)
-		}(req)
+			<-workersChan
+		}(req, s.workersCh)
 
 		if now-start >= balanceWindow {
 			s.setCostsZero()
