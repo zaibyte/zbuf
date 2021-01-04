@@ -3,11 +3,8 @@ package dqueue
 import (
 	"context"
 	"sync"
-	"time"
 
 	"github.com/templexxx/tsc"
-
-	"g.tesamc.com/IT/zaipkg/typeutil"
 
 	"g.tesamc.com/IT/zaipkg/config"
 
@@ -50,8 +47,6 @@ const (
 	// 128KB is enough for NVMe device read/write sequentially.
 	DefaultWriteBufferSize = 128 * 1024
 	DefaultReadBufferSize  = 128 * 1024
-
-	DefaultFlushDelay = 100 * time.Microsecond
 )
 
 // Config of DiskQueue.
@@ -71,15 +66,6 @@ type Config struct {
 	// Size of write buffer per reads in bytes.
 	// Default value is DefaultReadBufferSize.
 	ReadBufferSize int `toml:"read_buffer_size"`
-
-	// Delay between request flushes.
-	//
-	// Negative values lead to immediate requests' sending to the filesystem
-	// without their buffering. This minimizes latency at the cost
-	// of higher CPU and disk usage.
-	//
-	// Default value is DefaultFlushDelay.
-	FlushDelay typeutil.Duration `toml:"flush_delay"`
 }
 
 const (
@@ -119,8 +105,6 @@ func (c *Config) adjust() {
 
 	config.Adjust(&c.WriteBufferSize, DefaultWriteBufferSize)
 	config.Adjust(&c.ReadBufferSize, DefaultReadBufferSize)
-
-	config.Adjust(&c.FlushDelay, DefaultFlushDelay)
 }
 
 func (d *DiskQueue) Add(r *xio.AsyncRequest) {
