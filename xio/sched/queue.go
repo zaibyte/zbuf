@@ -66,7 +66,7 @@ func (c *QueueConfig) adjust() {
 	config.Adjust(&c.MetaPending, DefaultMetaPending)
 }
 
-func (q *Queue) Add(reqType uint64, f vfs.File, offset int64, d []byte) error {
+func (q *Queue) Add(reqType uint64, f vfs.File, offset int64, d []byte) (*xio.AsyncRequest, error) {
 
 	switch reqType {
 	case xio.ReqObjRead, xio.ReqObjWrite:

@@ -11,10 +11,19 @@ type ReqQueue struct {
 	queue chan *xio.AsyncRequest
 }
 
-func (p *ReqQueue) add(reqType uint64, f vfs.File, offset int64, d []byte) error {
+func (p *ReqQueue) add(reqType uint64, f vfs.File, offset int64, d []byte) (ar *xio.AsyncRequest, err error) {
+
+	ar = xio.AcquireAsyncRequest()
+
+	ar.Type = reqType
+	ar.Data = d
+	ar.File = f
+	ar.Offset = offset
+	ar.Done = make(chan struct{})
+
 	select {
-	case p.queue <- r:
-		return nil
+	case p.queue <- ar:
+		return ar, nil
 	default:
 		// Try substituting the oldest async request by the new one
 		// on requests' queue overflow.
@@ -33,12 +42,12 @@ func (p *ReqQueue) add(reqType uint64, f vfs.File, offset int64, d []byte) error
 
 		// After pop, try to put again.
 		select {
-		case p.queue <- r:
-			return nil
+		case p.queue <- ar:
+			return ar, nil
 		default:
 			// Can't put, release it since it wasn't exposed to the caller yet.
-			xio.ReleaseAsyncRequest(r)
-			return orpc.ErrRequestQueueOverflow
+			xio.ReleaseAsyncRequest(ar)
+			return nil, orpc.ErrRequestQueueOverflow
 		}
 	}
 }

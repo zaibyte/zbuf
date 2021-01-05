@@ -7,32 +7,34 @@ import (
 	"sync"
 	"time"
 
-	"g.tesamc.com/IT/zaipkg/orpc"
-	"g.tesamc.com/IT/zaipkg/xbytes"
-
-	"g.tesamc.com/IT/zbuf/vfs"
+	"g.tesamc.com/IT/zaipkg/xlog"
 
 	"g.tesamc.com/IT/zaipkg/config"
-
+	"g.tesamc.com/IT/zaipkg/orpc"
+	"g.tesamc.com/IT/zaipkg/typeutil"
+	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zbuf/xio"
 	"github.com/templexxx/tsc"
 )
 
-// DefaultIODepth is the single disk concurrent readers/writers.
-// ZBuf has internal cache, these threads are used for accessing disk.
-// Beyond 64, we may get higher IOPS, but much higher latency.
-//
-// In an enterprise-class TLC/QLC NVMe driver, 32-64 would be a good choice.
-//
-// This value is the result of combination of Intel manual & my experience.
-const DefaultIODepth = 64
+const (
+	// DefaultIODepth is the single disk concurrent readers/writers.
+	// ZBuf has internal cache, these threads are used for accessing disk.
+	// Beyond 64, we may get higher IOPS, but much higher latency.
+	//
+	// In an enterprise-class TLC/QLC NVMe driver, 32-64 would be a good choice.
+	//
+	// This value is the result of combination of Intel manual & my experience.
+	DefaultIODepth = 64
+)
 
 // Config is Scheduler's config.
 type Config struct {
 	// The maximum number of concurrent read/write.
 	// Default is DefaultIODepth.
-	IODepth     int          `toml:"io_depth"`
-	QueueConfig *QueueConfig `toml:"queue_config"`
+	IODepth        int               `toml:"io_depth"`
+	QueueConfig    *QueueConfig      `toml:"queue_config"`
+	RequestTimeout typeutil.Duration `toml:"request_timeout"`
 }
 
 // Scheduler is disk I/O scheduler provides fair scheduling with priority classes.
@@ -49,55 +51,37 @@ type Scheduler struct {
 
 func (s *Scheduler) DoAsync(reqType uint64, f vfs.File, offset int64, d []byte) (ar *xio.AsyncRequest, err error) {
 
-	ar = xio.AcquireAsyncRequest()
-
-	// In case of after returning (meet error), the caller will drop the data,
-	// but it's still in the client write process,
-	// it may sent dirty data. Copy is a safe choice.
-	if body != nil {
-		reqData := xbytes.GetNBytes(len(body))
-		_, _ = reqData.Write(body)
-		ar.reqData = reqData
-	}
-
-	ar.reqid = reqid
-	ar.method = method
-	ar.oid = oid
-	ar.done = make(chan struct{})
-
-	select {
-	case c.requestsChan <- ar:
-		return ar, nil
-	default:
-		// Try substituting the oldest async request by the new one
-		// on requests' queue overflow.
-		// This increases the chances for new request to succeed
-		// without timeout.
-		select {
-		case ar2 := <-c.requestsChan:
-			if ar2.done != nil {
-				ar2.err = orpc.ErrRequestQueueOverflow
-				close(ar2.done)
-			} else {
-				releaseAsyncResult(ar2)
-			}
-		default:
-		}
-
-		// After pop, try to put again.
-		select {
-		case c.requestsChan <- ar:
-			return ar, nil
-		default:
-			// RequestsChan is filled, release it since m wasn't exposed to the caller yet.
-			releaseAsyncResult(ar)
-			return nil, orpc.ErrRequestQueueOverflow
-		}
-	}
+	return s.Add(reqType, f, offset, d)
 }
 
-func (s *Scheduler) DoTimeout(reqType uint64, f vfs.File, offset int64, d []byte, timeout time.Duration) error {
-	panic("implement me")
+func (s *Scheduler) DoTimeout(reqType uint64, f vfs.File, offset int64, d []byte, timeout time.Duration) (err error) {
+
+	if timeout == 0 {
+		timeout = s.cfg.RequestTimeout.Duration
+	}
+
+	var ar *xio.AsyncRequest
+	if ar, err = s.DoAsync(reqType, f, offset, d); err != nil {
+		return err
+	}
+
+	t := acquireTimer(timeout)
+
+	select {
+	case <-ar.Done:
+		err = ar.Err
+		xio.ReleaseAsyncRequest(ar)
+	case <-t.C:
+		// Cancel will be captured in I/O preparation, AsyncResult will be released there.
+		// Or it has been sent, just waiting for the response.
+		//
+		// If write broken, ar may not be put back to the pool.
+		ar.Cancel()
+		err = orpc.ErrTimeout
+	}
+
+	releaseTimer(t)
+	return
 }
 
 // New creates a scheduler instance.
@@ -119,9 +103,10 @@ func New(ctx context.Context, stopWg *sync.WaitGroup, cfg *Config) *Scheduler {
 
 func (c *Config) adjust() {
 	config.Adjust(&c.IODepth, DefaultIODepth)
+	config.Adjust(&c.RequestTimeout, xio.DefaultTimeout)
 }
 
-func (s *Scheduler) Add(reqType uint64, f vfs.File, offset int64, d []byte) error {
+func (s *Scheduler) Add(reqType uint64, f vfs.File, offset int64, d []byte) (*xio.AsyncRequest, error) {
 	return s.queue.Add(reqType, f, offset, d)
 }
 
@@ -149,14 +134,26 @@ func (s *Scheduler) FindRunnableLoop() {
 		qs := s.queue.pqs.clone()
 		sort.Sort(qs)
 
-		var req *xio.AsyncRequest
+		var ar *xio.AsyncRequest
 		var idx int
 		for i, q := range qs {
 			if len(q.reqQueue.queue) > 0 {
-				req = <-q.reqQueue.queue
+				ar = <-q.reqQueue.queue
 				idx = i
 				break
 			}
+		}
+
+		if ar.IsCanceled() {
+
+			if ar.Done != nil {
+				ar.Err = orpc.ErrCanceled
+				close(ar.Done)
+			} else {
+				xio.ReleaseAsyncRequest(ar)
+			}
+
+			continue
 		}
 
 		select { // Block until we have free goroutine.
@@ -174,14 +171,14 @@ func (s *Scheduler) FindRunnableLoop() {
 		go func(r *xio.AsyncRequest, workersChan <-chan struct{}) {
 			var err error
 			if xio.IsReqRead(r.Type) {
-				_, err = req.File.ReadAt(r.Data, r.Offset)
+				_, err = ar.File.ReadAt(r.Data, r.Offset)
 			} else {
-				_, err = req.File.WriteAt(r.Data, r.Offset)
+				_, err = ar.File.WriteAt(r.Data, r.Offset)
 			}
 			r.Err = err
 			close(r.Done)
 			<-workersChan
-		}(req, s.workersCh)
+		}(ar, s.workersCh)
 
 		if now-start >= balanceWindow {
 			s.setCostsZero()
@@ -189,7 +186,7 @@ func (s *Scheduler) FindRunnableLoop() {
 			continue
 		}
 
-		c := calcCost(int64(len(req.Data)), req.PTS, now, qs[idx].shares)
+		c := calcCost(int64(len(ar.Data)), ar.PTS, now, qs[idx].shares)
 		qs[idx].totalCost += c
 	}
 }
@@ -236,4 +233,32 @@ func (s *Scheduler) setCostsZero() {
 	for _, q := range s.queue.pqs {
 		q.totalCost = 0
 	}
+}
+
+var timerPool sync.Pool
+
+func acquireTimer(timeout time.Duration) *time.Timer {
+	tv := timerPool.Get()
+	if tv == nil {
+		return time.NewTimer(timeout)
+	}
+
+	t := tv.(*time.Timer)
+	if t.Reset(timeout) {
+		xlog.Panic("bug: active timer trapped into acquireTimer()")
+	}
+	return t
+}
+
+func releaseTimer(t *time.Timer) {
+	if !t.Stop() {
+		// Collect possibly added time from the channel
+		// if timer has been stopped and nobody collected its' value.
+		select {
+		case <-t.C:
+		default:
+		}
+	}
+
+	timerPool.Put(t)
 }
