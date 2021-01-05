@@ -53,15 +53,25 @@ func TestScheduler_FindRunnableLoopIsFair(t *testing.T) {
 	fmt.Println(cnt, obj, gc)
 }
 
+type reqRatio struct {
+	reqType uint64
+	ratio   int
+}
+
+// TODO should control send request speed
 func testScheduler_FindRunnableLoopIsFair(totalSpeed, iodepth int, highRatio int, totalTime int64, reqSize int64) (
 	totalCnt, objDone, gcDone int) {
+
+	maxIOPS := int64(totalSpeed*1024*1024) / reqSize
+	sleepDuration := time.Duration(int64(time.Second) / (int64(float64(maxIOPS) / 0.5 / 256)))
+	fmt.Println(maxIOPS, sleepDuration)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	wg := new(sync.WaitGroup)
 	s := New(ctx, wg, &Config{
 		IODepth:     iodepth,
-		QueueConfig: new(QueueConfig),
+		QueueConfig: &QueueConfig{},
 	})
 	wg.Add(1)
 	go s.FindRunnableLoop()
@@ -76,13 +86,19 @@ func testScheduler_FindRunnableLoopIsFair(totalSpeed, iodepth int, highRatio int
 
 	ars := make([]*xio.AsyncRequest, 0, 65536)
 	stopped := false
+	cnt := 0
 	for !stopped {
+		if cnt == 256 {
+			cnt = 0
+			time.Sleep(sleepDuration)
+		}
 		select {
 		case <-ter.C:
 			stopped = true
 			break
 		default:
 			totalCnt++
+			cnt++
 			var reqType uint64 = xio.ReqObjRead
 			if rand.Intn(100) >= highRatio {
 				reqType = xio.ReqGCRead
