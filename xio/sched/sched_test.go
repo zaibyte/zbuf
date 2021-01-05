@@ -2,6 +2,7 @@ package sched
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"sync"
 	"testing"
@@ -42,18 +43,28 @@ func TestCalcWaitCoeff(t *testing.T) {
 	}
 }
 
+// Test Scheduler could satisfy fair principle,
+// at the same time, high priority requests should be executed more.
+//
+// Try to test with different speeds of VFS.
 func TestScheduler_FindRunnableLoopIsFair(t *testing.T) {
-
+	cnt, obj, gc := testScheduler_FindRunnableLoopIsFair(1000, 64, 50,
+		100, 128*1024)
+	fmt.Println(cnt, obj, gc)
 }
 
-func testScheduler_FindRunnableLoopIsFair(t *testing.T,
-	totalSpeed, iodepth int, highRatio int, totalTime time.Duration, reqSize int64) {
+func testScheduler_FindRunnableLoopIsFair(totalSpeed, iodepth int, highRatio int, totalTime int64, reqSize int64) (
+	totalCnt, objDone, gcDone int) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	wg := new(sync.WaitGroup)
 	s := New(ctx, wg, &Config{
-		IODepth: iodepth})
+		IODepth:     iodepth,
+		QueueConfig: new(QueueConfig),
+	})
+	wg.Add(1)
+	go s.FindRunnableLoop()
 
 	speed := totalSpeed / iodepth
 	sf := &vfs.SpeedFile{Speed: speed}
@@ -61,23 +72,37 @@ func testScheduler_FindRunnableLoopIsFair(t *testing.T,
 
 	rand.Seed(tsc.UnixNano())
 
-	ter := time.NewTimer(totalTime)
+	ter := time.NewTimer(time.Duration(totalTime * balanceWindow))
 
-	for {
+	ars := make([]*xio.AsyncRequest, 0, 65536)
+	stopped := false
+	for !stopped {
 		select {
 		case <-ter.C:
-			return
+			stopped = true
+			break
 		default:
-			req := xio.AcquireAsyncRequest()
-			req.Data = data
-			req.File = sf
-			if rand.Intn(10) < highRatio {
-				req.Type = xio.ReqObjRead
-			} else {
-				req.Type = xio.ReqGCRead
+			totalCnt++
+			var reqType uint64 = xio.ReqObjRead
+			if rand.Intn(100) >= highRatio {
+				reqType = xio.ReqGCRead
 			}
-			err := s.Add(req)
+			ar, err := s.DoAsync(reqType, sf, 0, data)
+			if err == nil {
+				ars = append(ars, ar)
+			}
 		}
 	}
 
+	for _, ar := range ars {
+		<-ar.Done
+		if ar.Err == nil {
+			if ar.Type == xio.ReqObjRead {
+				objDone++
+			} else {
+				gcDone++
+			}
+		}
+	}
+	return
 }

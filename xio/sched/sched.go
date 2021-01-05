@@ -144,6 +144,10 @@ func (s *Scheduler) FindRunnableLoop() {
 			}
 		}
 
+		if ar == nil {
+			continue
+		}
+
 		if ar.IsCanceled() {
 
 			if ar.Done != nil {
