@@ -9,6 +9,7 @@ package xio
 
 import (
 	"sync"
+	"sync/atomic"
 
 	"g.tesamc.com/IT/zbuf/vfs"
 )
@@ -79,6 +80,8 @@ type AsyncRequest struct {
 	Done   chan struct{}
 
 	PTS int64 // Timestamp of put into queue.
+
+	canceled uint32
 }
 
 var AsyncRequestPool sync.Pool
@@ -101,4 +104,20 @@ func ReleaseAsyncRequest(ar *AsyncRequest) {
 	ar.PTS = 0
 
 	AsyncRequestPool.Put(ar)
+}
+
+// Cancel cancels async call.
+//
+// Canceled call isn't sent to the VFS unless it is already sent there.
+// Canceled call may successfully complete if it has been already sent
+// to the VFS before Cancel call.
+//
+// It is safe calling this function multiple times from concurrently
+// running goroutines.
+func (r *AsyncRequest) Cancel() {
+	atomic.StoreUint32(&r.canceled, 1)
+}
+
+func (r *AsyncRequest) IsCanceled() bool {
+	return atomic.LoadUint32(&r.canceled) != 0
 }
