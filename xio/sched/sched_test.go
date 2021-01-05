@@ -53,9 +53,70 @@ func TestScheduler_FindRunnableLoopIsFair(t *testing.T) {
 	fmt.Println(cnt, obj, gc)
 }
 
-type reqRatio struct {
+type reqCnt struct {
 	reqType uint64
-	ratio   int
+	cnt     int
+}
+
+func TestSchedulerIsFairWithPriority(t *testing.T) {
+	testSchedulerIsFairWithPriority(1000, 64, 128*1024, []reqCnt{
+
+		{
+			reqType: xio.ReqGCRead,
+			cnt:     512,
+		},
+		{
+			reqType: xio.ReqChunkRead,
+			cnt:     512,
+		},
+		{
+			reqType: xio.ReqObjRead,
+			cnt:     512,
+		},
+		{
+			reqType: xio.ReqMetaWrite,
+			cnt:     512,
+		},
+	})
+}
+
+func testSchedulerIsFairWithPriority(vfsSpeed, iodepth, reqSize int, reqCnts []reqCnt) {
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	wg := new(sync.WaitGroup)
+	s := New(ctx, wg, &Config{
+		IODepth:     iodepth,
+		QueueConfig: &QueueConfig{},
+	})
+	wg.Add(1)
+	go s.FindRunnableLoop()
+
+	speed := vfsSpeed / iodepth
+	sf := &vfs.SpeedFile{Speed: speed}
+	data := make([]byte, reqSize)
+
+	wg2 := new(sync.WaitGroup)
+	for _, rc := range reqCnts {
+		wg2.Add(1)
+		go func(rc reqCnt) {
+			defer wg2.Done()
+			ars := make([]*xio.AsyncRequest, 0, rc.cnt)
+			for i := 0; i < rc.cnt; i++ {
+				ar, err := s.DoAsync(rc.reqType, sf, 0, data)
+				if err == nil {
+					ars = append(ars, ar)
+				}
+			}
+			start := tsc.UnixNano()
+			for _, ar := range ars {
+				<-ar.Done
+			}
+			cost := tsc.UnixNano() - start
+			fmt.Println(rc.reqType, time.Duration(cost))
+		}(rc)
+	}
+	wg2.Wait()
 }
 
 // TODO should control send request speed
