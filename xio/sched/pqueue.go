@@ -6,6 +6,7 @@ import (
 
 // PriorityQueue provides requests queue for a certain priority class.
 type PriorityQueue struct {
+	qType     int
 	shares    int64
 	totalCost float64
 	reqQueue  *ReqQueue
@@ -33,11 +34,14 @@ func (p PriorityQueues) Swap(i, j int) {
 
 func (p PriorityQueues) Less(i, j int) bool {
 	s := p
+	// 1.1 here for "random" the order if all queues have same length,
+	// the sort will always return the same result, it'll cause picking up the same queue over and over.
 	return s[i].totalCost < s[j].totalCost
 }
 
-func NewPriorityQueue(shares int64, pending int) *PriorityQueue {
+func NewPriorityQueue(qType int, shares int64, pending int) *PriorityQueue {
 	return &PriorityQueue{
+		qType:     qType,
 		shares:    shares,
 		totalCost: 0,
 		reqQueue:  &ReqQueue{queue: make(chan *xio.AsyncRequest, pending)},

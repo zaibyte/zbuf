@@ -20,11 +20,10 @@ type Queue struct {
 }
 
 const (
-	// Each extent has 64 pending, and for a 8TB disk we will have 64 extents.
-	DefaultObjPending   = 64 * 64
-	DefaultChunkPending = 64
-	DefaultGCPending    = 64
-	DefaultMetaPending  = 64
+	DefaultObjPending   = 512
+	DefaultChunkPending = 512
+	DefaultGCPending    = 512
+	DefaultMetaPending  = 512
 )
 
 // QueueConfig of Queue.
@@ -50,10 +49,10 @@ func NewQueue(cfg *QueueConfig) *Queue {
 	q := &Queue{}
 
 	q.pqs = make([]*PriorityQueue, 4)
-	q.pqs[objq] = NewPriorityQueue(objShares, cfg.ObjPending)
-	q.pqs[chunkq] = NewPriorityQueue(chunkShares, cfg.ChunkPending)
-	q.pqs[gcq] = NewPriorityQueue(gcShares, cfg.GCPending)
-	q.pqs[metaq] = NewPriorityQueue(metaShares, cfg.MetaPending)
+	q.pqs[objq] = NewPriorityQueue(objq, objShares, cfg.ObjPending)
+	q.pqs[chunkq] = NewPriorityQueue(chunkq, chunkShares, cfg.ChunkPending)
+	q.pqs[gcq] = NewPriorityQueue(gcq, gcShares, cfg.GCPending)
+	q.pqs[metaq] = NewPriorityQueue(metaq, metaShares, cfg.MetaPending)
 
 	return q
 }
