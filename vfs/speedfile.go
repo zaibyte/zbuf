@@ -35,7 +35,10 @@ func (s *SpeedFile) Write(p []byte) (n int, err error) {
 }
 
 func (s *SpeedFile) WriteAt(p []byte, off int64) (n int, err error) {
-	panic("implement me")
+	ns := s.calcSleepTime(len(p))
+	time.Sleep(ns)
+
+	return len(p), nil
 }
 
 func (s *SpeedFile) Stat() (os.FileInfo, error) {
