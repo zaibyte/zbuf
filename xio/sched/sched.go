@@ -113,6 +113,8 @@ func (s *Scheduler) Add(reqType uint64, f vfs.File, offset int64, d []byte) (*xi
 // default is 10ms.
 const balanceWindow = int64(10 * time.Millisecond)
 
+const noReqSleep = 100 * time.Microsecond
+
 // FindRunnableLoop finds runnable request by scheduler rules round and round.
 func (s *Scheduler) FindRunnableLoop() {
 	defer s.stopWg.Done()
@@ -130,7 +132,11 @@ func (s *Scheduler) FindRunnableLoop() {
 
 		}
 
-		qs := s.queue.pqs.clone()
+		hasReq, qs := s.queue.pqs.clone()
+		if !hasReq {
+			time.Sleep(noReqSleep)
+			continue
+		}
 		sort.Sort(qs)
 
 		var ar *xio.AsyncRequest

@@ -15,7 +15,7 @@ func TestPriorityQueues_Sort(t *testing.T) {
 		}
 	}
 
-	cpqs := pqs.clone()
+	_, cpqs := pqs.clone()
 
 	sort.Sort(&cpqs)
 

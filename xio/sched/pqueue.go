@@ -15,12 +15,15 @@ type PriorityQueue struct {
 type PriorityQueues []*PriorityQueue
 
 // clone clones a PriorityQueues.
-func (p PriorityQueues) clone() PriorityQueues {
-	ret := make([]*PriorityQueue, p.Len())
+func (p PriorityQueues) clone() (hasReq bool, ret PriorityQueues) {
+	ret = make([]*PriorityQueue, p.Len())
 	for i, q := range p {
 		ret[i] = q
+		if len(q.reqQueue.queue) != 0 {
+			hasReq = true
+		}
 	}
-	return ret
+	return
 }
 
 func (p PriorityQueues) Len() int {

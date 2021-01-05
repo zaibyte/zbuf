@@ -97,8 +97,8 @@ func testSchedulerIsFairWithPriority(vfsSpeed, iodepth, reqSize int, reqCnts []r
 	data := make([]byte, reqSize)
 
 	wg2 := new(sync.WaitGroup)
+	wg2.Add(len(reqCnts))
 	for _, rc := range reqCnts {
-		wg2.Add(1)
 		go func(rc reqCnt) {
 			defer wg2.Done()
 			ars := make([]*xio.AsyncRequest, 0, rc.cnt)

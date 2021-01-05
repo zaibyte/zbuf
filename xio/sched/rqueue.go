@@ -4,6 +4,7 @@ import (
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zbuf/xio"
+	"github.com/templexxx/tsc"
 )
 
 // ReqQueue is the xio.AsyncRequest queue.
@@ -20,6 +21,7 @@ func (p *ReqQueue) add(reqType uint64, f vfs.File, offset int64, d []byte) (ar *
 	ar.File = f
 	ar.Offset = offset
 	ar.Done = make(chan struct{})
+	ar.PTS = tsc.UnixNano()
 
 	select {
 	case p.queue <- ar:
