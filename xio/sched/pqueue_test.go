@@ -30,4 +30,14 @@ func TestPriorityQueues_Sort(t *testing.T) {
 			t.Fatal("after clone, origin changed")
 		}
 	}
+
+	for _, q := range cpqs {
+		q.totalCost = 0.888
+	}
+
+	for _, q := range pqs {
+		if q.totalCost != 0.888 {
+			t.Fatal("clone uses pointer failed")
+		}
+	}
 }
