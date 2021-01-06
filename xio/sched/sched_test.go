@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"g.tesamc.com/IT/zaipkg/xtest"
+
 	"g.tesamc.com/IT/zbuf/xio"
 	"github.com/templexxx/tsc"
 
@@ -49,6 +51,11 @@ type reqCnt struct {
 // Test Scheduler could satisfy fair principle,
 // at the same time, high priority requests should be executed more.
 func TestSchedulerIsFairWithPriority(t *testing.T) {
+
+	if !xtest.IsPropEnabled() {
+		t.Skip("skip property testing")
+	}
+
 	testSchedulerIsFairWithPriority(1024, 64, 128*1024, []reqCnt{
 
 		{
@@ -102,14 +109,38 @@ func testSchedulerIsFairWithPriority(vfsSpeed, iodepth, reqSize int, reqCnts []r
 		}(rc, ars)
 
 		go func(rc reqCnt, ars chan *xio.AsyncRequest) {
+			cnt := 0
 			start := tsc.UnixNano()
 			for ar := range ars {
 				<-ar.Done
+				cnt++
 			}
 			cost := tsc.UnixNano() - start
-			fmt.Println(rc.reqType, time.Duration(cost))
+			formatFairTestRet(vfsSpeed, iodepth, reqSize, int(rc.reqType), cnt, time.Duration(cost))
 			wg2.Done()
 		}(rc, ars)
 	}
 	wg2.Wait()
+}
+
+func formatFairTestRet(vfsSpeed, iodepth, reqSize int, reqType, reqCnt int, cost time.Duration) {
+	rt := ""
+	switch reqType {
+	case xio.ReqObjRead:
+		rt = "obj_read"
+	case xio.ReqObjWrite:
+		rt = "obj_write"
+	case xio.ReqChunkWrite:
+		rt = "chunk_write"
+	case xio.ReqChunkRead:
+		rt = "chunk_read"
+	case xio.ReqGCWrite:
+		rt = "gc_write"
+	case xio.ReqGCRead:
+		rt = "gc_read"
+	default:
+		rt = "meta_write"
+	}
+	fmt.Printf("%s cost: %v with vfs_speed: %dMB/s, io_depth: %d, req_size: %dKB, req_cnt: %d\n",
+		rt, cost, vfsSpeed, iodepth, reqSize/1024, reqCnt)
 }
