@@ -46,7 +46,7 @@ func TestExtentPutGet(t *testing.T) {
 	}
 	defer os.RemoveAll(dataRoot)
 
-	cfg := &ExtentConfig{
+	cfg := &Config{
 		Path:        dataRoot,
 		SegmentSize: 1024 * 1024,
 		flushDelay:  time.Microsecond * 128,
@@ -116,7 +116,7 @@ func TestExtentPutPerf(t *testing.T) {
 	}
 	defer os.RemoveAll(dataRoot)
 
-	cfg := &ExtentConfig{
+	cfg := &Config{
 		Path:        dataRoot,
 		SegmentSize: 1024 * 1024,
 		InsertOnly:  false,
@@ -171,7 +171,7 @@ func TestExtentGetPerf(t *testing.T) {
 	}
 	defer os.RemoveAll(dataRoot)
 
-	cfg := &ExtentConfig{
+	cfg := &Config{
 		Path:        dataRoot,
 		SegmentSize: 1024 * 1024,
 		FlushDelay:  typeutil.NewDuration(time.Microsecond * 128),

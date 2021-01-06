@@ -19,7 +19,8 @@ const (
 	DefaultReadBufferSize  = 128 * 1024
 )
 
-type ExtentConfig struct {
+// Config is the configs of EVA.
+type Config struct {
 	Path         string
 	SegmentSize  int64
 	SizePerWrite int64
@@ -44,7 +45,7 @@ type ExtentConfig struct {
 	ReadBufferSize int `toml:"read_buffer_size"`
 }
 
-func (cfg *ExtentConfig) adjust() {
+func (cfg *Config) adjust() {
 	config.Adjust(&cfg.SegmentSize, defaultSegmentSize)
 	config.Adjust(&cfg.PutPending, defaultPutPending)
 	config.Adjust(&cfg.FlushDelay, defaultFlushDelay)

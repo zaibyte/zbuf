@@ -3,7 +3,7 @@ EVA
 
 The first generation of Extent. The Name is from `EVA-01`, a hero in a famous cartoon.
 
-Designed for NVMe Drivers.
+Designed for NVMe Drivers. You could build different versions of extents on EVA by passing different params.
 
 ##Constraint Conditions
 

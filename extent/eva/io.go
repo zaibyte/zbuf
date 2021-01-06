@@ -49,7 +49,7 @@ type putResult struct {
 	err      error
 }
 
-func (ext *Extent) putObjAsync(oid [16]byte, objData xbytes.Buffer) (pr *putResult, err error) {
+func (ext *EVA) putObjAsync(oid [16]byte, objData xbytes.Buffer) (pr *putResult, err error) {
 
 	pr = acquirePutResult()
 	pr.done = make(chan struct{})
@@ -83,7 +83,7 @@ func (ext *Extent) putObjAsync(oid [16]byte, objData xbytes.Buffer) (pr *putResu
 }
 
 // TODO should handler flush error better, deal with kinds of errors.
-func (ext *Extent) putObjLoop() {
+func (ext *EVA) putObjLoop() {
 	defer ext.stopWg.Done()
 
 	sizePerWrite := ext.cfg.SizePerWrite
@@ -209,7 +209,7 @@ func (ext *Extent) putObjLoop() {
 }
 
 // TODO may need to limit getObj concurrency.
-func (ext *Extent) getObj(digest, size uint32) (obj xbytes.Buffer, err error) {
+func (ext *EVA) getObj(digest, size uint32) (obj xbytes.Buffer, err error) {
 
 	addr, err := ext.index.search(digest)
 	if err != nil {
@@ -248,7 +248,7 @@ func (ext *Extent) getObj(digest, size uint32) (obj xbytes.Buffer, err error) {
 	return
 }
 
-func (ext *Extent) updateIndex(cnt int, unflushedPut []*putResult, unflushedIndex []uint64, flushErr error) {
+func (ext *EVA) updateIndex(cnt int, unflushedPut []*putResult, unflushedIndex []uint64, flushErr error) {
 	if flushErr == nil {
 		for i := 0; i < cnt; i++ {
 			index := unflushedIndex[i]
@@ -269,7 +269,7 @@ func (ext *Extent) updateIndex(cnt int, unflushedPut []*putResult, unflushedInde
 	}
 }
 
-func (ext *Extent) flushPut(seg uint16, offset, size int64) (*xio.FlushJob, error) {
+func (ext *EVA) flushPut(seg uint16, offset, size int64) (*xio.FlushJob, error) {
 
 	if size == 0 {
 		return nil, nil

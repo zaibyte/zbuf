@@ -77,7 +77,7 @@ func (s *Server) createExtent(version uint16, extentID uint32, segmentSize int64
 	rootPath := s.disks[atomic.LoadInt64(&s.nextDisk)%int64(len(s.disks))]
 	atomic.AddInt64(&s.nextDisk, 1)
 
-	cfg := &eva.ExtentConfig{
+	cfg := &eva.Config{
 		Path:        rootPath,
 		SegmentSize: segmentSize,
 		InsertOnly:  s.cfg.InsertOnly,

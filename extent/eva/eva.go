@@ -13,9 +13,9 @@ import (
 	"g.tesamc.com/IT/zbuf/xio"
 )
 
-// Extent is the first generation extent.
-type Extent struct {
-	cfg *ExtentConfig
+// EVA is the first generation extent.
+type EVA struct {
+	cfg *Config
 
 	id uint32
 
@@ -36,7 +36,7 @@ type Extent struct {
 }
 
 // Create a new extent.
-func New(cfg *ExtentConfig, extID uint32, flushJobChan chan<- *xio.FlushJob, getJobChan chan<- *xio.GetJob) (ext *Extent, err error) {
+func New(cfg *Config, extID uint32, flushJobChan chan<- *xio.FlushJob, getJobChan chan<- *xio.GetJob) (ext *EVA, err error) {
 
 	cfg.adjust()
 
@@ -56,7 +56,7 @@ func New(cfg *ExtentConfig, extID uint32, flushJobChan chan<- *xio.FlushJob, get
 		}
 	}
 
-	ext = &Extent{
+	ext = &EVA{
 		cfg:        cfg,
 		id:         extID,
 		file:       f,
@@ -84,7 +84,7 @@ func New(cfg *ExtentConfig, extID uint32, flushJobChan chan<- *xio.FlushJob, get
 	return ext, nil
 }
 
-func (ext *Extent) PutObj(reqid uint64, oid [16]byte, objData xbytes.Buffer) (err error) {
+func (ext *EVA) PutObj(reqid uint64, oid [16]byte, objData xbytes.Buffer) (err error) {
 
 	// TODO should check groupID in oid.
 	var pr *putResult
@@ -99,7 +99,7 @@ func (ext *Extent) PutObj(reqid uint64, oid [16]byte, objData xbytes.Buffer) (er
 	return
 }
 
-func (ext *Extent) GetObj(reqid uint64, oid [16]byte) (objData xbytes.Buffer, err error) {
+func (ext *EVA) GetObj(reqid uint64, oid [16]byte) (objData xbytes.Buffer, err error) {
 
 	// TODO should check groupID in oid., co
 	digest := binary.LittleEndian.Uint32(oid[8:12])
@@ -113,7 +113,7 @@ func (ext *Extent) GetObj(reqid uint64, oid [16]byte) (objData xbytes.Buffer, er
 	return
 }
 
-func (ext *Extent) Close() error {
+func (ext *EVA) Close() error {
 	if ext.stopChan == nil {
 		xlog.Panic("extent must be new before closing it")
 	}

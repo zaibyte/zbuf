@@ -23,15 +23,16 @@ import (
 	"g.tesamc.com/IT/zaipkg/orpc"
 )
 
-// TODO re-design entry:
-// there is no need to keep whole digest, because the bucket already has the part of digest
+// Entry struct:
 // 64                                                           0
 // <-------------------------------------------------------------
-// | tag(10) | neigh_off(6) | size(24) | addr (24)
+// | tag(16) | size(23) | addr (25)
 //
-// addr: 24bits, could support 256GB extent for 16KB grains.
-//
-// size: 24bits, maximum object size is < 16MB.
+
+// addr: 25bits, could support 128GB extent for 4KB grains.
+// //
+// add
+// size: 23bits, maximum object size is < 8  MB.
 //
 // neigh_off: 6bits, hopscotch hashing neighborhood offset
 // P the probability a hopscotch hash table with load factor 0.75 (the biggest load for an extent in Zai)
