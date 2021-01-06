@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"g.tesamc.com/IT/zaipkg/xtest"
-
-	"g.tesamc.com/IT/zbuf/xio"
 	"github.com/templexxx/tsc"
 
+	"g.tesamc.com/IT/zaipkg/xtest"
+
 	"g.tesamc.com/IT/zbuf/vfs"
+	"g.tesamc.com/IT/zbuf/xio"
 )
 
 func TestCalcWeight(t *testing.T) {
@@ -97,16 +97,6 @@ func testSchedulerIsFairWithPriority(vfsSpeed, iodepth, reqSize int, reqCnts []r
 	wg2.Add(len(reqCnts) * 2)
 	for _, rc := range reqCnts {
 		ars := make(chan *xio.AsyncRequest, rc.cnt)
-		go func(rc reqCnt, ars chan *xio.AsyncRequest) {
-			defer wg2.Done()
-			for i := 0; i < rc.cnt; i++ {
-				ar, err := s.DoAsync(rc.reqType, sf, 0, data)
-				if err == nil {
-					ars <- ar
-				}
-			}
-			close(ars)
-		}(rc, ars)
 
 		go func(rc reqCnt, ars chan *xio.AsyncRequest) {
 			cnt := 0
@@ -118,6 +108,17 @@ func testSchedulerIsFairWithPriority(vfsSpeed, iodepth, reqSize int, reqCnts []r
 			cost := tsc.UnixNano() - start
 			formatFairTestRet(vfsSpeed, iodepth, reqSize, int(rc.reqType), cnt, time.Duration(cost))
 			wg2.Done()
+		}(rc, ars)
+
+		go func(rc reqCnt, ars chan *xio.AsyncRequest) {
+			defer wg2.Done()
+			for i := 0; i < rc.cnt; i++ {
+				ar, err := s.DoAsync(rc.reqType, sf, 0, data)
+				if err == nil {
+					ars <- ar
+				}
+			}
+			close(ars)
 		}(rc, ars)
 	}
 	wg2.Wait()
