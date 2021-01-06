@@ -18,19 +18,18 @@ package extent
 
 import "g.tesamc.com/IT/zaipkg/xbytes"
 
-// Objecter is the interface that implements basic objects operations.
-type Objecter interface {
-	PutObj(reqid uint64, oid [16]byte, objData xbytes.Buffer) error
-	GetObj(reqid uint64, oid [16]byte) (objData xbytes.Buffer, err error)
-	// TODO implement Delete
-	// DeleteObj(reqid uint64, oid [16]byte) error
-}
-
+// Extenter is the collection of extent methods.
 type Extenter interface {
 	Objecter
 	Close() error
 }
 
+// Objecter is the interface that implements basic objects operations.
+type Objecter interface {
+	PutObj(reqid, oid uint64, objData xbytes.Buffer) error
+	GetObj(reqid, oid uint64) (objData xbytes.Buffer, err error)
+	DeleteObj(reqid, oid uint64) error
+}
+
 // TODO interface of scheduler scrub
-// TODO interface of erasure code job
 // TODO interface of migrate
