@@ -50,7 +50,7 @@ type reqCnt struct {
 // Test Scheduler could satisfy fair principle,
 // at the same time, high priority requests should be executed more.
 func TestSchedulerIsFairWithPriority(t *testing.T) {
-	testSchedulerIsFairWithPriority(1000, 64, 128*1024, []reqCnt{
+	testSchedulerIsFairWithPriority(1024, 64, 128*1024, []reqCnt{
 
 		{
 			reqType: xio.ReqGCRead,
