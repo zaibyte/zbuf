@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"g.tesamc.com/IT/zbuf/xio"
-
 	"github.com/templexxx/tsc"
 
 	"g.tesamc.com/IT/zbuf/vfs"
@@ -88,24 +87,29 @@ func testSchedulerIsFairWithPriority(vfsSpeed, iodepth, reqSize int, reqCnts []r
 	data := make([]byte, reqSize)
 
 	wg2 := new(sync.WaitGroup)
-	wg2.Add(len(reqCnts))
+	wg2.Add(len(reqCnts) * 2)
 	for _, rc := range reqCnts {
-		go func(rc reqCnt) {
+		ars := make(chan *xio.AsyncRequest, rc.cnt)
+		go func(rc reqCnt, ars chan *xio.AsyncRequest) {
 			defer wg2.Done()
-			ars := make([]*xio.AsyncRequest, 0, rc.cnt)
 			for i := 0; i < rc.cnt; i++ {
 				ar, err := s.DoAsync(rc.reqType, sf, 0, data)
 				if err == nil {
-					ars = append(ars, ar)
+					ars <- ar
 				}
 			}
+			close(ars)
+		}(rc, ars)
+
+		go func(rc reqCnt, ars chan *xio.AsyncRequest) {
 			start := tsc.UnixNano()
-			for _, ar := range ars {
+			for ar := range ars {
 				<-ar.Done
 			}
 			cost := tsc.UnixNano() - start
 			fmt.Println(rc.reqType, time.Duration(cost))
-		}(rc)
+			wg2.Done()
+		}(rc, ars)
 	}
 	wg2.Wait()
 }

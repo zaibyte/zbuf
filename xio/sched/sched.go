@@ -50,7 +50,7 @@ type Scheduler struct {
 
 func (s *Scheduler) DoAsync(reqType uint64, f vfs.File, offset int64, d []byte) (ar *xio.AsyncRequest, err error) {
 
-	return s.Add(reqType, f, offset, d)
+	return s.queue.Add(reqType, f, offset, d)
 }
 
 func (s *Scheduler) DoTimeout(reqType uint64, f vfs.File, offset int64, d []byte, timeout time.Duration) (err error) {
@@ -103,10 +103,6 @@ func New(ctx context.Context, stopWg *sync.WaitGroup, cfg *Config) *Scheduler {
 func (c *Config) adjust() {
 	config.Adjust(&c.IODepth, DefaultIODepth)
 	config.Adjust(&c.RequestTimeout, xio.DefaultTimeout)
-}
-
-func (s *Scheduler) Add(reqType uint64, f vfs.File, offset int64, d []byte) (*xio.AsyncRequest, error) {
-	return s.queue.Add(reqType, f, offset, d)
 }
 
 // That balancing is expected to happen over a specific time window,
