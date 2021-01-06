@@ -23,47 +23,24 @@ import (
 	"g.tesamc.com/IT/zaipkg/orpc"
 )
 
+// Index is made of sequential entries based on Hopscotch Hashing.
+//
 // Entry struct:
-// 64                                                           0
-// <-------------------------------------------------------------
-// | tag(16) | size(23) | addr (25)
+// 64                              0
+// <-------------------------------
+// | tag(16) | size(24) | addr (24)
 //
-
-// addr: 25bits, could support 128GB extent for 4KB grains.
-// //
-// add
-// size: 23bits, maximum object size is < 8  MB.
+// addr: 24bits, could support 256GB extent for 16KB grains.
 //
-// neigh_off: 6bits, hopscotch hashing neighborhood offset
-// P the probability a hopscotch hash table with load factor 0.75 (the biggest load for an extent in Zai)
-// and the neighborhood size 64 must be rehashed:
-// 7.95e-98 < P < 1e-8
-// It's good enough, almost impossible.
+// size: 24bits, maximum object size is < 16MB. For Zai, maximum object is 4MB.
 //
-// tag: 10bits, the upper 10bits in object digest for reconstructing the original digest without extra I/O & recompute.
-// 10bits is enough to cover 2^24 buckets.
-
-// TODO may put digest as last 32bits for SIMD
-// entry struct:
-// 64                                                           0
-// <-------------------------------------------------------------
-// |padding(1)| deleted(1) | neigh_off(6) | digest(32) | addr (24)
+// tag: 16bits, it's the upper 16bits of object's digest, helping to reconstruct digest back.
 //
-
-//
-// tag: the upper 8bits in digest
-// For matching search.
-//
-// size: object size
-//
-// addr: the address of object in extent
-// 256GB for 16KB grains
-//
-// The total memory usage of index is about: (512KB-32MB)*x, x is the amplification.
+// The total memory usage of index is about: [512KB, 128MB]*x, x is the amplification.
 // The x is up to 1.6(0.5 for the middle status in expanding process, 0.1 for load factor overhead),
-// so the real memory usage is about:
-// 820KB (for all objects are 4MB)
-// 52MB (for all objects is <= 16KB)
+// so the real memory usage peak is about:
+// 820KB (for all objects are 4MB) -
+// 205MB (for all objects is <= 16KB)
 
 const (
 	neighOffBits = 6
