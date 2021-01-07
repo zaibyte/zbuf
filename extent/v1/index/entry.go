@@ -11,14 +11,34 @@ package index
 //
 // tag: 16bits, it's the upper 16bits of object's digest, helping to reconstruct digest back.
 
-func parseEntry() (tag, size, addr uint32) {
+const (
+	tagBits  = 16
+	sizeBits = 24
+	addrBits = 24
 
+	maxAddr = (1 << addrBits) - 1
+	maxSize = (1 << sizeBits) - 1
+	maxTag  = (1 << tagBits) - 1
+)
+
+func parseEntry(entry uint64) (tag, size, addr uint32) {
+	addr = uint32(entry & maxAddr)
+	size = uint32(entry>>addrBits) & maxSize
+	tag = uint32(entry>>(addrBits+sizeBits)) & maxTag
+	return
+}
+
+func makeTag(digest uint32) (tag uint32, lowBits uint32) {
+	lowBits = uint32(uint16(digest))
+	tag = (digest >> 16) & maxTag
+	return
 }
 
 func backToDigest(tag, slot uint32) uint32 {
-
+	return (tag << 16) | (slot << 16 >> 16)
 }
 
 func makeEntry(digest, size, addr uint32) uint64 {
-
+	tag := (digest >> 16) & maxTag
+	return uint64(addr&maxAddr) | (uint64(size) << addrBits) | uint64(tag)<<(addrBits+sizeBits)
 }
