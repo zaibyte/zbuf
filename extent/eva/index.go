@@ -41,6 +41,10 @@ import (
 // so the real memory usage peak is about:
 // 820KB (for all objects are 4MB) -
 // 205MB (for all objects is <= 16KB)
+//
+// In practice, most of objects in Tesamc are large, we could make a Index with 2^16 capacity at the beginning,
+// and because of the GC overhead, there will be 20% of slots in index are empty, which means 2^16 (512KB) is just
+// the index's memory usage. For a server with 4*8TB disks, 64MB is the total index.
 
 const (
 	neighOffBits = 6
