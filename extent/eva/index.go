@@ -47,12 +47,6 @@ import (
 // the index's memory usage. For a server with 4*8TB disks, 64MB is the total index.
 
 const (
-	neighOffBits = 6
-	digestBits   = 32
-	addrBits     = 24
-)
-
-const (
 	neighbour = 1 << neighOffBits
 
 	digestShift   = addrBits
