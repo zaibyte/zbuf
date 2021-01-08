@@ -115,9 +115,7 @@ func (s *Index) Add(digest, size, addr uint32) error {
 	switch err {
 
 	case nil:
-		if key != 0 {
-			s.addCnt()
-		}
+		s.addCnt()
 		s.unlock()
 		return nil
 	case ErrExisted:
@@ -435,19 +433,24 @@ restart:
 			n = slotCnt - slot
 		}
 		for i := 0; i < n; i++ {
-			kv := atomic.LoadUint64(&tbl[slot+i])
-			if kv == key {
-				return ErrExisted
-			}
-			if kv == 0 && i < slotOff {
+			e := atomic.LoadUint64(&tbl[slot+i])
+			if e == 0 && i < slotOff {
 				slotOff = i
+				continue
+			}
+
+			tag, _, _ := parseEntry(e)
+			if digest == backToDigest(tag, uint32(slot)) {
+				return ErrExisted
 			}
 		}
 	}
 
+	entry := makeEntry(digest, size, addr)
+
 	// 2. Try to Add within neighbour.
 	if slotOff < neighbour {
-		atomic.StoreUint64(&tbl[slot+slotOff], key)
+		atomic.StoreUint64(&tbl[slot+slotOff], entry)
 		return nil
 	}
 
@@ -460,7 +463,7 @@ restart:
 		}
 
 		if free-slot < neighbour {
-			atomic.StoreUint64(&tbl[free], key)
+			atomic.StoreUint64(&tbl[free], entry)
 			return nil
 		}
 		j = free
@@ -484,11 +487,11 @@ func (s *Index) swap(start, slotCnt int, tbl []uint64, idx uint8) (int, uint8) {
 				j = 0
 			}
 			for ; j < i; j++ { // Search start at the closet position.
-				k := atomic.LoadUint64(&tbl[j])
-				slot := int(calcHash(idx, k) & mask)
+				e := atomic.LoadUint64(&tbl[j])
+				slot := int(calcHash(idx, e) & mask)
 				if i-slot < neighbour {
 					atomic.StoreUint64(&tbl[j], 0)
-					atomic.StoreUint64(&tbl[i], k)
+					atomic.StoreUint64(&tbl[i], e)
 					return j, swapOK
 				}
 			}

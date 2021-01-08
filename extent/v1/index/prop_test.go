@@ -20,6 +20,8 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+// TODO test after expand, will fit in?
+
 func TestMitFull(t *testing.T) {
 
 	if !IsPropEnabled() {

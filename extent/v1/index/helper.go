@@ -60,9 +60,8 @@ func (s *Index) getTblSlotByIdx(idx uint8, key uint64) (tbl []uint64, slot int) 
 }
 
 func getSlot(tbl []uint64, digest uint32) int {
-	h := digest
 	slotCnt := len(tbl)
-	return int(h & (calcMask(uint32(slotCnt))))
+	return int(digest & (calcMask(uint32(slotCnt))))
 }
 
 func getTbl(s *Index, idx int) []uint64 {

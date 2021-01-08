@@ -1,5 +1,7 @@
 package index
 
+// TODO may use 10bit as size, grain is 8KB, because we need header for object. 4KB is not enough to hold pure object
+// which size is 4KB
 // Entry struct:
 // 64                              0
 // <-------------------------------
