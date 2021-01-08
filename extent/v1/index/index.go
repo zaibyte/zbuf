@@ -154,12 +154,8 @@ func (s *Index) Add(digest, otype, grains, addr uint32) error {
 	}
 }
 
-// Contains returns the key in index or not.
-func (s *Index) Contains(key uint64) bool {
-
-	if key == 0 {
-		return s.hasZero()
-	}
+// Search returns the entry which the digest own if has.
+func (s *Index) Search(digest uint32) (entry uint64, has bool) {
 
 	widx := s.getWritableIdx()
 	next := widx ^ 1
@@ -167,47 +163,41 @@ func (s *Index) Contains(key uint64) bool {
 	nt := getTbl(s, int(next))
 
 	// 1. Search writable table first.
-	slot := getSlot(widx, wt, key)
 	if wt != nil {
 		slotCnt := len(wt)
+		slot := getSlot(slotCnt, digest)
 		n := neighbour
 		if slot+neighbour >= slotCnt {
 			n = slotCnt - slot
 		}
 
-		// if containsAVX(key, &wt[slot], n) {
-		// 	return true
-		// }
-
 		for i := 0; i < n; i++ {
-			k := atomic.LoadUint64(&wt[slot+i])
-			if k == key {
-				return true
+			e := atomic.LoadUint64(&wt[slot+i])
+			tag, neighOff, _, _, _ := parseEntry(e)
+			if digest == backToDigest(tag, uint32(slot), neighOff) {
+				return e, true
 			}
 		}
 	}
 
 	// 2. If is scaling, searching next table.
-	slot = getSlot(next, nt, key)
 	if nt != nil {
 		slotCnt := len(nt)
+		slot := getSlot(slotCnt, digest)
 		n := neighbour
 		if slot+neighbour >= slotCnt {
 			n = slotCnt - slot
 		}
 
-		// if containsAVX(key, &nt[slot], n) {
-		// 	return true
-		// }
-
 		for i := 0; i < n; i++ {
-			k := atomic.LoadUint64(&nt[slot+i])
-			if k == key {
-				return true
+			e := atomic.LoadUint64(&nt[slot+i])
+			tag, neighOff, _, _, _ := parseEntry(e)
+			if digest == backToDigest(tag, uint32(slot), neighOff) {
+				return e, true
 			}
 		}
 	}
-	return false
+	return 0, false
 }
 
 // GetUsage returns Index capacity & usage.

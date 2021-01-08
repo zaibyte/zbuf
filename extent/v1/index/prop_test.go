@@ -72,7 +72,7 @@ func TestContainsPerfConcurrent(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for j := 0; j < n; j++ {
-				_ = s.Contains(uint64(j)) // TODO Should use different order, in present, cache impact a lot.
+				_ = s.Search(uint64(j)) // TODO Should use different order, in present, cache impact a lot.
 			}
 		}()
 	}
@@ -106,7 +106,7 @@ func TestContainsPerf(t *testing.T) {
 	start := time.Now().UnixNano()
 	has := 0
 	for i := 1; i < n+1; i++ {
-		if s.Contains(uint64(i)) {
+		if s.Search(uint64(i)) {
 			has++
 		}
 	}

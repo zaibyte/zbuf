@@ -9,14 +9,14 @@ import (
 func TestSet_AddZero(t *testing.T) {
 
 	s, _ := New(2)
-	if s.Contains(0) {
+	if s.Search(0) {
 		t.Fatal("should not have 0")
 	}
 	err := s.Add(0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !s.Contains(0) {
+	if !s.Search(0) {
 		t.Fatal("should have 0")
 	}
 }
@@ -37,7 +37,7 @@ func TestSet_Contains(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if !s.Contains(key) {
+				if !s.Search(key) {
 					t.Fatal("should have key")
 				}
 			}
@@ -45,7 +45,7 @@ func TestSet_Contains(t *testing.T) {
 		wg.Wait()
 
 		for _, key := range keys {
-			if !s.Contains(key) {
+			if !s.Search(key) {
 				t.Fatal("should have key")
 			}
 		}
@@ -64,12 +64,12 @@ func TestSet_Remove(t *testing.T) {
 				t.Fatal(err)
 			}
 			s.Remove(key)
-			if s.Contains(key) {
+			if s.Search(key) {
 				t.Fatal("should not have key")
 			}
 		}
 		for _, key := range keys {
-			if s.Contains(key) {
+			if s.Search(key) {
 				t.Fatal("should not have key")
 			}
 		}
@@ -117,7 +117,7 @@ func TestSet_UpdateConcurrent(t *testing.T) {
 	}
 
 	for i := 0; i < 1024; i++ {
-		if s.Contains(uint64(i)) {
+		if s.Search(uint64(i)) {
 			t.Fatal("should not have key")
 		}
 	}

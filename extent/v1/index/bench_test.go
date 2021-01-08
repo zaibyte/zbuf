@@ -39,13 +39,13 @@ func BenchmarkContainsMostlyHits(b *testing.B) {
 			}
 			// Prime the index to get it into a steady state.
 			for i := uint64(0); i < hits*2; i++ {
-				s.Contains(i % hits)
+				s.Search(i % hits)
 			}
 		},
 
 		perG: func(b *testing.B, pb *testing.PB, i uint64, s *Index) {
 			for ; pb.Next(); i++ {
-				s.Contains(i % (hits + misses))
+				s.Search(i % (hits + misses))
 			}
 		},
 	})
@@ -61,13 +61,13 @@ func BenchmarkContainsMostlyMisses(b *testing.B) {
 			}
 			// Prime the index to get it into a steady state.
 			for i := uint64(0); i < hits*2; i++ {
-				s.Contains(i % hits)
+				s.Search(i % hits)
 			}
 		},
 
 		perG: func(b *testing.B, pb *testing.PB, i uint64, s *Index) {
 			for ; pb.Next(); i++ {
-				s.Contains(i % (hits + misses))
+				s.Search(i % (hits + misses))
 			}
 		},
 	})
@@ -84,7 +84,7 @@ func BenchmarkAddContainsBalanced(b *testing.B) {
 			}
 			// Prime the index to get it into a steady state.
 			for i := uint64(0); i < hits*2; i++ {
-				s.Contains(i % hits)
+				s.Search(i % hits)
 			}
 		},
 
@@ -92,7 +92,7 @@ func BenchmarkAddContainsBalanced(b *testing.B) {
 			for ; pb.Next(); i++ {
 				j := i % (hits + misses)
 				if j < hits {
-					if !s.Contains(j) {
+					if !s.Search(j) {
 						b.Fatalf("unexpected miss for %v", j)
 					}
 				} else {
