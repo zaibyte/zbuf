@@ -175,7 +175,9 @@ func (s *Index) Search(digest uint32) (entry uint64, has bool) {
 			e := atomic.LoadUint64(&wt[slot+i])
 			tag, neighOff, _, _, _ := parseEntry(e)
 			if digest == backToDigest(tag, uint32(slot), neighOff) {
-				return e, true
+				if !IsRemoved(e) {
+					return e, true
+				}
 			}
 		}
 	}
@@ -193,7 +195,9 @@ func (s *Index) Search(digest uint32) (entry uint64, has bool) {
 			e := atomic.LoadUint64(&nt[slot+i])
 			tag, neighOff, _, _, _ := parseEntry(e)
 			if digest == backToDigest(tag, uint32(slot), neighOff) {
-				return e, true
+				if !IsRemoved(e) {
+					return e, true
+				}
 			}
 		}
 	}
@@ -210,12 +214,12 @@ func (s *Index) GetUsage() (total, usage int) {
 	return total, int(s.getCnt())
 }
 
-// Remove removes key in Index.
-func (s *Index) Remove(key uint64) {
+// Remove sets the entry to deleted(grains to 0).
+func (s *Index) Remove(digest uint32) {
 	if !s.IsRunning() {
 		return
 	}
-	s.tryRemove(key)
+	s.tryRemove(digest)
 }
 
 // Range calls f sequentially for each key present in the Index.
@@ -359,7 +363,7 @@ func getPosition(tbl []uint64, slot int, key uint64) (has bool, pos int) {
 	return false, 0
 }
 
-func (s *Index) tryRemove(key uint64) {
+func (s *Index) tryRemove(digest uint32) {
 
 restart:
 
@@ -368,14 +372,8 @@ restart:
 		goto restart
 	}
 
-	if key == 0 {
-		s.removeZero()
-		s.unlock()
-		return
-	}
-
-	idx, tbl, slot := s.getTblSlot(key)
-	has, pos := getPosition(tbl, slot, key)
+	idx, tbl, slot := s.getTblSlot(digest)
+	has, pos := getPosition(tbl, slot, digest)
 	if has {
 		atomic.StoreUint64(&tbl[pos], 0)
 		s.delCnt()
@@ -383,8 +381,8 @@ restart:
 		return
 	}
 
-	tbl, slot = s.getTblSlotByIdx(idx, key)
-	has, pos = getPosition(tbl, slot, key)
+	tbl, slot = s.getTblSlotByIdx(idx, digest)
+	has, pos = getPosition(tbl, slot, digest)
 	if has {
 		atomic.StoreUint64(&tbl[pos], 0)
 		s.delCnt()
