@@ -21,7 +21,7 @@
 //
 // In practice, most of objects in Tesamc are large, we could make a Index with 2^16 capacity at the beginning,
 // and because of the GC overhead, there will be 20% of slots in index are empty, which means 2^16 (512KB) is just
-// the index's memory usage. For a server with 4*8TB disks, 64MB is the total index.
+// the index's memory usage. For a server with 4*8TB disks, 64MB is the total
 package index
 
 import (
@@ -45,7 +45,7 @@ const (
 	maxCap = 1 << 25 // In case collision.
 )
 
-// Index is extent/v1 index.
+// Index is extent/v1
 // Providing Lock-free Write & Wait-free Read.
 type Index struct {
 	// status is a set of flags of Index, see status.go for more details.
@@ -63,7 +63,7 @@ type Index struct {
 // If cap is zero, using minCap.
 func New(cap int) (*Index, error) {
 
-	cap = int(index.nextPower2(uint64(cap)))
+	cap = int(nextPower2(uint64(cap)))
 
 	if cap < minCap {
 		cap = minCap
@@ -72,7 +72,7 @@ func New(cap int) (*Index, error) {
 		cap = maxCap
 	}
 
-	cap = index.calcTableCap(cap)
+	cap = calcTableCap(cap)
 	bkt0 := make([]uint64, cap, cap) // Create one table at the beginning.
 	return &Index{
 		status: createStatus(),
@@ -93,21 +93,22 @@ var (
 	ErrIsFull     = errors.New("index is full")
 	ErrIsSealed   = errors.New("is sealed")
 	ErrExisted    = errors.New("existed")
+	ErrUnknown    = errors.New("unknown")
 )
 
-// Add adds kv pair(digest:size_address) into Index.
+// Add adds kv entry into Index.
 // Return nil if succeed.
 //
 // P.S.:
 // It's better to use only one goroutine to Add at the same time,
 // it'll be more friendly for optimistic lock used by Index.
-func (s *Index) Add(digest, size, addr uint32) error {
+func (s *Index) Add(digest, otype, grains, addr uint32) error {
 
 	if !s.IsRunning() {
 		return ErrIsClosed
 	}
 
-	err := s.tryAdd(digest, size, addr, false)
+	err := s.tryAdd(digest, otype, grains, addr, false)
 	switch err {
 
 	case nil:
@@ -130,7 +131,7 @@ func (s *Index) Add(digest, size, addr uint32) error {
 		idx := s.getWritableIdx()
 		p := atomic.LoadPointer(&s.cycle[idx])
 		tbl := *(*[]uint64)(p)
-		oc := index.backToOriginCap(len(tbl))
+		oc := backToOriginCap(len(tbl))
 		if oc*2 > maxCap {
 			s.unlock()
 			return ErrIsFull // Already maxCap.
@@ -138,7 +139,7 @@ func (s *Index) Add(digest, size, addr uint32) error {
 
 		s.scale()
 		next := idx ^ 1
-		newTbl := make([]uint64, index.calcTableCap(oc*2))
+		newTbl := make([]uint64, calcTableCap(oc*2))
 		atomic.StorePointer(&s.cycle[next], unsafe.Pointer(&newTbl))
 		s.setWritable(next)
 		_ = s.tryAdd(key, true) // First insert must be succeed.
@@ -162,11 +163,11 @@ func (s *Index) Contains(key uint64) bool {
 
 	widx := s.getWritableIdx()
 	next := widx ^ 1
-	wt := index.getTbl(s, int(widx))
-	nt := index.getTbl(s, int(next))
+	wt := getTbl(s, int(widx))
+	nt := getTbl(s, int(next))
 
 	// 1. Search writable table first.
-	slot := index.getSlot(widx, wt, key)
+	slot := getSlot(widx, wt, key)
 	if wt != nil {
 		slotCnt := len(wt)
 		n := neighbour
@@ -187,7 +188,7 @@ func (s *Index) Contains(key uint64) bool {
 	}
 
 	// 2. If is scaling, searching next table.
-	slot = index.getSlot(next, nt, key)
+	slot = getSlot(next, nt, key)
 	if nt != nil {
 		slotCnt := len(nt)
 		n := neighbour
@@ -214,7 +215,7 @@ func (s *Index) GetUsage() (total, usage int) {
 	total = 0
 	tbl := s.getWritableTable()
 	if tbl != nil { // In case.
-		total = index.backToOriginCap(len(tbl))
+		total = backToOriginCap(len(tbl))
 	}
 	return total, int(s.getCnt())
 }
@@ -240,10 +241,10 @@ func (s *Index) Remove(key uint64) {
 func (s *Index) Range(f func(key uint64) bool) {
 
 	widx := s.getWritableIdx()
-	wt := index.getTbl(s, int(widx))
+	wt := getTbl(s, int(widx))
 
 	next := widx ^ 1
-	nt := index.getTbl(s, int(next))
+	nt := getTbl(s, int(next))
 
 	if wt != nil {
 		for i := len(wt) - 1; i >= 0; i-- { // DESC for avoiding visiting the same key twice caused by swap in Add process.
@@ -267,7 +268,7 @@ func (s *Index) Range(f func(key uint64) bool) {
 			}
 
 			if wt != nil {
-				slot := index.getSlot(widx, wt, k)
+				slot := getSlot(widx, wt, k)
 				slotCnt := len(wt)
 				n := neighbour
 				if slot+neighbour >= slotCnt {
@@ -318,7 +319,7 @@ func (s *Index) expand(ri int) {
 
 	restart:
 		if !s.lock() {
-			index.pause()
+			pause()
 			goto restart
 		}
 
@@ -370,7 +371,7 @@ func (s *Index) tryRemove(key uint64) {
 restart:
 
 	if !s.lock() {
-		index.pause()
+		pause()
 		goto restart
 	}
 
@@ -401,13 +402,13 @@ restart:
 	return
 }
 
-func (s *Index) tryAdd(digest, size, addr uint32, isLocked bool) (err error) {
+func (s *Index) tryAdd(digest, otype, grains, addr uint32, isLocked bool) (err error) {
 
 restart:
 
 	if !isLocked {
 		if !s.lock() {
-			index.pause()
+			pause()
 			goto restart
 		}
 	}
@@ -417,35 +418,35 @@ restart:
 	}
 
 	idx := s.getWritableIdx()
-	tbl := index.getTbl(s, int(idx))
+	tbl := getTbl(s, int(idx))
+	if tbl == nil {
+		return ErrUnknown
+	}
 
 	// 1. Ensure key is unique. And try to find free slot within neighbourhood.
 	slotOff := neighbour // slotOff is the distance between avail slot from hashed slot.
-	slot := index.getSlot(tbl, digest)
-	if tbl != nil {
-		slotCnt := len(tbl)
-		n := neighbour
-		if slot+neighbour >= slotCnt {
-			n = slotCnt - slot
+	slotCnt := len(tbl)
+	slot := getSlot(slotCnt, digest)
+	n := neighbour
+	if slot+neighbour >= slotCnt {
+		n = slotCnt - slot
+	}
+	for i := 0; i < n; i++ {
+		e := atomic.LoadUint64(&tbl[slot+i])
+		if e == 0 && i < slotOff {
+			slotOff = i
+			continue
 		}
-		for i := 0; i < n; i++ {
-			e := atomic.LoadUint64(&tbl[slot+i])
-			if e == 0 && i < slotOff {
-				slotOff = i
-				continue
-			}
 
-			tag, _, _ := parseEntry(e)
-			if digest == backToDigest(tag, uint32(slot)) {
-				return ErrExisted
-			}
+		tag, neighOff, _, _, _ := parseEntry(e)
+		if digest == backToDigest(tag, uint32(slot), neighOff) {
+			return ErrExisted
 		}
 	}
 
-	entry := makeEntry(digest, size, addr)
-
 	// 2. Try to Add within neighbour.
 	if slotOff < neighbour {
+		entry := makeEntry(digest, uint32(slotOff), otype, grains, addr)
 		atomic.StoreUint64(&tbl[slot+slotOff], entry)
 		return nil
 	}
@@ -459,6 +460,7 @@ restart:
 		}
 
 		if free-slot < neighbour {
+			entry := makeEntry(digest, uint32(free-slot), otype, grains, addr)
 			atomic.StoreUint64(&tbl[free], entry)
 			return nil
 		}
@@ -475,7 +477,6 @@ const (
 // Return position & swapOK if find one.
 func (s *Index) swap(start, slotCnt int, tbl []uint64, idx uint8) (int, uint8) {
 
-	mask := index.calcMask(uint32(slotCnt))
 	for i := start; i < slotCnt; i++ {
 		if atomic.LoadUint64(&tbl[i]) == 0 { // Find a free one.
 			j := i - neighbour + 1
@@ -484,8 +485,11 @@ func (s *Index) swap(start, slotCnt int, tbl []uint64, idx uint8) (int, uint8) {
 			}
 			for ; j < i; j++ { // Search start at the closet position.
 				e := atomic.LoadUint64(&tbl[j])
-				slot := int(calcHash(idx, e) & mask)
-				if i-slot < neighbour {
+				tag, neighOff, otype, grains, addr := parseEntry(e)
+				if neighOff < neighbour {
+					digest := backToDigest(tag, uint32(j), neighOff)
+					e = makeEntry(digest,
+						uint32(i)-uint32(getSlot(slotCnt, digest)), otype, grains, addr)
 					atomic.StoreUint64(&tbl[j], 0)
 					atomic.StoreUint64(&tbl[i], e)
 					return j, swapOK

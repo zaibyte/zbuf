@@ -3,8 +3,6 @@ package index
 import (
 	"math/bits"
 	"sync/atomic"
-
-	"g.tesamc.com/IT/zbuf/extent/v1/index/index"
 )
 
 // calcMask calculates mask for slot = hash & mask.
@@ -35,20 +33,20 @@ func backToOriginCap(c int) int {
 	return c + 1 - neighbour
 }
 
-func (s *index.Index) getWritableTable() []uint64 {
+func (s *Index) getWritableTable() []uint64 {
 	idx := s.getWritableIdx()
 	p := atomic.LoadPointer(&s.cycle[idx])
 	return *(*[]uint64)(p)
 }
 
 // getTblSlot gets writable table and slot
-func (s *index.Index) getTblSlot(key uint64) (idx uint8, tbl []uint64, slot int) {
+func (s *Index) getTblSlot(key uint64) (idx uint8, tbl []uint64, slot int) {
 	idx = getWritableIdxByStatus(atomic.LoadUint64(&s.status))
 	tbl, slot = s.getTblSlotByIdx(idx, key)
 	return
 }
 
-func (s *index.Index) getTblSlotByIdx(idx uint8, key uint64) (tbl []uint64, slot int) {
+func (s *Index) getTblSlotByIdx(idx uint8, key uint64) (tbl []uint64, slot int) {
 	p := atomic.LoadPointer(&s.cycle[idx])
 	if p == nil {
 		return nil, 0
@@ -61,12 +59,11 @@ func (s *index.Index) getTblSlotByIdx(idx uint8, key uint64) (tbl []uint64, slot
 	return
 }
 
-func getSlot(tbl []uint64, digest uint32) int {
-	slotCnt := len(tbl)
+func getSlot(slotCnt int, digest uint32) int {
 	return int(digest & (calcMask(uint32(slotCnt))))
 }
 
-func getTbl(s *index.Index, idx int) []uint64 {
+func getTbl(s *Index, idx int) []uint64 {
 	p := atomic.LoadPointer(&s.cycle[idx])
 	if p == nil {
 		return nil
