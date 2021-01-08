@@ -372,23 +372,26 @@ restart:
 		goto restart
 	}
 
-	idx, tbl, slot := s.getTblSlot(digest)
-	has, pos := getPosition(tbl, slot, digest)
-	if has {
-		atomic.StoreUint64(&tbl[pos], 0)
-		s.delCnt()
-		s.unlock()
-		return
+	for i := 0; i < 2; i++ {
+		tbl := getTbl(s, i)
+		slotCnt := len(tbl)
+		slot := getSlot(slotCnt, digest)
+		n := neighbour
+		if slot+neighbour >= slotCnt {
+			n = slotCnt - slot
+		}
+
+		for i := 0; i < n; i++ {
+			e := atomic.LoadUint64(&tbl[slot+i])
+			tag, neighOff, otype, _, addr := parseEntry(e)
+			if digest == backToDigest(tag, uint32(slot), neighOff) {
+				newEn := makeEntry(digest, neighOff, otype, 0, addr)
+				atomic.StoreUint64(&tbl[slot+1], newEn)
+				break
+			}
+		}
 	}
 
-	tbl, slot = s.getTblSlotByIdx(idx, digest)
-	has, pos = getPosition(tbl, slot, digest)
-	if has {
-		atomic.StoreUint64(&tbl[pos], 0)
-		s.delCnt()
-		s.unlock()
-		return
-	}
 	s.unlock()
 	return
 }
