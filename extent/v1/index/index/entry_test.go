@@ -2,7 +2,11 @@ package index
 
 import (
 	"math"
+	"math/rand"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/templexxx/tsc"
 )
 
 func TestEntryMinMax(t *testing.T) {
@@ -20,25 +24,29 @@ func TestEntryMinMax(t *testing.T) {
 	}
 }
 
-// func TestEntryMakeParse(t *testing.T) {
-// 	rand.Seed(tsc.UnixNano())
-//
-// 	n := 1024
-// 	for i := 0; i < n; i++ {
-// 		digest := uint32(rand.Intn(math.MaxUint32 + 1))
-// 		size := uint32(rand.Intn(maxSize + 1))
-// 		addr := uint32(rand.Intn(maxAddr + 1))
-//
-// 		entry := makeEntry(digest, size, addr)
-//
-// 		tag, lowBits := makeTag(digest)
-//
-// 		tagAct, sizeAct, addrAct := parseEntry(entry)
-// 		digestAct := backToDigest(tag, lowBits)
-//
-// 		assert.Equal(t, digest, digestAct)
-// 		assert.Equal(t, size, sizeAct)
-// 		assert.Equal(t, addr, addrAct)
-// 		assert.Equal(t, tag, tagAct)
-// 	}
-// }
+func TestEntryMakeParse(t *testing.T) {
+	rand.Seed(tsc.UnixNano())
+
+	n := 1024
+	for i := 0; i < n; i++ {
+		digest := uint32(rand.Intn(math.MaxUint32 + 1))
+		neighOff := uint32(rand.Intn(maxNeighOff + 1))
+		otype := uint32(rand.Intn(maxOtype + 1))
+		grains := uint32(rand.Intn(maxGrains + 1))
+		addr := uint32(rand.Intn(maxAddr + 1))
+
+		entry := makeEntry(digest, neighOff, otype, grains, addr)
+
+		tag, lowBits := makeTag(digest)
+
+		tagAct, neighOffAct, otypeAct, grainsAct, addrAct := parseEntry(entry)
+		digestAct := backToDigest(tag, lowBits+neighOff, neighOff)
+
+		assert.Equal(t, digest, digestAct)
+		assert.Equal(t, neighOff, neighOffAct)
+		assert.Equal(t, otype, otypeAct)
+		assert.Equal(t, grains, grainsAct)
+		assert.Equal(t, addr, addrAct)
+		assert.Equal(t, tag, tagAct)
+	}
+}
