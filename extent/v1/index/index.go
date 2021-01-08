@@ -142,7 +142,7 @@ func (s *Index) Add(digest, otype, grains, addr uint32) error {
 		newTbl := make([]uint64, calcTableCap(oc*2))
 		atomic.StorePointer(&s.cycle[next], unsafe.Pointer(&newTbl))
 		s.setWritable(next)
-		_ = s.tryAdd(key, true) // First insert must be succeed.
+		_ = s.tryAdd(digest, otype, grains, addr, true) // First insert must be succeed.
 		go s.expand(int(idx))
 		s.addCnt()
 		s.unlock()
@@ -323,9 +323,12 @@ func (s *Index) expand(ri int) {
 			goto restart
 		}
 
-		k := atomic.LoadUint64(&src[i])
-		if k != 0 {
-			err := s.tryAdd(k, true)
+		e := atomic.LoadUint64(&src[i])
+		if e != 0 {
+			tag, neighOff, otype, grains, addr := parseEntry(e)
+			digest := backToDigest(tag, uint32(i), neighOff)
+
+			err := s.tryAdd(digest, otype, grains, addr, true)
 			if err == ErrIsFull {
 				s.seal()
 				s.unlock()
