@@ -3,7 +3,7 @@ module g.tesamc.com/IT/zbuf
 go 1.15
 
 require (
-	g.tesamc.com/IT/zaipkg v0.0.0-20210104021648-c3e44a9f61c4
+	g.tesamc.com/IT/zaipkg v0.0.0-20210108050136-17f22807dc4f
 	github.com/julienschmidt/httprouter v1.2.0
 	github.com/lni/goutils v1.2.0
 	github.com/stretchr/testify v1.6.1

@@ -439,14 +439,14 @@ restart:
 				continue
 			}
 
-			tag, _, _ := parseEntry(e)
-			if digest == backToDigest(tag, uint32(slot)) {
+			tag, _, _ := index.parseEntry(e)
+			if digest == index.backToDigest(tag, uint32(slot)) {
 				return ErrExisted
 			}
 		}
 	}
 
-	entry := makeEntry(digest, size, addr)
+	entry := index.makeEntry(digest, size, addr)
 
 	// 2. Try to Add within neighbour.
 	if slotOff < neighbour {
