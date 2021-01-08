@@ -24,7 +24,7 @@ func TestSet_AddZero(t *testing.T) {
 func TestSet_Contains(t *testing.T) {
 
 	start := 2
-	for n := start; n <= maxCap; n *= 32 {
+	for n := start; n <= index.maxCap; n *= 32 {
 		keys := generateKeys(n, randomKey)
 		s, _ := New(n)
 
@@ -55,7 +55,7 @@ func TestSet_Contains(t *testing.T) {
 func TestSet_Remove(t *testing.T) {
 
 	start := 2
-	for n := start; n <= maxCap; n *= 32 {
+	for n := start; n <= index.maxCap; n *= 32 {
 		keys := generateKeys(n/2, randomKey)
 		s, _ := New(n)
 		for _, key := range keys {

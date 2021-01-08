@@ -1,18 +1,14 @@
 // Concepts:
 //
-// 0. Entry:
+// 1. Entry:
 // Key-Value pair, see entry.go for more details.
-//
-// 1. Slot:
+// 2. Slot:
 // Entry container.
-//
-// Neighbourhood:
+// 3. Neighbourhood:
 // Key could be found in slot which hashed to or next Neighbourhood - 1 slots.
-//
-// 2. Bucket:
+// 4. Bucket:
 // It's a virtual struct made of neighbourhood slots.
-//
-// 3. Table:
+// 5. Table:
 // An array of buckets.
 //
 // Index is made of sequential entries based on Hopscotch Hashing.
@@ -67,7 +63,7 @@ type Index struct {
 // If cap is zero, using minCap.
 func New(cap int) (*Index, error) {
 
-	cap = int(nextPower2(uint64(cap)))
+	cap = int(index.nextPower2(uint64(cap)))
 
 	if cap < minCap {
 		cap = minCap
@@ -76,7 +72,7 @@ func New(cap int) (*Index, error) {
 		cap = maxCap
 	}
 
-	cap = calcTableCap(cap)
+	cap = index.calcTableCap(cap)
 	bkt0 := make([]uint64, cap, cap) // Create one table at the beginning.
 	return &Index{
 		status: createStatus(),
@@ -134,7 +130,7 @@ func (s *Index) Add(digest, size, addr uint32) error {
 		idx := s.getWritableIdx()
 		p := atomic.LoadPointer(&s.cycle[idx])
 		tbl := *(*[]uint64)(p)
-		oc := backToOriginCap(len(tbl))
+		oc := index.backToOriginCap(len(tbl))
 		if oc*2 > maxCap {
 			s.unlock()
 			return ErrIsFull // Already maxCap.
@@ -142,7 +138,7 @@ func (s *Index) Add(digest, size, addr uint32) error {
 
 		s.scale()
 		next := idx ^ 1
-		newTbl := make([]uint64, calcTableCap(oc*2))
+		newTbl := make([]uint64, index.calcTableCap(oc*2))
 		atomic.StorePointer(&s.cycle[next], unsafe.Pointer(&newTbl))
 		s.setWritable(next)
 		_ = s.tryAdd(key, true) // First insert must be succeed.
@@ -166,11 +162,11 @@ func (s *Index) Contains(key uint64) bool {
 
 	widx := s.getWritableIdx()
 	next := widx ^ 1
-	wt := getTbl(s, int(widx))
-	nt := getTbl(s, int(next))
+	wt := index.getTbl(s, int(widx))
+	nt := index.getTbl(s, int(next))
 
 	// 1. Search writable table first.
-	slot := getSlot(widx, wt, key)
+	slot := index.getSlot(widx, wt, key)
 	if wt != nil {
 		slotCnt := len(wt)
 		n := neighbour
@@ -191,7 +187,7 @@ func (s *Index) Contains(key uint64) bool {
 	}
 
 	// 2. If is scaling, searching next table.
-	slot = getSlot(next, nt, key)
+	slot = index.getSlot(next, nt, key)
 	if nt != nil {
 		slotCnt := len(nt)
 		n := neighbour
@@ -218,7 +214,7 @@ func (s *Index) GetUsage() (total, usage int) {
 	total = 0
 	tbl := s.getWritableTable()
 	if tbl != nil { // In case.
-		total = backToOriginCap(len(tbl))
+		total = index.backToOriginCap(len(tbl))
 	}
 	return total, int(s.getCnt())
 }
@@ -244,10 +240,10 @@ func (s *Index) Remove(key uint64) {
 func (s *Index) Range(f func(key uint64) bool) {
 
 	widx := s.getWritableIdx()
-	wt := getTbl(s, int(widx))
+	wt := index.getTbl(s, int(widx))
 
 	next := widx ^ 1
-	nt := getTbl(s, int(next))
+	nt := index.getTbl(s, int(next))
 
 	if wt != nil {
 		for i := len(wt) - 1; i >= 0; i-- { // DESC for avoiding visiting the same key twice caused by swap in Add process.
@@ -271,7 +267,7 @@ func (s *Index) Range(f func(key uint64) bool) {
 			}
 
 			if wt != nil {
-				slot := getSlot(widx, wt, k)
+				slot := index.getSlot(widx, wt, k)
 				slotCnt := len(wt)
 				n := neighbour
 				if slot+neighbour >= slotCnt {
@@ -322,7 +318,7 @@ func (s *Index) expand(ri int) {
 
 	restart:
 		if !s.lock() {
-			pause()
+			index.pause()
 			goto restart
 		}
 
@@ -374,7 +370,7 @@ func (s *Index) tryRemove(key uint64) {
 restart:
 
 	if !s.lock() {
-		pause()
+		index.pause()
 		goto restart
 	}
 
@@ -411,7 +407,7 @@ restart:
 
 	if !isLocked {
 		if !s.lock() {
-			pause()
+			index.pause()
 			goto restart
 		}
 	}
@@ -421,11 +417,11 @@ restart:
 	}
 
 	idx := s.getWritableIdx()
-	tbl := getTbl(s, int(idx))
+	tbl := index.getTbl(s, int(idx))
 
 	// 1. Ensure key is unique. And try to find free slot within neighbourhood.
 	slotOff := neighbour // slotOff is the distance between avail slot from hashed slot.
-	slot := getSlot(tbl, digest)
+	slot := index.getSlot(tbl, digest)
 	if tbl != nil {
 		slotCnt := len(tbl)
 		n := neighbour
@@ -439,14 +435,14 @@ restart:
 				continue
 			}
 
-			tag, _, _ := index.parseEntry(e)
-			if digest == index.backToDigest(tag, uint32(slot)) {
+			tag, _, _ := parseEntry(e)
+			if digest == backToDigest(tag, uint32(slot)) {
 				return ErrExisted
 			}
 		}
 	}
 
-	entry := index.makeEntry(digest, size, addr)
+	entry := makeEntry(digest, size, addr)
 
 	// 2. Try to Add within neighbour.
 	if slotOff < neighbour {
@@ -479,7 +475,7 @@ const (
 // Return position & swapOK if find one.
 func (s *Index) swap(start, slotCnt int, tbl []uint64, idx uint8) (int, uint8) {
 
-	mask := calcMask(uint32(slotCnt))
+	mask := index.calcMask(uint32(slotCnt))
 	for i := start; i < slotCnt; i++ {
 		if atomic.LoadUint64(&tbl[i]) == 0 { // Find a free one.
 			j := i - neighbour + 1

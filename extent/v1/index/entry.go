@@ -3,21 +3,21 @@ package index
 // Entry struct:
 // 64                                                                       0
 // <-------------------------------------------------------------------------
-// | tag(16) | neigh_off(6) | otype(2) | grains(11) | padding(3) | addr (26)
+// | tag(16) | neigh_off(6) | otype(2) | grains(11) | padding(5) | addr (24)
 //
-// addr: 26bits, could support 256GB extent for 4KB grains.
+// addr: 24bits, could support 256GB extent for 16KB align.
 //
-// grains: 11bits, maximum object size is < 8MB. For Zai, maximum object is 4MB.
+// grains: 11bits, for Zai, maximum object is 4MB, 4KB/grain.
 //
-// otype: 1bit, object type.
+// otype: 2bit, object type.
 //
 // neigh_off: 6bits, neighborhood offset, helping to reconstruct digest back with tag and slot.
 //
 // tag: 16bits, it's the upper 16bits of object's digest, helping to reconstruct digest back.
 
 const (
-	addrBits     = 26
-	paddingBits  = 3
+	addrBits     = 24
+	paddingBits  = 5
 	grainsBits   = 11
 	otypeBits    = 2
 	neighOffBits = 6

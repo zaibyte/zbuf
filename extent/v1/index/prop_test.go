@@ -29,7 +29,7 @@ func TestMitFull(t *testing.T) {
 	}
 
 	start := 64 * 1024 // Too small is meaningless.
-	end := maxCap
+	end := index.maxCap
 
 	sortRets := make(map[int]int)
 	randRets := make(map[int]int)
