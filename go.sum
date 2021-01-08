@@ -1,7 +1,3 @@
-g.tesamc.com/IT/zaipkg v0.0.0-20210104021648-c3e44a9f61c4 h1:ejGc5U1eOx7b2/9TXRytzo+Fu/k4dA73VjRfwJL/laM=
-g.tesamc.com/IT/zaipkg v0.0.0-20210104021648-c3e44a9f61c4/go.mod h1:93fcdDtGKTRGaC34lLZbyR63/eO2tpy2xKN34oOIJ9A=
-g.tesamc.com/IT/zaipkg v0.0.0-20210108032508-843e2c4d5390 h1:PEOFaTLGvoOH4+HJHYeL5r27hPDRnnS0pxsXyUFwDRw=
-g.tesamc.com/IT/zaipkg v0.0.0-20210108032508-843e2c4d5390/go.mod h1:93fcdDtGKTRGaC34lLZbyR63/eO2tpy2xKN34oOIJ9A=
 g.tesamc.com/IT/zaipkg v0.0.0-20210108050136-17f22807dc4f h1:r5il49YRf6BMBAMEIZQEmn3KSrNRXagAt62eK8Dz/as=
 g.tesamc.com/IT/zaipkg v0.0.0-20210108050136-17f22807dc4f/go.mod h1:93fcdDtGKTRGaC34lLZbyR63/eO2tpy2xKN34oOIJ9A=
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=

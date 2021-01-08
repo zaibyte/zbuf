@@ -33,18 +33,6 @@ func slowNextPower2(n uint64) uint64 {
 	return p
 }
 
-func BenchmarkSet_getTblSlot(b *testing.B) {
-
-	s, err := New(1024)
-	if err != nil {
-		b.Fatal(err)
-	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, _, _ = s.getTblSlot(uint64(i))
-	}
-}
-
 func BenchmarkPause(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		for j := 0; j < 10; j++ {

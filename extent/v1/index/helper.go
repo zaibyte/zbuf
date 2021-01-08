@@ -39,26 +39,6 @@ func (s *Index) getWritableTable() []uint64 {
 	return *(*[]uint64)(p)
 }
 
-// getTblSlot gets writable table and slot
-func (s *Index) getTblSlot(key uint64) (idx uint8, tbl []uint64, slot int) {
-	idx = getWritableIdxByStatus(atomic.LoadUint64(&s.status))
-	tbl, slot = s.getTblSlotByIdx(idx, key)
-	return
-}
-
-func (s *Index) getTblSlotByIdx(idx uint8, key uint64) (tbl []uint64, slot int) {
-	p := atomic.LoadPointer(&s.cycle[idx])
-	if p == nil {
-		return nil, 0
-	}
-
-	tbl = *(*[]uint64)(p)
-	h := calcHash(idx, key)
-	slotCnt := len(tbl)
-	slot = int(h & (calcMask(uint32(slotCnt))))
-	return
-}
-
 func getSlot(slotCnt int, digest uint32) int {
 	return int(digest & (calcMask(uint32(slotCnt))))
 }

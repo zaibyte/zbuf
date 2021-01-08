@@ -272,24 +272,6 @@ func (s *Index) expand(ri int) {
 	}
 }
 
-// getPosition gets key's position in tbl if has.
-func getPosition(tbl []uint64, slot int, key uint64) (has bool, pos int) {
-	if tbl != nil {
-		slotCnt := len(tbl)
-		n := neighbour
-		if slot+neighbour >= slotCnt {
-			n = slotCnt - slot
-		}
-		for i := 0; i < n; i++ {
-			k := atomic.LoadUint64(&tbl[slot+i])
-			if k == key {
-				return true, slot + i
-			}
-		}
-	}
-	return false, 0
-}
-
 func (s *Index) tryRemove(digest uint32) {
 
 restart:
@@ -375,7 +357,7 @@ restart:
 	// 3. Linear probe to find an empty slot and swap.
 	j := slot + neighbour
 	for { // Closer and closer.
-		free, status := s.swap(j, len(tbl), tbl, idx)
+		free, status := s.swap(j, len(tbl), tbl)
 		if status == swapFull {
 			return ErrIsFull
 		}
@@ -396,7 +378,7 @@ const (
 
 // swap swaps the free slot and the another one (closer to the hashed slot).
 // Return position & swapOK if find one.
-func (s *Index) swap(start, slotCnt int, tbl []uint64, idx uint8) (int, uint8) {
+func (s *Index) swap(start, slotCnt int, tbl []uint64) (int, uint8) {
 
 	for i := start; i < slotCnt; i++ {
 		if atomic.LoadUint64(&tbl[i]) == 0 { // Find a free one.

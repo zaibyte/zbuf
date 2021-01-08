@@ -37,8 +37,8 @@ type QueueConfig struct {
 
 const (
 	objShares   = 1000
-	chunkShares = 200
-	gcShares    = 200
+	chunkShares = 2
+	gcShares    = 2
 	metaShares  = 1000
 )
 
