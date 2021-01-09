@@ -81,10 +81,10 @@ func New(cap int) (*Index, error) {
 }
 
 // Close closes Index and release the resource.
-func (s *Index) Close() {
-	s.close()
-	atomic.StorePointer(&s.cycle[0], nil)
-	atomic.StorePointer(&s.cycle[1], nil)
+func (ix *Index) Close() {
+	ix.close()
+	atomic.StorePointer(&ix.cycle[0], nil)
+	atomic.StorePointer(&ix.cycle[1], nil)
 }
 
 var (
@@ -102,65 +102,65 @@ var (
 // P.S.:
 // It's better to use only one goroutine to Add at the same time,
 // it'll be more friendly for optimistic lock used by Index.
-func (s *Index) Add(digest, otype, grains, addr uint32) error {
+func (ix *Index) Add(digest, otype, grains, addr uint32) error {
 
-	if !s.IsRunning() {
+	if !ix.IsRunning() {
 		return ErrIsClosed
 	}
 
-	err := s.tryAdd(digest, otype, grains, addr, false)
+	err := ix.tryAdd(digest, otype, grains, addr, false)
 	switch err {
 
 	case nil:
-		s.addCnt()
-		s.unlock()
+		ix.addCnt()
+		ix.unlock()
 		return nil
 	case ErrExisted:
-		s.unlock()
+		ix.unlock()
 		return nil
 
 	case ErrIsFull:
-		if s.isScaling() {
-			s.unlock()
+		if ix.isScaling() {
+			ix.unlock()
 			// In practice, it's rare to have such fast adding.
 			// Which means the caller's speed if fast than 'sequential traverse'
 			return ErrAddTooFast
 		}
 
 		// Last writable table is full, try to expand to new table.
-		idx := s.getWritableIdx()
-		p := atomic.LoadPointer(&s.cycle[idx])
+		idx := ix.getWritableIdx()
+		p := atomic.LoadPointer(&ix.cycle[idx])
 		tbl := *(*[]uint64)(p)
 		oc := backToOriginCap(len(tbl))
 		if oc*2 > maxCap {
-			s.unlock()
+			ix.unlock()
 			return ErrIsFull // Already maxCap.
 		}
 
-		s.scale()
+		ix.scale()
 		next := idx ^ 1
 		newTbl := make([]uint64, calcTableCap(oc*2))
-		atomic.StorePointer(&s.cycle[next], unsafe.Pointer(&newTbl))
-		s.setWritable(next)
-		_ = s.tryAdd(digest, otype, grains, addr, true) // First insert must be succeed.
-		go s.expand(int(idx))
-		s.addCnt()
-		s.unlock()
+		atomic.StorePointer(&ix.cycle[next], unsafe.Pointer(&newTbl))
+		ix.setWritable(next)
+		_ = ix.tryAdd(digest, otype, grains, addr, true) // First insert must be succeed.
+		go ix.expand(int(idx))
+		ix.addCnt()
+		ix.unlock()
 		return nil
 
 	default:
-		s.unlock()
+		ix.unlock()
 		return err
 	}
 }
 
 // Search returns the entry which the digest own if has.
-func (s *Index) Search(digest uint32) (entry uint64, has bool) {
+func (ix *Index) Search(digest uint32) (entry uint64, has bool) {
 
-	widx := s.getWritableIdx()
+	widx := ix.getWritableIdx()
 	next := widx ^ 1
-	wt := getTbl(s, int(widx))
-	nt := getTbl(s, int(next))
+	wt := getTbl(ix, int(widx))
+	nt := getTbl(ix, int(next))
 
 	// 1. Search writable table first.
 	if wt != nil {
@@ -173,7 +173,7 @@ func (s *Index) Search(digest uint32) (entry uint64, has bool) {
 
 		for i := 0; i < n; i++ {
 			e := atomic.LoadUint64(&wt[slot+i])
-			tag, neighOff, _, _, _ := parseEntry(e)
+			tag, neighOff, _, _, _ := ParseEntry(e)
 			if digest == backToDigest(tag, uint32(slot), neighOff) {
 				if !IsRemoved(e) {
 					return e, true
@@ -193,7 +193,7 @@ func (s *Index) Search(digest uint32) (entry uint64, has bool) {
 
 		for i := 0; i < n; i++ {
 			e := atomic.LoadUint64(&nt[slot+i])
-			tag, neighOff, _, _, _ := parseEntry(e)
+			tag, neighOff, _, _, _ := ParseEntry(e)
 			if digest == backToDigest(tag, uint32(slot), neighOff) {
 				if !IsRemoved(e) {
 					return e, true
@@ -205,31 +205,31 @@ func (s *Index) Search(digest uint32) (entry uint64, has bool) {
 }
 
 // GetUsage returns Index capacity & usage.
-func (s *Index) GetUsage() (total, usage int) {
+func (ix *Index) GetUsage() (total, usage int) {
 	total = 0
-	tbl := s.getWritableTable()
+	tbl := ix.getWritableTable()
 	if tbl != nil { // In case.
 		total = backToOriginCap(len(tbl))
 	}
-	return total, int(s.getCnt())
+	return total, int(ix.getCnt())
 }
 
 // Remove sets the entry to deleted(grains to 0).
-func (s *Index) Remove(digest uint32) {
-	if !s.IsRunning() {
+func (ix *Index) Remove(digest uint32) {
+	if !ix.IsRunning() {
 		return
 	}
-	s.tryRemove(digest)
+	ix.tryRemove(digest)
 }
 
-func (s *Index) expand(ri int) {
-	rp := atomic.LoadPointer(&s.cycle[ri])
+func (ix *Index) expand(ri int) {
+	rp := atomic.LoadPointer(&ix.cycle[ri])
 	src := *(*[]uint64)(rp)
 
 	n, cnt := len(src), 0
 	for i := range src {
 
-		if !s.IsRunning() {
+		if !ix.IsRunning() {
 			return
 		}
 
@@ -239,50 +239,50 @@ func (s *Index) expand(ri int) {
 		}
 
 	restart:
-		if !s.lock() {
+		if !ix.lock() {
 			pause()
 			goto restart
 		}
 
 		e := atomic.LoadUint64(&src[i])
 		if e != 0 {
-			tag, neighOff, otype, grains, addr := parseEntry(e)
+			tag, neighOff, otype, grains, addr := ParseEntry(e)
 			digest := backToDigest(tag, uint32(i), neighOff)
 
-			err := s.tryAdd(digest, otype, grains, addr, true)
+			err := ix.tryAdd(digest, otype, grains, addr, true)
 			if err == ErrIsFull {
-				s.seal()
-				s.unlock()
+				ix.seal()
+				ix.unlock()
 				return
 			}
 
 			if err == ErrExisted {
-				s.delCnt()
+				ix.delCnt()
 			}
 
 			cnt++
 		}
 		if i == n-1 { // Last one is finished.
-			atomic.StorePointer(&s.cycle[ri], unsafe.Pointer(nil))
-			s.unScale()
-			s.unlock()
+			atomic.StorePointer(&ix.cycle[ri], unsafe.Pointer(nil))
+			ix.unScale()
+			ix.unlock()
 			return
 		}
-		s.unlock()
+		ix.unlock()
 	}
 }
 
-func (s *Index) tryRemove(digest uint32) {
+func (ix *Index) tryRemove(digest uint32) {
 
 restart:
 
-	if !s.lock() {
+	if !ix.lock() {
 		pause()
 		goto restart
 	}
 
 	for i := 0; i < 2; i++ {
-		tbl := getTbl(s, i)
+		tbl := getTbl(ix, i)
 		slotCnt := len(tbl)
 		slot := getSlot(slotCnt, digest)
 		n := neighbour
@@ -292,36 +292,36 @@ restart:
 
 		for i := 0; i < n; i++ {
 			e := atomic.LoadUint64(&tbl[slot+i])
-			tag, neighOff, otype, _, addr := parseEntry(e)
+			tag, neighOff, otype, _, addr := ParseEntry(e)
 			if digest == backToDigest(tag, uint32(slot), neighOff) {
-				newEn := makeEntry(digest, neighOff, otype, 0, addr)
+				newEn := MakeEntry(digest, neighOff, otype, 0, addr)
 				atomic.StoreUint64(&tbl[slot+1], newEn)
 				break
 			}
 		}
 	}
 
-	s.unlock()
+	ix.unlock()
 	return
 }
 
-func (s *Index) tryAdd(digest, otype, grains, addr uint32, isLocked bool) (err error) {
+func (ix *Index) tryAdd(digest, otype, grains, addr uint32, isLocked bool) (err error) {
 
 restart:
 
 	if !isLocked {
-		if !s.lock() {
+		if !ix.lock() {
 			pause()
 			goto restart
 		}
 	}
 
-	if s.isSealed() {
+	if ix.isSealed() {
 		return ErrIsSealed
 	}
 
-	idx := s.getWritableIdx()
-	tbl := getTbl(s, int(idx))
+	idx := ix.getWritableIdx()
+	tbl := getTbl(ix, int(idx))
 	if tbl == nil {
 		return ErrUnknown
 	}
@@ -341,7 +341,7 @@ restart:
 			continue
 		}
 
-		tag, neighOff, _, _, _ := parseEntry(e)
+		tag, neighOff, _, _, _ := ParseEntry(e)
 		if digest == backToDigest(tag, uint32(slot), neighOff) {
 			return ErrExisted
 		}
@@ -349,7 +349,7 @@ restart:
 
 	// 2. Try to Add within neighbour.
 	if slotOff < neighbour {
-		entry := makeEntry(digest, uint32(slotOff), otype, grains, addr)
+		entry := MakeEntry(digest, uint32(slotOff), otype, grains, addr)
 		atomic.StoreUint64(&tbl[slot+slotOff], entry)
 		return nil
 	}
@@ -357,13 +357,13 @@ restart:
 	// 3. Linear probe to find an empty slot and swap.
 	j := slot + neighbour
 	for { // Closer and closer.
-		free, status := s.swap(j, len(tbl), tbl)
+		free, status := ix.swap(j, len(tbl), tbl)
 		if status == swapFull {
 			return ErrIsFull
 		}
 
 		if free-slot < neighbour {
-			entry := makeEntry(digest, uint32(free-slot), otype, grains, addr)
+			entry := MakeEntry(digest, uint32(free-slot), otype, grains, addr)
 			atomic.StoreUint64(&tbl[free], entry)
 			return nil
 		}
@@ -378,7 +378,7 @@ const (
 
 // swap swaps the free slot and the another one (closer to the hashed slot).
 // Return position & swapOK if find one.
-func (s *Index) swap(start, slotCnt int, tbl []uint64) (int, uint8) {
+func (ix *Index) swap(start, slotCnt int, tbl []uint64) (int, uint8) {
 
 	for i := start; i < slotCnt; i++ {
 		if atomic.LoadUint64(&tbl[i]) == 0 { // Find a free one.
@@ -388,10 +388,10 @@ func (s *Index) swap(start, slotCnt int, tbl []uint64) (int, uint8) {
 			}
 			for ; j < i; j++ { // Search start at the closet position.
 				e := atomic.LoadUint64(&tbl[j])
-				tag, neighOff, otype, grains, addr := parseEntry(e)
+				tag, neighOff, otype, grains, addr := ParseEntry(e)
 				if neighOff < neighbour {
 					digest := backToDigest(tag, uint32(j), neighOff)
-					e = makeEntry(digest,
+					e = MakeEntry(digest,
 						uint32(i)-uint32(getSlot(slotCnt, digest)), otype, grains, addr)
 					atomic.StoreUint64(&tbl[j], 0)
 					atomic.StoreUint64(&tbl[i], e)

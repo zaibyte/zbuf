@@ -4,59 +4,57 @@ import (
 	"runtime"
 	"sync"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func TestSet_AddZero(t *testing.T) {
-
-	s, _ := New(2)
-	if s.Search(0) {
-		t.Fatal("should not have 0")
-	}
-	err := s.Add(0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !s.Search(0) {
-		t.Fatal("should have 0")
-	}
-}
-
-func TestSet_Contains(t *testing.T) {
+func TestIndexSearch(t *testing.T) {
 
 	start := 2
-	for n := start; n <= index.maxCap; n *= 32 {
-		keys := generateKeys(n, randomKey)
-		s, _ := New(n)
+	for n := start; n <= maxCap; n *= 32 {
+		ens := generatesEntries(n)
+		ix, _ := New(n)
 
 		wg := new(sync.WaitGroup) // Using sync.WaitGroup for ensuring the order.
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for _, key := range keys {
-				err := s.Add(key)
+			for _, en := range ens {
+				err := ix.Add(en.digest, en.otype, en.grains, en.addr)
 				if err != nil {
 					t.Fatal(err)
 				}
-				if !s.Search(key) {
-					t.Fatal("should have key")
+				actEn, has := ix.Search(en.digest)
+				if !has {
+					t.Fatal("should have entry")
 				}
+				checkSearchResult(t, actEn, en)
 			}
 		}()
 		wg.Wait()
 
-		for _, key := range keys {
-			if !s.Search(key) {
-				t.Fatal("should have key")
+		for _, en := range ens {
+			actEn, has := ix.Search(en.digest)
+			if !has {
+				t.Fatal("should have entry")
 			}
+			checkSearchResult(t, actEn, en)
 		}
 	}
+}
+
+func checkSearchResult(t *testing.T, actEn uint64, expEn entryFields) {
+	_, _, otype, grains, addr := ParseEntry(actEn)
+	assert.Equal(t, expEn.otype, otype)
+	assert.Equal(t, expEn.grains, grains)
+	assert.Equal(t, expEn.addr, addr)
 }
 
 func TestSet_Remove(t *testing.T) {
 
 	start := 2
-	for n := start; n <= index.maxCap; n *= 32 {
-		keys := generateKeys(n/2, randomKey)
+	for n := start; n <= maxCap; n *= 32 {
+		keys := generatesEntries(n / 2)
 		s, _ := New(n)
 		for _, key := range keys {
 			err := s.Add(key)

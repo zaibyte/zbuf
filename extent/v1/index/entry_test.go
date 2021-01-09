@@ -11,14 +11,14 @@ import (
 
 func TestEntryMinMax(t *testing.T) {
 
-	min := makeEntry(0, 0, 1, 0, 0) // Size is at least 1.
-	tag, neighOff, otype, grains, addr := parseEntry(min)
+	min := MakeEntry(0, 0, 1, 0, 0) // Size is at least 1.
+	tag, neighOff, otype, grains, addr := ParseEntry(min)
 	if tag != 0 || neighOff != 0 || otype != 1 || grains != 0 || addr != 0 {
 		t.Fatal("min mismatch", min)
 	}
 
-	max := makeEntry(math.MaxUint32, maxNeighOff, maxOtype, maxGrains, maxAddr)
-	tag, neighOff, otype, grains, addr = parseEntry(max)
+	max := MakeEntry(math.MaxUint32, maxNeighOff, maxOtype, maxGrains, maxAddr)
+	tag, neighOff, otype, grains, addr = ParseEntry(max)
 	if tag != maxTag || neighOff != maxNeighOff || otype != maxOtype || grains != maxGrains || addr != maxAddr {
 		t.Fatal("max mismatch")
 	}
@@ -35,11 +35,11 @@ func TestEntryMakeParse(t *testing.T) {
 		grains := uint32(rand.Intn(maxGrains + 1))
 		addr := uint32(rand.Intn(maxAddr + 1))
 
-		entry := makeEntry(digest, neighOff, otype, grains, addr)
+		entry := MakeEntry(digest, neighOff, otype, grains, addr)
 
 		tag, lowBits := makeTag(digest)
 
-		tagAct, neighOffAct, otypeAct, grainsAct, addrAct := parseEntry(entry)
+		tagAct, neighOffAct, otypeAct, grainsAct, addrAct := ParseEntry(entry)
 		digestAct := backToDigest(tag, lowBits+neighOff, neighOff)
 
 		assert.Equal(t, digest, digestAct)

@@ -33,9 +33,9 @@ func backToOriginCap(c int) int {
 	return c + 1 - neighbour
 }
 
-func (s *Index) getWritableTable() []uint64 {
-	idx := s.getWritableIdx()
-	p := atomic.LoadPointer(&s.cycle[idx])
+func (ix *Index) getWritableTable() []uint64 {
+	idx := ix.getWritableIdx()
+	p := atomic.LoadPointer(&ix.cycle[idx])
 	return *(*[]uint64)(p)
 }
 

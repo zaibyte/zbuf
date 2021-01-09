@@ -18,34 +18,34 @@ import "sync/atomic"
 // cnt: [0,32), count of added keys.
 
 // IsRunning returns Index is running or not.
-func (s *Index) IsRunning() bool {
-	sa := atomic.LoadUint64(&s.status)
+func (ix *Index) IsRunning() bool {
+	sa := atomic.LoadUint64(&ix.status)
 	return bitOne(sa, 63)
 }
 
 // close sets status closed.
-func (s *Index) close() {
-	sa := atomic.LoadUint64(&s.status)
+func (ix *Index) close() {
+	sa := atomic.LoadUint64(&ix.status)
 	sa = clrBit(sa, 63)
-	atomic.StoreUint64(&s.status, sa)
+	atomic.StoreUint64(&ix.status, sa)
 }
 
 // lock tries to lock Index, return true if succeed.
-func (s *Index) lock() bool {
-	sa := atomic.LoadUint64(&s.status)
+func (ix *Index) lock() bool {
+	sa := atomic.LoadUint64(&ix.status)
 	if isLocked(sa) {
 		return false // locked.
 	}
 
 	nsa := setBit(sa, 62)
-	return atomic.CompareAndSwapUint64(&s.status, sa, nsa)
+	return atomic.CompareAndSwapUint64(&ix.status, sa, nsa)
 }
 
 // unlock unlocks Index, Index must be locked.
-func (s *Index) unlock() {
-	sa := atomic.LoadUint64(&s.status)
+func (ix *Index) unlock() {
+	sa := atomic.LoadUint64(&ix.status)
 	sa = clrBit(sa, 62)
-	atomic.StoreUint64(&s.status, sa)
+	atomic.StoreUint64(&ix.status, sa)
 }
 
 func isLocked(sa uint64) bool {
@@ -61,43 +61,43 @@ func createStatus() uint64 {
 // TODO how to deal with sealed. Should pause make bigger table and transfer all data
 // seal seals Index.
 // When there is no writable table setting Index sealed.
-func (s *Index) seal() {
-	sa := atomic.LoadUint64(&s.status)
+func (ix *Index) seal() {
+	sa := atomic.LoadUint64(&ix.status)
 	sa = setBit(sa, 61)
-	atomic.StoreUint64(&s.status, sa)
+	atomic.StoreUint64(&ix.status, sa)
 }
 
 // isSealed returns Index is sealed or not.
-func (s *Index) isSealed() bool {
-	sa := atomic.LoadUint64(&s.status)
+func (ix *Index) isSealed() bool {
+	sa := atomic.LoadUint64(&ix.status)
 	return bitOne(sa, 61)
 }
 
 // scale sets Index sealed.
 // When Index is expanding/shrinking setting Index scaling.
-func (s *Index) scale() {
-	sa := atomic.LoadUint64(&s.status)
+func (ix *Index) scale() {
+	sa := atomic.LoadUint64(&ix.status)
 	sa = setBit(sa, 60)
-	atomic.StoreUint64(&s.status, sa)
+	atomic.StoreUint64(&ix.status, sa)
 }
 
 // isScaling returns Index is scaling or not.
-func (s *Index) isScaling() bool {
-	sa := atomic.LoadUint64(&s.status)
+func (ix *Index) isScaling() bool {
+	sa := atomic.LoadUint64(&ix.status)
 	return bitOne(sa, 60)
 }
 
 // unScale sets Index scalable.
-func (s *Index) unScale() {
-	sa := atomic.LoadUint64(&s.status)
+func (ix *Index) unScale() {
+	sa := atomic.LoadUint64(&ix.status)
 	sa = clrBit(sa, 60)
-	atomic.StoreUint64(&s.status, sa)
+	atomic.StoreUint64(&ix.status, sa)
 }
 
 // getWritableIdx gets writable table in Index.
 // 0 or 1.
-func (s *Index) getWritableIdx() uint8 {
-	sa := atomic.LoadUint64(&s.status)
+func (ix *Index) getWritableIdx() uint8 {
+	sa := atomic.LoadUint64(&ix.status)
 	return uint8((sa >> 59) & 1)
 }
 
@@ -106,30 +106,30 @@ func getWritableIdxByStatus(sa uint64) uint8 {
 }
 
 // setWritable sets writable table
-func (s *Index) setWritable(idx uint8) {
-	sa := atomic.LoadUint64(&s.status)
+func (ix *Index) setWritable(idx uint8) {
+	sa := atomic.LoadUint64(&ix.status)
 	if idx == 0 {
 		sa = clrBit(sa, 59)
 	} else {
 		sa = setBit(sa, 59)
 	}
-	atomic.StoreUint64(&s.status, sa)
+	atomic.StoreUint64(&ix.status, sa)
 }
 
 // addCnt adds Index count.
-func (s *Index) addCnt() {
-	atomic.AddUint64(&s.status, 1) // cnt is the lowest bits, just +1.
+func (ix *Index) addCnt() {
+	atomic.AddUint64(&ix.status, 1) // cnt is the lowest bits, just +1.
 }
 
 // delCnt minutes Index count.
-func (s *Index) delCnt() {
-	atomic.AddUint64(&s.status, ^uint64(0))
+func (ix *Index) delCnt() {
+	atomic.AddUint64(&ix.status, ^uint64(0))
 }
 
 const cntMask = (1 << 32) - 1
 
-func (s *Index) getCnt() uint64 {
-	sa := atomic.LoadUint64(&s.status)
+func (ix *Index) getCnt() uint64 {
+	sa := atomic.LoadUint64(&ix.status)
 	return sa & cntMask
 }
 

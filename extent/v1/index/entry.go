@@ -30,7 +30,7 @@ const (
 	maxTag      = (1 << tagBits) - 1
 )
 
-func parseEntry(entry uint64) (tag, neighOff, otype, grains, addr uint32) {
+func ParseEntry(entry uint64) (tag, neighOff, otype, grains, addr uint32) {
 	addr = uint32(entry & maxAddr)
 	grains = uint32(entry>>(addrBits+paddingBits)) & maxGrains
 	otype = uint32(entry>>(grainsBits+addrBits+paddingBits)) & maxOtype
@@ -51,7 +51,7 @@ func backToDigest(tag, slot, neighOff uint32) uint32 {
 	return (tag << 16) | (originSlot << 16 >> 16)
 }
 
-func makeEntry(digest, neighOff, otype, grains, addr uint32) uint64 {
+func MakeEntry(digest, neighOff, otype, grains, addr uint32) uint64 {
 	tag := (digest >> 16) & maxTag
 	return uint64(addr&maxAddr) | uint64(grains)<<(addrBits+paddingBits) |
 		uint64(otype)&maxOtype<<(grainsBits+addrBits+paddingBits) | uint64(neighOff)<<(addrBits+paddingBits+grainsBits+otypeBits) |
@@ -59,7 +59,7 @@ func makeEntry(digest, neighOff, otype, grains, addr uint32) uint64 {
 }
 
 func IsRemoved(entry uint64) bool {
-	_, _, _, grains, _ := parseEntry(entry)
+	_, _, _, grains, _ := ParseEntry(entry)
 	if grains == 0 {
 		return true
 	}

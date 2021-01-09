@@ -3,12 +3,17 @@ package index
 import (
 	"flag"
 	"fmt"
+	"math"
 	"math/rand"
 	"os"
 	"runtime"
 	"sync"
 	"testing"
 	"time"
+
+	"g.tesamc.com/IT/zaipkg/uid"
+
+	"github.com/templexxx/tsc"
 )
 
 func TestMain(m *testing.M) {
@@ -123,7 +128,7 @@ func testMitFull(cnt, keyType int) int {
 	s, _ := New(cnt)
 
 	s.scale()
-	keys := generateKeys(cnt, keyType)
+	keys := generatesEntries(cnt)
 	for i, key := range keys {
 		err := s.Add(key)
 		if err == ErrAddTooFast {
@@ -133,26 +138,25 @@ func testMitFull(cnt, keyType int) int {
 	return cnt
 }
 
-const (
-	sortKey = iota
-	randomKey
-)
+type entryFields struct {
+	digest uint32
+	otype  uint32
+	grains uint32
+	addr   uint32
+}
 
-func generateKeys(cnt, keyType int) []uint64 {
-	keys := make([]uint64, cnt)
-	for i := range keys {
-		keys[i] = uint64(i + 1)
+func generatesEntries(cnt int) []entryFields {
+
+	rand.Seed(tsc.UnixNano())
+
+	ens := make([]entryFields, cnt)
+	for i := range ens {
+		ens[i].digest = uint32(rand.Intn(math.MaxUint32 + 1))
+		ens[i].otype = uint32(rand.Intn(uid.MaxOType + 1))
+		ens[i].grains = uint32(rand.Intn(maxGrains + 1))
+		ens[i].addr = uint32(rand.Intn(maxAddr + 1))
 	}
-	switch keyType {
-	case randomKey:
-		kk := rand.Perm(cnt * 4)
-		for i := range keys {
-			keys[i] = uint64(kk[i])
-		}
-		return keys
-	default:
-		return keys
-	}
+	return ens
 }
 
 func printRets(rets map[int]int, keyType int) {
