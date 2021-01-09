@@ -5,7 +5,7 @@ import (
 )
 
 func TestCalcCap(t *testing.T) {
-	for i := 2; i <= maxCap; i *= 2 {
+	for i := 2; i <= MaxCap; i *= 2 {
 		if backToOriginCap(calcTableCap(i)) != i {
 			t.Fatal("calc cap mismatched")
 		}

@@ -1,17 +1,16 @@
 package index
 
 import (
-	"runtime"
 	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestIndexSearch(t *testing.T) {
+func TestIndex_Search(t *testing.T) {
 
 	start := 2
-	for n := start; n <= maxCap; n *= 32 {
+	for n := start; n <= MaxCap; n *= 32 {
 		ens := generatesEntries(n)
 		ix, _ := New(n)
 
@@ -50,28 +49,28 @@ func checkSearchResult(t *testing.T, actEn uint64, expEn entryFields) {
 	assert.Equal(t, expEn.addr, addr)
 }
 
-func TestSet_Remove(t *testing.T) {
+func TestIndex_Remove(t *testing.T) {
 
 	start := 2
-	for n := start; n <= maxCap; n *= 32 {
-		keys := generatesEntries(n / 2)
-		s, _ := New(n)
-		for _, key := range keys {
-			err := s.Add(key)
+	for n := start; n <= MaxCap; n *= 32 {
+		ens := generatesEntries(n / 2)
+		ix, _ := New(n)
+		for _, en := range ens {
+			err := ix.Add(en.digest, en.otype, en.grains, en.addr)
 			if err != nil {
 				t.Fatal(err)
 			}
-			s.Remove(key)
-			if s.Search(key) {
-				t.Fatal("should not have key")
+			ix.Remove(en.digest)
+			if _, has := ix.Search(en.digest); has {
+				t.Fatal("should not have entry")
 			}
 		}
-		for _, key := range keys {
-			if s.Search(key) {
-				t.Fatal("should not have key")
+		for _, en := range ens {
+			if _, has := ix.Search(en.digest); has {
+				t.Fatal("should not have entry")
 			}
 		}
-		_, usage := s.GetUsage()
+		_, usage := ix.GetUsage()
 		if usage != 0 {
 			t.Fatal("usage size mismatched")
 		}
@@ -79,23 +78,26 @@ func TestSet_Remove(t *testing.T) {
 }
 
 // Add & Remove concurrently, checking dead lock or not.
-func TestSet_UpdateConcurrent(t *testing.T) {
+func TestIndex_UpdateConcurrent(t *testing.T) {
 
 	n := 1024 * 4
-	s, _ := New(n)
-	for i := 0; i < 1024; i++ {
-		err := s.Add(uint64(i))
+	ix, _ := New(n)
+	ens := generatesEntries(2048)
+	ensMap := new(sync.Map)
+	for i := range ens[:1024] {
+		err := ix.Add(ens[i].digest, ens[i].otype, ens[i].grains, ens[i].addr)
 		if err != nil {
 			t.Fatal(err)
 		}
+		ensMap.Store(i, ens[i])
 	}
 
 	wg := new(sync.WaitGroup)
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		for i := 1024; i < 1024*2; i++ {
-			err := s.Add(uint64(i))
+		for i := range ens[1024:] {
+			err := ix.Add(ens[i].digest, ens[i].otype, ens[i].grains, ens[i].addr)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -103,164 +105,49 @@ func TestSet_UpdateConcurrent(t *testing.T) {
 	}()
 	go func() {
 		defer wg.Done()
-		for i := 0; i < 1024; i++ {
-			s.Remove(uint64(i))
+		for i := range ens[:1024] {
+			ix.Remove(ens[i].digest)
 		}
 	}()
 	wg.Wait()
 
-	_, usage := s.GetUsage()
+	_, usage := ix.GetUsage()
 	if usage != 1024 {
 		t.Fatal("usage mismatched")
 	}
 
-	for i := 0; i < 1024; i++ {
-		if s.Search(uint64(i)) {
-			t.Fatal("should not have key")
+	for i := range ens[:1024] {
+		if _, has := ix.Search(ens[i].digest); has {
+			t.Fatal("should not have")
 		}
 	}
 }
 
-func TestSet_GetUsage(t *testing.T) {
+func TestIndex_GetUsage(t *testing.T) {
 
 	n := 2048
-	s, _ := New(n * 4)
+	ix, _ := New(n * 4)
+	ens := generatesEntries(2048)
 	for j := 0; j < 16; j++ {
-		for i := 1; i < n+1; i++ {
-			err := s.Add(uint64(i))
+		for _, en := range ens {
+			err := ix.Add(en.digest, en.otype, en.grains, en.addr)
 			if err != nil {
 				t.Fatal(err)
 			}
 		}
 	}
 
-	_, usage := s.GetUsage()
+	_, usage := ix.GetUsage()
 	if usage != n {
 		t.Fatal("usage mismatched", usage)
 	}
 
-	cnt := 0
 	for i := 1; i < (n+1)/2; i++ {
-		cnt++
-		s.Remove(uint64(i))
+		ix.Remove(ens[i].digest)
 	}
 
-	_, usage = s.GetUsage()
-	if usage != n-(n+1)/2+1 {
+	_, usage = ix.GetUsage()
+	if usage != n {
 		t.Fatal("usage mismatched")
-	}
-}
-
-func TestSet_Range(t *testing.T) {
-
-	n := 1 << 12
-	s, _ := New(n * 4)
-
-	for i := 1; i <= n; i++ {
-		err := s.Add(uint64(i))
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	seen := make(map[uint64]bool, n)
-	s.Range(func(k uint64) bool {
-		if seen[k] {
-			t.Fatalf("Range visited key %v twice", k)
-		}
-		seen[k] = true
-		return true
-	})
-	if len(seen) != n {
-		t.Fatalf("Range visited %v elements of %v-element Map", len(seen), n)
-	}
-}
-
-func TestSet_RangeWithExpand(t *testing.T) {
-
-	cnt := 1 << 13
-	s, _ := New(cnt / 2) // Not enough capacity, must trigger expand.
-
-	for i := 1; i <= cnt; i++ {
-		err := s.Add(uint64(i))
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	iters := 1024
-	for n := iters; n > 0; n-- {
-		seen := make(map[uint64]bool, cnt)
-
-		s.Range(func(k uint64) bool {
-
-			if seen[k] {
-				t.Fatalf("Range visited key %v twice", k)
-			}
-			seen[k] = true
-			return true
-		})
-	}
-}
-
-func TestConcurrentRange(t *testing.T) {
-
-	const cnt = 1 << 12
-
-	s, _ := New(cnt)
-	for n := uint64(1); n <= cnt; n++ {
-		err := s.Add(n)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	done := make(chan struct{})
-	var wg sync.WaitGroup
-	defer func() {
-		close(done)
-		wg.Wait()
-	}()
-	for g := int64(runtime.GOMAXPROCS(0)); g > 0; g-- {
-		wg.Add(1)
-		go func(g int64) {
-			defer wg.Done()
-			for i := int64(0); ; i++ {
-				select {
-				case <-done:
-					return
-				default:
-				}
-				for n := uint64(1); n < cnt; n++ {
-					err := s.Add(n)
-					if err != nil {
-						t.Fatal(err)
-					}
-				}
-			}
-		}(g)
-	}
-
-	iters := 1 << 10
-	if testing.Short() {
-		iters = 16
-	}
-	for n := iters; n > 0; n-- {
-		seen := make(map[uint64]bool, cnt)
-
-		s.Range(func(k uint64) bool {
-
-			if seen[k] {
-				t.Fatalf("Range visited key %v twice", k)
-			}
-			seen[k] = true
-			return true
-		})
-
-		if n == 1 {
-			if len(seen) != cnt {
-				t.Logf("In last iter, Range visited %v elements of %v-element Map", len(seen), cnt)
-			}
-		}
 	}
 }

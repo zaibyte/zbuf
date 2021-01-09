@@ -34,15 +34,15 @@ import (
 // neighbour is the hopscotch hash neighbourhood size.
 // 64 could reach high load factor(e.g. 0.9) and the performance is good.
 //
-// If there is no place to set key, try to resize to another bucket until meet maxCap.
+// If there is no place to set key, try to resize to another bucket until meet MaxCap.
 const neighbour = 64
 
 const (
-	// Start with a minCap, saving memory.
-	minCap = 1 << 16 // All objects are 4MB.
-	// maxCap is the maximum capacity of Index.
-	// The real max number of keys may be around 0.9 * maxCap.
-	maxCap = 1 << 25 // In case collision.
+	// Start with a MinCap, saving memory.
+	MinCap = 1 << 16 // All objects are 4MB.
+	// MaxCap is the maximum capacity of Index.
+	// The real max number of keys may be around 0.9 * MaxCap.
+	MaxCap = 1 << 25 // In case collision.
 )
 
 // Index is extent/v1
@@ -58,18 +58,18 @@ type Index struct {
 
 // New creates a new Index.
 // cap is the index capacity at the beginning,
-// Index will grow if no bucket to add until meet maxCap.
+// Index will grow if no bucket to add until meet MaxCap.
 //
-// If cap is zero, using minCap.
+// If cap is zero, using MinCap.
 func New(cap int) (*Index, error) {
 
 	cap = int(nextPower2(uint64(cap)))
 
-	if cap < minCap {
-		cap = minCap
+	if cap < MinCap {
+		cap = MinCap
 	}
-	if cap > maxCap {
-		cap = maxCap
+	if cap > MaxCap {
+		cap = MaxCap
 	}
 
 	cap = calcTableCap(cap)
@@ -132,9 +132,9 @@ func (ix *Index) Add(digest, otype, grains, addr uint32) error {
 		p := atomic.LoadPointer(&ix.cycle[idx])
 		tbl := *(*[]uint64)(p)
 		oc := backToOriginCap(len(tbl))
-		if oc*2 > maxCap {
+		if oc*2 > MaxCap {
 			ix.unlock()
-			return ErrIsFull // Already maxCap.
+			return ErrIsFull // Already MaxCap.
 		}
 
 		ix.scale()
@@ -205,6 +205,9 @@ func (ix *Index) Search(digest uint32) (entry uint64, has bool) {
 }
 
 // GetUsage returns Index capacity & usage.
+// The usage include removed entries(which grains is 0),
+// Every time after GC, we should check usage, total & count(in higher level, index user),
+// if count is much lower than usage, try to shrink.
 func (ix *Index) GetUsage() (total, usage int) {
 	total = 0
 	tbl := ix.getWritableTable()
