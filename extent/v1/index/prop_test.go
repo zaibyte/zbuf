@@ -20,6 +20,42 @@ func TestMain(m *testing.M) {
 
 // TODO test after expand, will fit in?
 // TODO check crc32 could work well with two tables, fill one first, then try to fill 2xone with same ens+more, see when will hit fill
+// Both of two tables are using same hash function(actually using digest directly), I want to know just make table
+// capacity grow could make the expanding work as expecting or not.
+func TestIndexExpand(t *testing.T) {
+	//if !IsPropEnabled() {
+	//	t.Skip("skip testing, because it may take too long time")
+	//}
+
+	cnt := 1 << 16
+	ix, _ := New(cnt)
+	ix.scale()
+
+	ens := generatesEntries(cnt * 2)
+
+	mitFull := 0
+	for i, en := range ens[:cnt] {
+		err := ix.Add(en.digest, en.otype, en.grains, en.addr)
+		if err == ErrAddTooFast {
+			mitFull = i
+			break
+		}
+	}
+
+	ix2, _ := New(cnt * 2)
+	ix2.scale()
+
+	mitFull2 := 0
+	for i, en := range ens {
+		err := ix.Add(en.digest, en.otype, en.grains, en.addr)
+		if err == ErrAddTooFast {
+			mitFull = i
+			break
+		}
+	}
+
+	fmt.Println(mitFull, mitFull2)
+}
 
 func TestMitFull(t *testing.T) {
 
@@ -41,12 +77,12 @@ func TestMitFull(t *testing.T) {
 }
 
 func testMitFull(cnt int) int {
-	s, _ := New(cnt)
+	ix, _ := New(cnt)
 
-	s.scale()
+	ix.scale()
 	ens := generatesEntries(cnt)
 	for i, en := range ens {
-		err := s.Add(en.digest, en.otype, en.grains, en.addr)
+		err := ix.Add(en.digest, en.otype, en.grains, en.addr)
 		if err == ErrAddTooFast {
 			return i
 		}

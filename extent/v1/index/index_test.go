@@ -1,10 +1,13 @@
 package index
 
 import (
+	"encoding/binary"
 	"math"
 	"math/rand"
 	"sync"
 	"testing"
+
+	"g.tesamc.com/IT/zaipkg/xdigest"
 
 	"g.tesamc.com/IT/zaipkg/uid"
 	"github.com/templexxx/tsc"
@@ -30,7 +33,7 @@ func TestIndex_Search(t *testing.T) {
 				}
 				actEn, has := ix.Search(en.digest)
 				if !has {
-					t.Fatal("should have entry")
+					t.Fatal("should have entry", en.digest)
 				}
 				checkSearchResult(t, actEn, en)
 			}
@@ -169,10 +172,32 @@ func generatesEntries(cnt int) []entryFields {
 	rand.Seed(tsc.UnixNano())
 
 	ens := make([]entryFields, cnt)
+
+	digests := make(map[uint32]bool)
+
+	srcBuf := make([]byte, 4)
 	for i := range ens {
-		ens[i].digest = uint32(rand.Intn(math.MaxUint32 + 1))
-		ens[i].otype = uint32(rand.Intn(uid.MaxOType + 1))
-		ens[i].grains = uint32(rand.Intn(maxGrains + 1))
+		for {
+			src := uint32(rand.Intn(math.MaxUint32 + 1))
+			binary.LittleEndian.PutUint32(srcBuf, src)
+			digest := xdigest.Sum32(srcBuf)
+			if digests[digest] {
+				continue
+			}
+			ens[i].digest = digest
+			break
+		}
+
+		otype := uint32(rand.Intn(uid.MaxOType + 1))
+		if otype == 0 {
+			otype = 1
+		}
+		ens[i].otype = otype
+		grains := uint32(rand.Intn(maxGrains + 1))
+		if grains == 0 {
+			grains = 1
+		}
+		ens[i].grains = grains
 		ens[i].addr = uint32(rand.Intn(maxAddr + 1))
 	}
 	return ens

@@ -1,5 +1,7 @@
 package index
 
+import "math/bits"
+
 // Entry struct:
 // 64                                                                       0
 // <-------------------------------------------------------------------------
@@ -45,10 +47,14 @@ func makeTag(digest uint32) (tag uint32, lowBits uint32) {
 	return
 }
 
-func backToDigest(tag, slot, neighOff uint32) uint32 {
+func backToDigest(tag, slotCnt, slot, neighOff uint32) uint32 {
 
+	mask := calcMask(slotCnt)
+	maskBits := uint32(bits.OnesCount32(mask))
+	validTagBits := 32 - maskBits
+	tagMask := uint32((1<<validTagBits)-1) << maskBits
 	originSlot := slot - neighOff
-	return (tag << 16) | (originSlot << 16 >> 16)
+	return ((tag << 16) & tagMask) | originSlot
 }
 
 func MakeEntry(digest, neighOff, otype, grains, addr uint32) uint64 {

@@ -26,6 +26,7 @@ package index
 
 import (
 	"errors"
+	"fmt"
 	"runtime"
 	"sync/atomic"
 	"unsafe"
@@ -39,7 +40,9 @@ const neighbour = 64
 
 const (
 	// Start with a MinCap, saving memory.
-	MinCap = 1 << 16 // All objects are 4MB.
+	// The minimum capacity, index must have MinCap slots, otherwise the tag in entry will not have
+	// the ability to reconstruct the digest back.
+	MinCap = 1 << 16
 	// MaxCap is the maximum capacity of Index.
 	// The real max number of keys may be around 0.9 * MaxCap.
 	MaxCap = 1 << 25 // In case collision.
@@ -72,7 +75,7 @@ func New(cap int) (*Index, error) {
 		cap = MaxCap
 	}
 
-	cap = calcTableCap(cap)
+	cap = calcSlotCnt(cap)
 	bkt0 := make([]uint64, cap, cap) // Create one table at the beginning.
 	return &Index{
 		status: createStatus(),
@@ -139,7 +142,7 @@ func (ix *Index) Add(digest, otype, grains, addr uint32) error {
 
 		ix.scale()
 		next := idx ^ 1
-		newTbl := make([]uint64, calcTableCap(oc*2))
+		newTbl := make([]uint64, calcSlotCnt(oc*2))
 		atomic.StorePointer(&ix.cycle[next], unsafe.Pointer(&newTbl))
 		ix.setWritable(next)
 		_ = ix.tryAdd(digest, otype, grains, addr, true) // First insert must be succeed.
@@ -155,6 +158,7 @@ func (ix *Index) Add(digest, otype, grains, addr uint32) error {
 }
 
 // Search returns the entry which the digest own if has.
+// If the entry is marked removed, still return it has.
 func (ix *Index) Search(digest uint32) (entry uint64, has bool) {
 
 	widx := ix.getWritableIdx()
@@ -174,10 +178,13 @@ func (ix *Index) Search(digest uint32) (entry uint64, has bool) {
 		for i := 0; i < n; i++ {
 			e := atomic.LoadUint64(&wt[slot+i])
 			tag, neighOff, _, _, _ := ParseEntry(e)
-			if digest == backToDigest(tag, uint32(slot), neighOff) {
-				if !IsRemoved(e) {
-					return e, true
-				}
+			edigest := backToDigest(tag, uint32(slotCnt), uint32(slot), neighOff)
+			fmt.Println(slot+i, edigest)
+			if digest == edigest {
+				//if !IsRemoved(e) {
+				//	return e, true
+				//}
+				return e, true
 			}
 		}
 	}
@@ -194,10 +201,11 @@ func (ix *Index) Search(digest uint32) (entry uint64, has bool) {
 		for i := 0; i < n; i++ {
 			e := atomic.LoadUint64(&nt[slot+i])
 			tag, neighOff, _, _, _ := ParseEntry(e)
-			if digest == backToDigest(tag, uint32(slot), neighOff) {
-				if !IsRemoved(e) {
-					return e, true
-				}
+			if digest == backToDigest(tag, uint32(slotCnt), uint32(slot), neighOff) {
+				//if !IsRemoved(e) {
+				//	return e, true
+				//}
+				return e, true
 			}
 		}
 	}
@@ -250,7 +258,7 @@ func (ix *Index) expand(ri int) {
 		e := atomic.LoadUint64(&src[i])
 		if e != 0 {
 			tag, neighOff, otype, grains, addr := ParseEntry(e)
-			digest := backToDigest(tag, uint32(i), neighOff)
+			digest := backToDigest(tag, uint32(n), uint32(i), neighOff)
 
 			err := ix.tryAdd(digest, otype, grains, addr, true)
 			if err == ErrIsFull {
@@ -296,7 +304,7 @@ restart:
 		for i := 0; i < n; i++ {
 			e := atomic.LoadUint64(&tbl[slot+i])
 			tag, neighOff, otype, _, addr := ParseEntry(e)
-			if digest == backToDigest(tag, uint32(slot), neighOff) {
+			if digest == backToDigest(tag, uint32(slotCnt), uint32(slot), neighOff) {
 				newEn := MakeEntry(digest, neighOff, otype, 0, addr)
 				atomic.StoreUint64(&tbl[slot+1], newEn)
 				break
@@ -345,7 +353,7 @@ restart:
 		}
 
 		tag, neighOff, _, _, _ := ParseEntry(e)
-		if digest == backToDigest(tag, uint32(slot), neighOff) {
+		if digest == backToDigest(tag, uint32(slotCnt), uint32(slot), neighOff) {
 			return ErrExisted
 		}
 	}
@@ -393,7 +401,7 @@ func (ix *Index) swap(start, slotCnt int, tbl []uint64) (int, uint8) {
 				e := atomic.LoadUint64(&tbl[j])
 				tag, neighOff, otype, grains, addr := ParseEntry(e)
 				if neighOff < neighbour {
-					digest := backToDigest(tag, uint32(j), neighOff)
+					digest := backToDigest(tag, uint32(slotCnt), uint32(j), neighOff)
 					e = MakeEntry(digest,
 						uint32(i)-uint32(getSlot(slotCnt, digest)), otype, grains, addr)
 					atomic.StoreUint64(&tbl[j], 0)

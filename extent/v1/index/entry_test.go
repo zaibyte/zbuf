@@ -30,6 +30,11 @@ func TestEntryMakeParse(t *testing.T) {
 	n := 1024
 	for i := 0; i < n; i++ {
 		digest := uint32(rand.Intn(math.MaxUint32 + 1))
+		ca := rand.Intn(26)
+		if ca < 16 {
+			ca = 16
+		}
+		slotCnt := calcSlotCnt(1 << ca)
 		neighOff := uint32(rand.Intn(maxNeighOff + 1))
 		otype := uint32(rand.Intn(maxOtype + 1))
 		grains := uint32(rand.Intn(maxGrains + 1))
@@ -37,10 +42,11 @@ func TestEntryMakeParse(t *testing.T) {
 
 		entry := MakeEntry(digest, neighOff, otype, grains, addr)
 
-		tag, lowBits := makeTag(digest)
+		tag, _ := makeTag(digest)
+		slot := getSlot(slotCnt, digest)
 
 		tagAct, neighOffAct, otypeAct, grainsAct, addrAct := ParseEntry(entry)
-		digestAct := backToDigest(tag, lowBits+neighOff, neighOff)
+		digestAct := backToDigest(tag, uint32(slotCnt), uint32(slot)+neighOff, neighOff)
 
 		assert.Equal(t, digest, digestAct)
 		assert.Equal(t, neighOff, neighOffAct)
