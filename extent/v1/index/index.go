@@ -180,7 +180,7 @@ func (ix *Index) Search(digest uint32) (entry uint64, has bool) {
 				continue
 			}
 			tag, neighOff, _, _, _ := ParseEntry(e)
-			edigest := backToDigest(tag, uint32(slotCnt), uint32(slot), neighOff)
+			edigest := backToDigest(tag, uint32(slotCnt), uint32(slot+i), neighOff)
 			if digest == edigest {
 
 				return e, true
@@ -203,7 +203,7 @@ func (ix *Index) Search(digest uint32) (entry uint64, has bool) {
 				continue
 			}
 			tag, neighOff, _, _, _ := ParseEntry(e)
-			edigest := backToDigest(tag, uint32(slotCnt), uint32(slot), neighOff)
+			edigest := backToDigest(tag, uint32(slotCnt), uint32(slot+i), neighOff)
 			if digest == edigest {
 
 				return e, true
@@ -305,7 +305,7 @@ restart:
 		for i := 0; i < n; i++ {
 			e := atomic.LoadUint64(&tbl[slot+i])
 			tag, neighOff, otype, _, addr := ParseEntry(e)
-			if digest == backToDigest(tag, uint32(slotCnt), uint32(slot), neighOff) {
+			if digest == backToDigest(tag, uint32(slotCnt), uint32(slot+i), neighOff) {
 				newEn := MakeEntry(digest, neighOff, otype, 0, addr)
 				atomic.StoreUint64(&tbl[slot+i], newEn)
 				break
@@ -354,7 +354,7 @@ restart:
 		}
 
 		tag, neighOff, _, _, _ := ParseEntry(e)
-		if digest == backToDigest(tag, uint32(slotCnt), uint32(slot), neighOff) {
+		if digest == backToDigest(tag, uint32(slotCnt), uint32(slot+i), neighOff) {
 			return ErrExisted
 		}
 	}

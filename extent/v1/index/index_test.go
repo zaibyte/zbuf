@@ -5,43 +5,46 @@ import (
 	"math"
 	"math/rand"
 	"sync"
+	"sync/atomic"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"g.tesamc.com/IT/zaipkg/xdigest"
 
 	"g.tesamc.com/IT/zaipkg/uid"
 	"github.com/templexxx/tsc"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestIndex_Search(t *testing.T) {
 
 	start := MinCap
-	for n := start; n <= MaxCap; n *= 32 {
+	for n := start; n <= MaxCap; n *= 4 {
 		ens := generatesEntries(n)
 		ix, _ := New(n)
 
 		wg := new(sync.WaitGroup) // Using sync.WaitGroup for ensuring the order.
 		wg.Add(1)
-		go func() {
+		var notFoundCnt int64
+		go func(cnt *int64) {
 			defer wg.Done()
-			for i, en := range ens[:1024] {
+			for i, en := range ens {
 				err := ix.Add(en.digest, en.otype, en.grains, en.addr)
 				if err != nil {
 					t.Fatal(err)
 				}
 				actEn, has := ix.Search(en.digest)
 				if !has {
+					atomic.AddInt64(cnt, 1)
 					t.Log("should have entry", i, en)
 				} else {
 					checkSearchResult(t, actEn, en)
 				}
 			}
-		}()
+		}(&notFoundCnt)
 		wg.Wait()
 
-		for _, en := range ens[:1024] {
+		for _, en := range ens {
 			actEn, has := ix.Search(en.digest)
 			if !has {
 				t.Log("should have entry", en.digest)
@@ -51,6 +54,18 @@ func TestIndex_Search(t *testing.T) {
 		}
 	}
 }
+
+//func listAllEntries(tbl []uint64) map[uint32]uint64 {
+//
+//	rets := make(map[uint32]uint64, len(tbl))
+//	for i := range tbl {
+//		en := atomic.LoadUint64(&tbl[i])
+//		if en != 0 {
+//			tag, neighOff, otype, grains, addr := ParseEntry(en)
+//			backToDigest(tag, len(tbl))
+//		}
+//	}
+//}
 
 func checkSearchResult(t *testing.T, actEn uint64, expEn entryFields) {
 	_, _, otype, grains, addr := ParseEntry(actEn)
