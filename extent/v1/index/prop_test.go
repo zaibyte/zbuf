@@ -3,17 +3,12 @@ package index
 import (
 	"flag"
 	"fmt"
-	"math"
 	"math/rand"
 	"os"
 	"runtime"
 	"sync"
 	"testing"
 	"time"
-
-	"g.tesamc.com/IT/zaipkg/uid"
-
-	"github.com/templexxx/tsc"
 )
 
 func TestMain(m *testing.M) {
@@ -136,27 +131,6 @@ func testMitFull(cnt, keyType int) int {
 		}
 	}
 	return cnt
-}
-
-type entryFields struct {
-	digest uint32
-	otype  uint32
-	grains uint32
-	addr   uint32
-}
-
-func generatesEntries(cnt int) []entryFields {
-
-	rand.Seed(tsc.UnixNano())
-
-	ens := make([]entryFields, cnt)
-	for i := range ens {
-		ens[i].digest = uint32(rand.Intn(math.MaxUint32 + 1))
-		ens[i].otype = uint32(rand.Intn(uid.MaxOType + 1))
-		ens[i].grains = uint32(rand.Intn(maxGrains + 1))
-		ens[i].addr = uint32(rand.Intn(maxAddr + 1))
-	}
-	return ens
 }
 
 func printRets(rets map[int]int, keyType int) {
