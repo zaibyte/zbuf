@@ -26,7 +26,6 @@ package index
 
 import (
 	"errors"
-	"fmt"
 	"runtime"
 	"sync/atomic"
 	"unsafe"
@@ -179,7 +178,6 @@ func (ix *Index) Search(digest uint32) (entry uint64, has bool) {
 			e := atomic.LoadUint64(&wt[slot+i])
 			tag, neighOff, _, _, _ := ParseEntry(e)
 			edigest := backToDigest(tag, uint32(slotCnt), uint32(slot), neighOff)
-			fmt.Println(slot+i, edigest)
 			if digest == edigest {
 				//if !IsRemoved(e) {
 				//	return e, true
