@@ -5,7 +5,6 @@ import (
 	"math"
 	"math/rand"
 	"sync"
-	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,14 +18,13 @@ import (
 func TestIndex_Search(t *testing.T) {
 
 	start := MinCap
-	for n := start; n <= MaxCap; n *= 4 {
+	for n := start; n <= MinCap*2; n *= 2 {
 		ens := generatesEntries(n)
 		ix, _ := New(n)
 
 		wg := new(sync.WaitGroup) // Using sync.WaitGroup for ensuring the order.
 		wg.Add(1)
-		var notFoundCnt int64
-		go func(cnt *int64) {
+		go func() {
 			defer wg.Done()
 			for i, en := range ens {
 				err := ix.Add(en.digest, en.otype, en.grains, en.addr)
@@ -35,22 +33,19 @@ func TestIndex_Search(t *testing.T) {
 				}
 				actEn, has := ix.Search(en.digest)
 				if !has {
-					atomic.AddInt64(cnt, 1)
-					t.Log("should have entry", i, en)
-				} else {
-					checkSearchResult(t, actEn, en)
+					t.Fatal("should have entry", i, en)
 				}
-			}
-		}(&notFoundCnt)
-		wg.Wait()
-
-		for _, en := range ens {
-			actEn, has := ix.Search(en.digest)
-			if !has {
-				t.Log("should have entry", en.digest)
-			} else {
 				checkSearchResult(t, actEn, en)
 			}
+		}()
+		wg.Wait()
+
+		for i, en := range ens {
+			actEn, has := ix.Search(en.digest)
+			if !has {
+				t.Fatal("should have entry", i, en.digest)
+			}
+			checkSearchResult(t, actEn, en)
 		}
 	}
 }
@@ -210,6 +205,7 @@ func generatesEntries(cnt int) []entryFields {
 				continue
 			}
 			ens[i].digest = digest
+			digests[digest] = true
 			break
 		}
 
