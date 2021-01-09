@@ -17,7 +17,7 @@ import (
 
 func TestIndex_Search(t *testing.T) {
 
-	start := 2
+	start := MinCap
 	for n := start; n <= MaxCap; n *= 32 {
 		ens := generatesEntries(n)
 		ix, _ := New(n)
@@ -26,26 +26,28 @@ func TestIndex_Search(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for _, en := range ens {
+			for i, en := range ens[:1024] {
 				err := ix.Add(en.digest, en.otype, en.grains, en.addr)
 				if err != nil {
 					t.Fatal(err)
 				}
 				actEn, has := ix.Search(en.digest)
 				if !has {
-					t.Fatal("should have entry", en.digest)
+					t.Log("should have entry", i, en)
+				} else {
+					checkSearchResult(t, actEn, en)
 				}
-				checkSearchResult(t, actEn, en)
 			}
 		}()
 		wg.Wait()
 
-		for _, en := range ens {
+		for _, en := range ens[:1024] {
 			actEn, has := ix.Search(en.digest)
 			if !has {
-				t.Fatal("should have entry")
+				t.Log("should have entry", en.digest)
+			} else {
+				checkSearchResult(t, actEn, en)
 			}
-			checkSearchResult(t, actEn, en)
 		}
 	}
 }
@@ -59,7 +61,7 @@ func checkSearchResult(t *testing.T, actEn uint64, expEn entryFields) {
 
 func TestIndex_Remove(t *testing.T) {
 
-	start := 2
+	start := MinCap
 	for n := start; n <= MaxCap; n *= 32 {
 		ens := generatesEntries(n / 2)
 		ix, _ := New(n)
@@ -69,17 +71,25 @@ func TestIndex_Remove(t *testing.T) {
 				t.Fatal(err)
 			}
 			ix.Remove(en.digest)
-			if _, has := ix.Search(en.digest); has {
-				t.Fatal("should not have entry")
+			sen, has := ix.Search(en.digest)
+			if !has {
+				t.Fatal("should  have entry")
+			}
+			if !IsRemoved(sen) {
+				t.Fatal("should be removed")
 			}
 		}
 		for _, en := range ens {
-			if _, has := ix.Search(en.digest); has {
-				t.Fatal("should not have entry")
+			sen, has := ix.Search(en.digest)
+			if !has {
+				t.Fatal("should  have entry")
+			}
+			if !IsRemoved(sen) {
+				t.Fatal("should be removed")
 			}
 		}
 		_, usage := ix.GetUsage()
-		if usage != 0 {
+		if usage != start {
 			t.Fatal("usage size mismatched")
 		}
 	}

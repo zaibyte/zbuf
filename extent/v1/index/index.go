@@ -176,12 +176,13 @@ func (ix *Index) Search(digest uint32) (entry uint64, has bool) {
 
 		for i := 0; i < n; i++ {
 			e := atomic.LoadUint64(&wt[slot+i])
+			if e == 0 {
+				continue
+			}
 			tag, neighOff, _, _, _ := ParseEntry(e)
 			edigest := backToDigest(tag, uint32(slotCnt), uint32(slot), neighOff)
 			if digest == edigest {
-				//if !IsRemoved(e) {
-				//	return e, true
-				//}
+
 				return e, true
 			}
 		}
@@ -198,11 +199,13 @@ func (ix *Index) Search(digest uint32) (entry uint64, has bool) {
 
 		for i := 0; i < n; i++ {
 			e := atomic.LoadUint64(&nt[slot+i])
+			if e == 0 {
+				continue
+			}
 			tag, neighOff, _, _, _ := ParseEntry(e)
-			if digest == backToDigest(tag, uint32(slotCnt), uint32(slot), neighOff) {
-				//if !IsRemoved(e) {
-				//	return e, true
-				//}
+			edigest := backToDigest(tag, uint32(slotCnt), uint32(slot), neighOff)
+			if digest == edigest {
+
 				return e, true
 			}
 		}
@@ -304,7 +307,7 @@ restart:
 			tag, neighOff, otype, _, addr := ParseEntry(e)
 			if digest == backToDigest(tag, uint32(slotCnt), uint32(slot), neighOff) {
 				newEn := MakeEntry(digest, neighOff, otype, 0, addr)
-				atomic.StoreUint64(&tbl[slot+1], newEn)
+				atomic.StoreUint64(&tbl[slot+i], newEn)
 				break
 			}
 		}
@@ -398,11 +401,12 @@ func (ix *Index) swap(start, slotCnt int, tbl []uint64) (int, uint8) {
 			for ; j < i; j++ { // Search start at the closet position.
 				e := atomic.LoadUint64(&tbl[j])
 				tag, neighOff, otype, grains, addr := ParseEntry(e)
-				if neighOff < neighbour {
-					digest := backToDigest(tag, uint32(slotCnt), uint32(j), neighOff)
+				digest := backToDigest(tag, uint32(slotCnt), uint32(j), neighOff)
+				jslot := getSlot(slotCnt, digest)
+				if i-jslot < neighbour {
 					e = MakeEntry(digest,
-						uint32(i)-uint32(getSlot(slotCnt, digest)), otype, grains, addr)
-					atomic.StoreUint64(&tbl[j], 0)
+						uint32(i)-uint32(jslot), otype, grains, addr)
+					atomic.StoreUint64(&tbl[j], 0) // TODO the order is ok?
 					atomic.StoreUint64(&tbl[i], e)
 					return j, swapOK
 				}

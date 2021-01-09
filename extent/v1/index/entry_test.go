@@ -1,6 +1,7 @@
 package index
 
 import (
+	"fmt"
 	"math"
 	"math/rand"
 	"testing"
@@ -24,10 +25,14 @@ func TestEntryMinMax(t *testing.T) {
 	}
 }
 
+func TestShit(t *testing.T) {
+	fmt.Println(ParseEntry(0))
+}
+
 func TestEntryMakeParse(t *testing.T) {
 	rand.Seed(tsc.UnixNano())
 
-	n := 1024
+	n := MinCap
 	for i := 0; i < n; i++ {
 		digest := uint32(rand.Intn(math.MaxUint32 + 1))
 		ca := rand.Intn(26)
