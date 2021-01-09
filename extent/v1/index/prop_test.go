@@ -21,6 +21,7 @@ func TestMain(m *testing.M) {
 }
 
 // TODO test after expand, will fit in?
+// TODO check crc32 could work well with two tables, fill one first, then try to fill 2xone with same ens+more, see when will hit fill
 
 func TestMitFull(t *testing.T) {
 
@@ -29,21 +30,16 @@ func TestMitFull(t *testing.T) {
 	}
 
 	start := 64 * 1024 // Too small is meaningless.
-	end := index.maxCap
+	end := MaxCap
 
-	sortRets := make(map[int]int)
-	randRets := make(map[int]int)
+	rets := make(map[int]int)
 
 	for n := start; n <= end; n *= 2 {
-		ok := testMitFull(n, sortKey)
-		sortRets[n] = ok
-
-		ok = testMitFull(n, randomKey)
-		randRets[n] = ok
+		okCnt := testMitFull(n)
+		rets[n] = okCnt
 	}
 
-	printRets(sortRets, sortKey)
-	printRets(randRets, randomKey)
+	printRets(rets)
 }
 
 func TestContainsPerfConcurrent(t *testing.T) {
@@ -119,13 +115,13 @@ func TestContainsPerf(t *testing.T) {
 	t.Logf("contains perf: %.2f ns/op, total: %d, failed: %d, ok rate: %.8f", ops, n, n-exp, float64(exp)/float64(n))
 }
 
-func testMitFull(cnt, keyType int) int {
+func testMitFull(cnt int) int {
 	s, _ := New(cnt)
 
 	s.scale()
-	keys := generatesEntries(cnt)
-	for i, key := range keys {
-		err := s.Add(key)
+	ens := generatesEntries(cnt)
+	for i, en := range ens {
+		err := s.Add(en.digest, en.otype, en.grains, en.addr)
 		if err == ErrAddTooFast {
 			return i
 		}
@@ -133,7 +129,7 @@ func testMitFull(cnt, keyType int) int {
 	return cnt
 }
 
-func printRets(rets map[int]int, keyType int) {
+func printRets(rets map[int]int) {
 	var avg, min, max float64
 	min = 1
 	max = 0
@@ -152,17 +148,8 @@ func printRets(rets map[int]int, keyType int) {
 	}
 	avg = avg / float64(len(rets))
 
-	fmt.Printf("keyType: %s, load_factor: avg: %.2f, min: %.2f(n: %d), max: %.2f(n: %d)\n",
-		keyTypeToStr(keyType), avg, min, minN, max, maxN)
-}
-
-func keyTypeToStr(keyType int) string {
-	switch keyType {
-	case randomKey:
-		return "random"
-	default:
-		return "order"
-	}
+	fmt.Printf("load_factor: avg: %.2f, min: %.2f(n: %d), max: %.2f(n: %d)\n",
+		avg, min, minN, max, maxN)
 }
 
 var _propEnabled = flag.Bool("prop", false, "enable properties testing or not")
