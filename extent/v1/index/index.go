@@ -117,9 +117,6 @@ func (ix *Index) Add(digest, otype, grains, addr uint32) error {
 		ix.addCnt()
 		ix.unlock()
 		return nil
-	case ErrExisted:
-		ix.unlock()
-		return nil
 
 	case ErrIsFull:
 		if ix.isScaling() {
