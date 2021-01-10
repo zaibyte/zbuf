@@ -72,7 +72,7 @@ func checkSearchResult(t *testing.T, actEn uint64, expEn entryFields) {
 func TestIndex_Remove(t *testing.T) {
 
 	start := MinCap
-	for n := start; n <= MaxCap; n *= 32 {
+	for n := start; n <= MinCap*2; n *= 2 {
 		ens := generatesEntries(n / 2)
 		ix, _ := New(n)
 		for _, en := range ens {
@@ -99,7 +99,7 @@ func TestIndex_Remove(t *testing.T) {
 			}
 		}
 		_, usage := ix.GetUsage()
-		if usage != start {
+		if usage != len(ens) {
 			t.Fatal("usage size mismatched")
 		}
 	}
@@ -108,24 +108,23 @@ func TestIndex_Remove(t *testing.T) {
 // Add & Remove concurrently, checking dead lock or not.
 func TestIndex_UpdateConcurrent(t *testing.T) {
 
-	n := 1024 * 4
+	n := MinCap
 	ix, _ := New(n)
-	ens := generatesEntries(2048)
-	ensMap := new(sync.Map)
-	for i := range ens[:1024] {
+	ens := generatesEntries(n * 2)
+	for i := range ens[:n] {
 		err := ix.Add(ens[i].digest, ens[i].otype, ens[i].grains, ens[i].addr)
 		if err != nil {
 			t.Fatal(err)
 		}
-		ensMap.Store(i, ens[i])
 	}
 
 	wg := new(sync.WaitGroup)
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		for i := range ens[1024:] {
-			err := ix.Add(ens[i].digest, ens[i].otype, ens[i].grains, ens[i].addr)
+		newAddEns := ens[n : n+1024]
+		for i := range newAddEns {
+			err := ix.Add(newAddEns[i].digest, newAddEns[i].otype, newAddEns[i].grains, newAddEns[i].addr)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -133,20 +132,24 @@ func TestIndex_UpdateConcurrent(t *testing.T) {
 	}()
 	go func() {
 		defer wg.Done()
-		for i := range ens[:1024] {
+		for i := range ens[:n] {
 			ix.Remove(ens[i].digest)
 		}
 	}()
 	wg.Wait()
 
 	_, usage := ix.GetUsage()
-	if usage != 1024 {
+	if usage != n+1024 {
 		t.Fatal("usage mismatched")
 	}
 
-	for i := range ens[:1024] {
-		if _, has := ix.Search(ens[i].digest); has {
-			t.Fatal("should not have")
+	for i := range ens[:n] {
+		e, has := ix.Search(ens[i].digest)
+		if !has {
+			t.Fatal("should have")
+		}
+		if !IsRemoved(e) {
+			t.Fatal("should be removed")
 		}
 	}
 }
@@ -193,19 +196,19 @@ func generatesEntries(cnt int) []entryFields {
 
 	ens := make([]entryFields, cnt)
 
-	digests := make(map[uint32]bool)
+	digests := make(map[uint32]struct{})
 
-	srcBuf := make([]byte, 4)
+	srcBuf := make([]byte, 8)
 	for i := range ens {
 		for {
-			src := uint32(rand.Intn(math.MaxUint32 + 1))
-			binary.LittleEndian.PutUint32(srcBuf, src)
+			src := uint64(rand.Intn(math.MaxInt64))
+			binary.LittleEndian.PutUint64(srcBuf, src)
 			digest := xdigest.Sum32(srcBuf)
-			if digests[digest] {
+			if _, ok := digests[digest]; ok {
 				continue
 			}
 			ens[i].digest = digest
-			digests[digest] = true
+			digests[digest] = struct{}{}
 			break
 		}
 

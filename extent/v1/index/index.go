@@ -345,8 +345,10 @@ restart:
 	}
 	for i := 0; i < n; i++ {
 		e := atomic.LoadUint64(&tbl[slot+i])
-		if e == 0 && i < slotOff {
-			slotOff = i
+		if e == 0 {
+			if i < slotOff {
+				slotOff = i
+			}
 			continue
 		}
 

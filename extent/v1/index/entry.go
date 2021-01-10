@@ -54,13 +54,13 @@ func backToDigest(tag, slotCnt, slot, neighOff uint32) uint32 {
 	validTagBits := 32 - maskBits
 	tagMask := uint32((1<<validTagBits)-1) << maskBits
 	originSlot := slot - neighOff
-	return ((tag << 16) & tagMask) | originSlot
+	return ((tag << 16) & tagMask) | (originSlot & mask)
 }
 
 func MakeEntry(digest, neighOff, otype, grains, addr uint32) uint64 {
 	tag := (digest >> 16) & maxTag
 	return uint64(addr&maxAddr) | uint64(grains)<<(addrBits+paddingBits) |
-		uint64(otype)&maxOtype<<(grainsBits+addrBits+paddingBits) | uint64(neighOff)<<(addrBits+paddingBits+grainsBits+otypeBits) |
+		(uint64(otype)&maxOtype)<<(grainsBits+addrBits+paddingBits) | uint64(neighOff)<<(addrBits+paddingBits+grainsBits+otypeBits) |
 		uint64(tag)<<(addrBits+paddingBits+grainsBits+otypeBits+neighOffBits)
 }
 
