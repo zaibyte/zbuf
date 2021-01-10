@@ -18,14 +18,15 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// TODO test after expand, will fit in?
-// TODO check crc32 could work well with two tables, fill one first, then try to fill 2xone with same ens+more, see when will hit fill
 // Both of two tables are using same hash function(actually using digest directly), I want to know just make table
-// capacity grow could make the expanding work as expecting or not.
+// capacity grow 2x could make the expanding work as expecting or not.
+//
+// Reference:
+// before expand: cap: 65536, first_mit_full: 62415; after expand: cap: 131072, first_mit_full: 120754
 func TestIndexExpand(t *testing.T) {
-	//if !IsPropEnabled() {
-	//	t.Skip("skip testing, because it may take too long time")
-	//}
+	if !IsPropEnabled() {
+		t.Skip("skip testing, because it only needs to be run once")
+	}
 
 	cnt := 1 << 16
 	ix, _ := New(cnt)
@@ -47,23 +48,27 @@ func TestIndexExpand(t *testing.T) {
 
 	mitFull2 := 0
 	for i, en := range ens {
-		err := ix.Add(en.digest, en.otype, en.grains, en.addr)
+		err := ix2.Add(en.digest, en.otype, en.grains, en.addr)
 		if err == ErrAddTooFast {
-			mitFull = i
+			mitFull2 = i
 			break
 		}
 	}
 
-	fmt.Println(mitFull, mitFull2)
+	fmt.Printf("before expand: cap: %d, first_mit_full: %d; "+
+		"after expand: cap: %d, first_mit_full: %d\n", cnt, mitFull, cnt*2, mitFull2)
+
 }
 
+// Reference:
+// load_factor: avg: 0.93, min: 0.90(n: 33554432), max: 0.96(n: 131072)
 func TestMitFull(t *testing.T) {
 
 	if !IsPropEnabled() {
 		t.Skip("skip testing, because it may take too long time")
 	}
 
-	start := 64 * 1024 // Too small is meaningless.
+	start := MinCap
 	end := MaxCap
 
 	rets := make(map[int]int)
