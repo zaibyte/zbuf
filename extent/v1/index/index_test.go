@@ -50,18 +50,6 @@ func TestIndex_Search(t *testing.T) {
 	}
 }
 
-//func listAllEntries(tbl []uint64) map[uint32]uint64 {
-//
-//	rets := make(map[uint32]uint64, len(tbl))
-//	for i := range tbl {
-//		en := atomic.LoadUint64(&tbl[i])
-//		if en != 0 {
-//			tag, neighOff, otype, grains, addr := ParseEntry(en)
-//			backToDigest(tag, len(tbl))
-//		}
-//	}
-//}
-
 func checkSearchResult(t *testing.T, actEn uint64, expEn entryFields) {
 	_, _, otype, grains, addr := ParseEntry(actEn)
 	assert.Equal(t, expEn.otype, otype)
@@ -151,35 +139,6 @@ func TestIndex_UpdateConcurrent(t *testing.T) {
 		if !IsRemoved(e) {
 			t.Fatal("should be removed")
 		}
-	}
-}
-
-func TestIndex_GetUsage(t *testing.T) {
-
-	n := 2048
-	ix, _ := New(n * 4)
-	ens := generatesEntries(2048)
-	for j := 0; j < 16; j++ {
-		for _, en := range ens {
-			err := ix.Add(en.digest, en.otype, en.grains, en.addr)
-			if err != nil {
-				t.Fatal(err)
-			}
-		}
-	}
-
-	_, usage := ix.GetUsage()
-	if usage != n {
-		t.Fatal("usage mismatched", usage)
-	}
-
-	for i := 1; i < (n+1)/2; i++ {
-		ix.Remove(ens[i].digest)
-	}
-
-	_, usage = ix.GetUsage()
-	if usage != n {
-		t.Fatal("usage mismatched")
 	}
 }
 

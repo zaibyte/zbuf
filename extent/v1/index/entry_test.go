@@ -1,7 +1,6 @@
 package index
 
 import (
-	"fmt"
 	"math"
 	"math/rand"
 	"testing"
@@ -23,10 +22,6 @@ func TestEntryMinMax(t *testing.T) {
 	if tag != maxTag || neighOff != maxNeighOff || otype != maxOtype || grains != maxGrains || addr != maxAddr {
 		t.Fatal("max mismatch")
 	}
-}
-
-func TestShit(t *testing.T) {
-	fmt.Println(ParseEntry(0))
 }
 
 func TestEntryMakeParse(t *testing.T) {

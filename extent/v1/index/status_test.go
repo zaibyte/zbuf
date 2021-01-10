@@ -44,108 +44,108 @@ func TestBitsOperator(t *testing.T) {
 	}
 }
 
-func TestSet_IsRunning(t *testing.T) {
+func TestIndex_IsRunning(t *testing.T) {
 
-	s, _ := New(0)
-	if !s.IsRunning() {
+	ix, _ := New(0)
+	if !ix.IsRunning() {
 		t.Fatal("should be running")
 	}
 }
 
-func TestSet_Close(t *testing.T) {
+func TestIndex_Close(t *testing.T) {
 
-	s, _ := New(0)
-	s.Close()
-	if s.IsRunning() {
+	ix, _ := New(0)
+	ix.Close()
+	if ix.IsRunning() {
 		t.Fatal("should be closed")
 	}
-	s.close()
-	if s.IsRunning() {
+	ix.close()
+	if ix.IsRunning() {
 		t.Fatal("should be closed")
 	}
 }
 
 func TestCreateStatusWritable(t *testing.T) {
 
-	s, _ := New(0)
-	if s.getWritableIdx() != 0 {
+	ix, _ := New(0)
+	if ix.getWritableIdx() != 0 {
 		t.Fatal("writable table mismatched")
 	}
 }
 
-func TestSetWritable(t *testing.T) {
+func TestIndex_Writable(t *testing.T) {
 
-	s, _ := New(0)
-	s.setWritable(1)
-	if s.getWritableIdx() != 1 {
+	ix, _ := New(0)
+	ix.setWritable(1)
+	if ix.getWritableIdx() != 1 {
 		t.Fatal("writable table mismatched")
 	}
-	s.setWritable(0)
-	if s.getWritableIdx() != 0 {
+	ix.setWritable(0)
+	if ix.getWritableIdx() != 0 {
 		t.Fatal("writable table mismatched")
 	}
 }
 
-func TestSetLock(t *testing.T) {
+func TestIndex_Lock(t *testing.T) {
 
-	s, _ := New(0)
-	if !s.lock() {
+	ix, _ := New(0)
+	if !ix.lock() {
 		t.Fatal("lock should be succeed")
 	}
 
-	if s.lock() {
+	if ix.lock() {
 		t.Fatal("should be locked")
 	}
 
-	sa := atomic.LoadUint64(&s.status)
+	sa := atomic.LoadUint64(&ix.status)
 	if !isLocked(sa) {
 		t.Fatal("should be locked")
 	}
 
-	s.unlock()
+	ix.unlock()
 
-	sa = atomic.LoadUint64(&s.status)
+	sa = atomic.LoadUint64(&ix.status)
 	if isLocked(sa) {
 		t.Fatal("should be unlocked")
 	}
 }
 
-func TestSet_Seal(t *testing.T) {
+func TestIndex_Seal(t *testing.T) {
 
-	s, _ := New(0)
-	s.seal()
-	if !s.isSealed() {
+	ix, _ := New(0)
+	ix.seal()
+	if !ix.isSealed() {
 		t.Fatal("should be sealed")
 	}
 }
 
-func TestSet_Scale(t *testing.T) {
+func TestIndex_Scale(t *testing.T) {
 
-	s, _ := New(0)
-	s.scale()
-	if !s.isScaling() {
+	ix, _ := New(0)
+	ix.scale()
+	if !ix.isScaling() {
 		t.Fatal("should be scaling")
 	}
-	s.unScale()
-	if s.isScaling() {
+	ix.unScale()
+	if ix.isScaling() {
 		t.Fatal("should be scalable")
 	}
 }
 
-func TestSet_Cnt(t *testing.T) {
+func TestIndex_Cnt(t *testing.T) {
 
-	s, _ := New(0)
+	ix, _ := New(0)
 	for i := 0; i < 1024; i++ {
-		if s.getCnt() != uint64(i) {
+		if ix.getCnt() != uint64(i) {
 			t.Fatal("add count mismatch")
 		}
-		s.addCnt()
+		ix.addCnt()
 	}
 
 	for i := 1024; i > 0; i-- {
-		if s.getCnt() != uint64(i) {
+		if ix.getCnt() != uint64(i) {
 			t.Fatal("del count mismatch")
 		}
-		s.delCnt()
+		ix.delCnt()
 	}
 }
