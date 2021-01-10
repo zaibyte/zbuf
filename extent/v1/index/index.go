@@ -406,8 +406,12 @@ func (ix *Index) swap(start, slotCnt int, tbl []uint64) (int, uint8) {
 				if i-jslot < neighbour {
 					e = MakeEntry(digest,
 						uint32(i)-uint32(jslot), otype, grains, addr)
-					atomic.StoreUint64(&tbl[j], 0) // TODO the order is ok?
+					// Put e first may cause meet same entry twice in traverse process,
+					// but in index, there is no such traverse.
+					// If we don't put e first, we could lost the entry when we try to search,
+					// because search may finish before swap done.
 					atomic.StoreUint64(&tbl[i], e)
+					atomic.StoreUint64(&tbl[j], 0)
 					return j, swapOK
 				}
 			}
