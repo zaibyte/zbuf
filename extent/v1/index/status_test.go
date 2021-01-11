@@ -135,14 +135,14 @@ func TestIndex_Scale(t *testing.T) {
 func TestIndex_Cnt(t *testing.T) {
 
 	ix, _ := New(0)
-	for i := 0; i < 1024; i++ {
+	for i := 0; i < MaxCap; i++ {
 		if ix.getCnt() != uint64(i) {
 			t.Fatal("add count mismatch")
 		}
 		ix.addCnt()
 	}
 
-	for i := 1024; i > 0; i-- {
+	for i := MaxCap; i > 0; i-- {
 		if ix.getCnt() != uint64(i) {
 			t.Fatal("del count mismatch")
 		}
