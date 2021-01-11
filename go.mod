@@ -10,4 +10,5 @@ require (
 	github.com/templexxx/fnc v1.0.1
 	github.com/templexxx/tsc v0.0.2-0.20201016082558-86c1143c3415
 	github.com/templexxx/xhex v0.0.0-20200614015412-aed53437177b
+	golang.org/x/sys v0.0.0-20200727154430-2d971f7391a4 // indirect
 )

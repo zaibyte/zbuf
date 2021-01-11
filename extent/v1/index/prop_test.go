@@ -22,7 +22,7 @@ func TestMain(m *testing.M) {
 // capacity grow 2x could make the expanding work as expecting or not.
 //
 // Reference:
-// before expand: cap: 65536, first_mit_full: 62415; after expand: cap: 131072, first_mit_full: 120754
+// before expand: cap: 65536, first_mit_full: 62687; after expand: cap: 131072, first_mit_full: 121570
 func TestIndexExpand(t *testing.T) {
 	if !IsPropEnabled() {
 		t.Skip("skip testing, because it only needs to be run once")
@@ -61,7 +61,7 @@ func TestIndexExpand(t *testing.T) {
 }
 
 // Reference:
-// load_factor: avg: 0.93, min: 0.90(n: 33554432), max: 0.96(n: 131072)
+// load_factor: avg: 0.92, min: 0.90(n: 16777216), max: 0.96(n: 65536)
 func TestMitFull(t *testing.T) {
 
 	if !IsPropEnabled() {

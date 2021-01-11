@@ -434,8 +434,9 @@ func (ix *Index) swap(start, slotCnt int, tbl []uint64) (int, uint8) {
 					// but in index, there is no such traverse.
 					// If we don't put e first, we could lost the entry when we try to search,
 					// because search may finish before swap done.
-					// atomic.StoreUint64(&tbl[j], 0)
+					// And we must set tbl[j] to 0, because in the next round to call swap, we will check it's zero or not.
 					atomic.StoreUint64(&tbl[i], e)
+					atomic.StoreUint64(&tbl[j], 0)
 					return j, swapOK
 				}
 			}
