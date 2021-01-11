@@ -17,19 +17,15 @@
 package config
 
 import (
-	"g.tesamc.com/IT/zaipkg/xlog"
+	"g.tesamc.com/IT/zaipkg/app"
 )
 
-// Config is the zbuf server configuration.
+// Config is the ZBuf server configuration.
 type Config struct {
-	BoxID  uint32 `toml:"box_id"`
-	NodeID string `toml:"node_id"`
+	App app.Config `toml:"app"`
 
-	OpAddr  string `toml:"op_addr"`
-	ObjAddr string `toml:"obj_addr"`
-
-	DataRoot   string `toml:"data_root"`
-	InsertOnly bool   `toml:"insert_only"`
-
-	Log *xlog.Config `toml:"log"`
+	// Object server listen address.
+	ObjSrvAddr string `json:"obj_srv_addr"`
+	// ZBuf data root path.
+	DataRoot string `toml:"data_root"`
 }
