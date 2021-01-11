@@ -43,8 +43,8 @@ func getSlot(slotCnt int, digest uint32) int {
 	return int(digest & (calcMask(uint32(slotCnt))))
 }
 
-func getTbl(s *Index, idx int) []uint64 {
-	p := atomic.LoadPointer(&s.cycle[idx])
+func getTbl(ix *Index, idx int) []uint64 {
+	p := atomic.LoadPointer(&ix.cycle[idx])
 	if p == nil {
 		return nil
 	}
