@@ -22,14 +22,14 @@ func TestIndex_Search(t *testing.T) {
 		ens := generatesEntries(n)
 		ix, _ := New(n)
 
-		wg := new(sync.WaitGroup) // Using sync.WaitGroup for ensuring the order.
+		wg := new(sync.WaitGroup)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for i, en := range ens {
 				err := ix.Add(en.digest, en.otype, en.grains, en.addr)
 				if err != nil {
-					t.Fatal(err)
+					t.Fatal(err, i, n)
 				}
 				actEn, has := ix.Search(en.digest)
 				if !has {
@@ -38,12 +38,13 @@ func TestIndex_Search(t *testing.T) {
 				checkSearchResult(t, actEn, en)
 			}
 		}()
+
 		wg.Wait()
 
 		for i, en := range ens {
 			actEn, has := ix.Search(en.digest)
 			if !has {
-				t.Fatal("should have entry", i, en.digest)
+				t.Fatal("should have entry", i, en)
 			}
 			checkSearchResult(t, actEn, en)
 		}
@@ -128,7 +129,7 @@ func TestIndex_UpdateConcurrent(t *testing.T) {
 
 	_, usage := ix.GetUsage()
 	if usage != n+1024 {
-		t.Fatal("usage mismatched")
+		t.Fatal("usage mismatched", usage, n+1024)
 	}
 
 	for i := range ens[:n] {
@@ -184,4 +185,50 @@ func generatesEntries(cnt int) []entryFields {
 		ens[i].addr = uint32(rand.Intn(maxAddr + 1))
 	}
 	return ens
+}
+
+// Two existed situations should be caught:
+// 1. In writable table
+// 2. In scaling source table
+func TestIndex_Existed(t *testing.T) {
+	n := MinCap
+	ix, _ := New(n)
+	ens := generatesEntries(n)
+	err := ix.Add(ens[0].digest, ens[0].otype, ens[0].grains, ens[0].addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = ix.Add(ens[0].digest, ens[0].otype, ens[0].grains, ens[0].addr)
+	assert.EqualError(t, err, ErrExisted.Error())
+
+	ix.scale()
+
+	ok := 0
+	for i := 1; i < len(ens); i++ {
+		err2 := ix.Add(ens[i].digest, ens[i].otype, ens[i].grains, ens[i].addr)
+		if err2 == ErrAddTooFast {
+			ok = i
+			break // Now ix is full, any new entry will trigger scaling.
+		}
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+	}
+
+	ix.unScale()
+	widx := ix.getWritableIdx()
+	// Cannot expand because the digest is existed.
+	err = ix.Add(ens[0].digest, ens[0].otype, ens[0].grains, ens[0].addr)
+	assert.EqualError(t, err, ErrExisted.Error())
+	nwidx := ix.getWritableIdx()
+	assert.Equal(t, widx, nwidx)
+
+	// Trigger expand.
+	err = ix.Add(ens[ok].digest, ens[ok].otype, ens[ok].grains, ens[ok].addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Try to add existed key must be in last writable table.
+	err = ix.Add(ens[ok-1].digest, ens[ok-1].otype, ens[ok-1].grains, ens[ok-1].addr)
+	assert.EqualError(t, err, ErrExisted.Error())
 }

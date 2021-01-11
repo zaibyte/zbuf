@@ -207,6 +207,7 @@ func (ix *Index) Search(digest uint32) (entry uint64, has bool) {
 			}
 		}
 	}
+
 	return 0, false
 }
 
@@ -263,10 +264,6 @@ func (ix *Index) expand(ri int) {
 				ix.seal()
 				ix.unlock()
 				return
-			}
-
-			if err == ErrExisted {
-				ix.delCnt()
 			}
 
 			cnt++
@@ -335,7 +332,7 @@ restart:
 		return ErrUnknown
 	}
 
-	// 1. Ensure key is unique. And try to find free slot within neighbourhood.
+	// 1. Ensure digest is unique in writable table. And try to find free slot within neighbourhood.
 	slotOff := neighbour // slotOff is the distance between avail slot from hashed slot.
 	slotCnt := len(tbl)
 	slot := getSlot(slotCnt, digest)
@@ -358,14 +355,42 @@ restart:
 		}
 	}
 
-	// 2. Try to Add within neighbour.
+	// 2. Ensure digest is unique in other table.
+	if !isLocked {
+		// After make new table, first Adding and the scaling will set this true, both of them is safe.
+		// For scaling, it's checking the source itself, so meaningless.
+		// For first adding, which means the digest have passed the unique checking when the last trying of Adding,
+		// but met full.
+		otbl := getTbl(ix, int(idx^1))
+		if otbl != nil {
+			oslotCnt := len(otbl)
+			oslot := getSlot(oslotCnt, digest)
+			on := neighbour
+			if oslot+neighbour >= oslotCnt {
+				on = oslotCnt - oslot
+			}
+			for i := 0; i < on; i++ {
+				e := atomic.LoadUint64(&otbl[oslot+i])
+				if e == 0 {
+					continue
+				}
+
+				tag, neighOff, _, _, _ := ParseEntry(e)
+				if digest == backToDigest(tag, uint32(oslotCnt), uint32(oslot+i), neighOff) {
+					return ErrExisted
+				}
+			}
+		}
+	}
+
+	// 3. Try to Add within neighbour.
 	if slotOff < neighbour {
 		entry := MakeEntry(digest, uint32(slotOff), otype, grains, addr)
 		atomic.StoreUint64(&tbl[slot+slotOff], entry)
 		return nil
 	}
 
-	// 3. Linear probe to find an empty slot and swap.
+	// 4. Linear probe to find an empty slot and swap.
 	j := slot + neighbour
 	for { // Closer and closer.
 		free, status := ix.swap(j, len(tbl), tbl)
@@ -409,8 +434,8 @@ func (ix *Index) swap(start, slotCnt int, tbl []uint64) (int, uint8) {
 					// but in index, there is no such traverse.
 					// If we don't put e first, we could lost the entry when we try to search,
 					// because search may finish before swap done.
+					// atomic.StoreUint64(&tbl[j], 0)
 					atomic.StoreUint64(&tbl[i], e)
-					atomic.StoreUint64(&tbl[j], 0)
 					return j, swapOK
 				}
 			}
