@@ -17,6 +17,10 @@
 package config
 
 import (
+	"runtime"
+
+	"g.tesamc.com/IT/zaipkg/config"
+
 	"g.tesamc.com/IT/zaipkg/app"
 )
 
@@ -28,4 +32,31 @@ type Config struct {
 	ObjSrvAddr string `json:"obj_srv_addr"`
 	// ZBuf data root path.
 	DataRoot string `toml:"data_root"`
+}
+
+const (
+	DefaultOpSrvAddr  = "0.0.0.0:8881"
+	DefaultObjSrvAddr = "0.0.0.0:8882"
+	DefaultDataRoot   = "/zai/zbuf/data"
+	// Store GOMAXPROCS bigger for these reasons:
+	//
+	// 1. SSD is superb, and assume ZBuf runs on a server with multi-SSD, so there is a problem:
+	// SSD's latency is very low, but it will take 20μs-10ms to find a thread blocked in Go.
+	// So the block may finish before notice it, the GO Process will be wasted in this situation,
+	// That's why we need more process
+	// (I found this trick from this discussion: https://groups.google.com/forum/#!topic/golang-nuts/jPb_h3TvlKE/discussion)
+	DefaultGOMAXPROCS = 128
+)
+
+func (c *Config) adjust() {
+
+	config.Adjust(&c.App.HTTPServerAddr, DefaultOpSrvAddr)
+	config.Adjust(&c.ObjSrvAddr, DefaultObjSrvAddr)
+
+	config.Adjust(&c.DataRoot, DefaultDataRoot)
+
+	config.Adjust(&c.App.GOMAXPROCS, DefaultGOMAXPROCS)
+	if c.App.GOMAXPROCS > runtime.NumCPU() {
+		runtime.GOMAXPROCS(c.App.GOMAXPROCS) // TODO maybe 512 if you got lots of cores and NVMe SSD
+	}
 }

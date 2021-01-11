@@ -19,7 +19,6 @@ package server
 import (
 	"errors"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"g.tesamc.com/IT/zbuf/vfs"
@@ -52,20 +51,6 @@ func listDisks(fs vfs.FS, root string) (disks []string, err error) {
 }
 
 // TODO according drivers' count, [128, 512]
-// >=1 -> 128
-// 2 -> 256
-// 3 -> 384
-// >=4 -> 512
-func setGOMAXPROCS() {
-	// Store GOMAXPROCS bigger for these reasons:
-	//
-	// 1. SSD is superb, and assume ZBuf runs on a server with multi-SSD, so there is a problem:
-	// SSD's latency is very low, but it will take 20μs-10ms to find a thread blocked in Go.
-	// So the block may finish before notice it, the GO Process will be wasted in this situation,
-	// That's why we need more process
-	// (I found this trick from this discussion: https://groups.google.com/forum/#!topic/golang-nuts/jPb_h3TvlKE/discussion)
-	runtime.GOMAXPROCS(128) // TODO maybe 512 if you got lots of cores and NVMe SSD
-}
 
 //func (d *disks) load() error {
 //	diskFns, err := d.fs.List(d.root)
