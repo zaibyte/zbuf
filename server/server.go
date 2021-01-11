@@ -28,47 +28,25 @@ import (
 	"g.tesamc.com/IT/zbuf/extent"
 	"g.tesamc.com/IT/zbuf/server/config"
 	"g.tesamc.com/IT/zbuf/vfs"
-	"g.tesamc.com/IT/zbuf/xio"
 )
 
-// Server is the zbuf server.
+// Server is the ZBuf server.
 type Server struct {
 	isRunning int64
 
-	cfg    *config.Config
-	objSvr *otcp.Server
+	cfg *config.Config
+
+	objSvr *otcp.Server  // Object server.
 	opSvr  *xhttp.Server // Operator server.
+	// TODO keeper client for heartbeat
 
-	nextDisk int64 // Next disk for creating new extent.
-	disks    []string
-
-	extenters *sync.Map // TODO better struct? sync.Map is not fast.
-
-	xioers map[string]*xioer // TODO should support concurrency.
+	disks      sync.Map // Disks info
+	schedulers sync.Map
+	extenters  sync.Map
 
 	ctx    context.Context
 	cancel func()
-	stopWg *sync.WaitGroup
-}
-
-type xioer struct {
-	stopWg *sync.WaitGroup
-
-	flusher      *xio.Flusher
-	flushJobChan chan *xio.FlushJob
-	getter       *xio.Getter
-	getJobChan   chan *xio.GetJob
-}
-
-func (x *xioer) start() {
-	for i := 0; i < xio.DefaultWriteThreadsPerDisk; i++ { // TODO make it config.
-		x.stopWg.Add(1)
-		go x.flusher.DoLoop()
-	}
-	for i := 0; i < xio.DefaultReadThreadsPerDisk; i++ { // TODO make it config.
-		x.stopWg.Add(1)
-		go x.getter.DoLoop()
-	}
+	stopWg sync.WaitGroup
 }
 
 // Create creates a zbuf server.
@@ -77,13 +55,10 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 	s := &Server{}
 	s.cfg = cfg
 	s.ctx, s.cancel = context.WithCancel(ctx)
-	s.stopWg = new(sync.WaitGroup)
 
-	s.extenters = new(sync.Map)
-
-	s.objSvr = otcp.NewServer(cfg.ObjAddr, s)
+	s.objSvr = otcp.NewServer(cfg.ObjSrvAddr, s)
 	s.opSvr = xhttp.NewServer(&xhttp.ServerConfig{
-		Address:   cfg.OpAddr,
+		Address: cfg.OpAddr,
 	})
 	s.opSvr.AddHandler(http.MethodPut, "/v1/extent/create/:version/:id/:segmentsize", s.createExtentHandler)
 
@@ -92,31 +67,6 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 		return nil, err
 	}
 	s.disks = disks
-
-	s.xioers = make(map[string]*xioer, len(s.disks))
-	for _, disk := range disks {
-		flushJobChan := make(chan *xio.FlushJob, xio.DefaultWriteDepth)
-		flusher := &xio.Flusher{
-			Jobs:   flushJobChan,
-			Ctx:    s.ctx,
-			StopWg: s.stopWg,
-		}
-
-		getJobChan := make(chan *xio.GetJob, xio.DefaultReadDepth)
-		getter := &xio.Getter{
-			Jobs:   getJobChan,
-			Ctx:    s.ctx,
-			StopWg: s.stopWg,
-		}
-
-		s.xioers[disk] = &xioer{
-			stopWg:       s.stopWg,
-			flusher:      flusher,
-			flushJobChan: flushJobChan,
-			getter:       getter,
-			getJobChan:   getJobChan,
-		}
-	}
 
 	return s, nil
 }

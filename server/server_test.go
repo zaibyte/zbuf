@@ -65,7 +65,7 @@ func TestServerObjPutGet(t *testing.T) {
 		BoxID:      0,
 		NodeID:     "test",
 		OpAddr:     opAddr,
-		ObjAddr:    objAddr,
+		ObjSrvAddr: objAddr,
 		DataRoot:   dataRoot,
 		InsertOnly: false,
 	})
@@ -158,7 +158,7 @@ func TestServerObjPutPerf(t *testing.T) {
 		BoxID:      0,
 		NodeID:     "test",
 		OpAddr:     opAddr,
-		ObjAddr:    objAddr,
+		ObjSrvAddr: objAddr,
 		DataRoot:   dataRoot,
 		InsertOnly: false,
 	})
@@ -243,7 +243,7 @@ func TestServerObjGetPerf(t *testing.T) {
 		BoxID:      0,
 		NodeID:     "test",
 		OpAddr:     opAddr,
-		ObjAddr:    objAddr,
+		ObjSrvAddr: objAddr,
 		DataRoot:   dataRoot,
 		InsertOnly: false,
 	})

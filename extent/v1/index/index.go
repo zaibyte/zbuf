@@ -21,7 +21,7 @@
 //
 // In practice, most of objects in Tesamc are large, we could make a Index with 2^16 capacity at the beginning,
 // and because of the GC overhead, there will be 20% of slots in index are empty, which means 2^16 (512KB) is just
-// the index's memory usage. For a server with 4*8TB disks, 64MB is the total
+// the index's memory usage. For a server with 4*8TB disks, 64MB is the total usage.
 package index
 
 import (
