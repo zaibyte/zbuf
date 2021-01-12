@@ -1,56 +1,62 @@
 package vdisk
 
-import "g.tesamc.com/IT/zproto/pkg/metapb"
+import (
+	"g.tesamc.com/IT/zproto/pkg/metapb"
+)
 
 // PhyDisk is the physical disk.
 type PhyDisk struct {
-	state metapb.Disk
+	Disk *metapb.Disk
+}
+
+func (p *PhyDisk) GetDisk() *metapb.Disk {
+	return p.Disk
 }
 
 func (p *PhyDisk) GetType() metapb.DiskType {
-	return p.state.GetType()
+	return p.Disk.GetType()
 }
 
 func (p *PhyDisk) GetState() metapb.DiskState {
-	return p.state.GetState()
+	return p.Disk.GetState()
 }
 
 func (p *PhyDisk) GetID() uint32 {
-	return p.state.GetId()
+	return p.Disk.GetId()
 }
 
 func (p *PhyDisk) GetSize() uint64 {
-	return p.state.GetSize_()
+	return p.Disk.GetSize_()
 }
 
 func (p *PhyDisk) GetUsed() uint64 {
-	return p.state.GetUsed()
+	return p.Disk.GetUsed()
 }
 
 func (p *PhyDisk) GetWeight() float64 {
-	return p.state.GetWeight()
+	return p.Disk.GetWeight()
 }
 
 func (p *PhyDisk) SetType(diskType metapb.DiskType) {
-	p.state.Type = diskType
+	p.Disk.Type = diskType
 }
 
 func (p *PhyDisk) SetState(state metapb.DiskState) {
-	p.state.State = state
+	p.Disk.State = state
 }
 
 func (p *PhyDisk) SetID(id uint32) {
-	p.state.Id = id
+	p.Disk.Id = id
 }
 
 func (p *PhyDisk) SetSize(size uint64) {
-	p.state.Size_ = size
+	p.Disk.Size_ = size
 }
 
 func (p *PhyDisk) SetUsed(used uint64) {
-	p.state.Used = used
+	p.Disk.Used = used
 }
 
 func (p *PhyDisk) SetWeight(weight float64) {
-	p.state.Weight = weight
+	p.Disk.Weight = weight
 }

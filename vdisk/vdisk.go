@@ -8,6 +8,8 @@ type VDisk interface {
 }
 
 type VDiskGetter interface {
+	GetDisk() *metapb.Disk
+
 	GetType() metapb.DiskType
 	GetState() metapb.DiskState
 	GetID() uint32
