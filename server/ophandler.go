@@ -17,11 +17,10 @@
 package server
 
 import (
+	"errors"
 	"net/http"
-	"strconv"
-	"sync/atomic"
 
-	"g.tesamc.com/IT/zbuf/extent/eva"
+	"g.tesamc.com/IT/zaipkg/uid"
 
 	"g.tesamc.com/IT/zaipkg/xerrors"
 	"g.tesamc.com/IT/zaipkg/xlog"
@@ -31,36 +30,47 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
-// TODO make it public in xhttp.
-func reqIDStrToInt(s string) uint64 {
-	u, _ := strconv.ParseUint(s, 10, 64)
-	return u
+func (s *Server) addOpHandlers() {
+	s.opSvr.AddHandler(http.MethodPut, "/v1/extent/create/:version/:group_id/:seq_id/:disk_id", s.createExtentHandler)
 }
 
-// Path: /extent/create/:version/:id/:segmentsize
-// segmentsize's unit is KB.
-func (s *Server) createExtentHandler(w http.ResponseWriter, _ *http.Request, p httprouter.Params) {
-	reqIDS := w.Header().Get(xhttp.ReqIDHeader) // TODO deal with version & segmentsize
-	reqid := reqIDStrToInt(reqIDS)
-	idInt, err := strconv.ParseInt(p.ByName("id"), 10, 64)
-	if err != nil {
-		err = xerrors.WithMessage(err, "illegal extent id")
+// Path: /v1/extent/create/:version/:group_id/:seq_id/:disk_id
+func (s *Server) createExtentHandler(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
+
+	reqid := xhttp.GetReqID(req)
+
+	var version uint16
+	xhttp.ParsePath(p, "version", &version)
+	has := false
+	for _, v := range s.availExtentVersion {
+		if v == version {
+			has = true
+			break
+		}
+	}
+	if !has {
+		err := errors.New("illegal extent version")
 		xlog.ErrorID(reqid, err.Error())
 		xhttp.ReplyError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	segSize, err := strconv.ParseInt(p.ByName("segmentsize"), 10, 64)
-	if err != nil {
-		err = xerrors.WithMessage(err, "illegal segment size")
+	var groupID uint32
+	xhttp.ParsePath(p, "group_id", &groupID)
+	if !uid.IsValidGroupID(groupID) {
+		err := errors.New("illegal group_id")
 		xlog.ErrorID(reqid, err.Error())
 		xhttp.ReplyError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	segSize = segSize * 1024
 
-	id := uint32(idInt)
-	err = s.createExtent(0, id, segSize)
+	var groupSeq uint16
+	xhttp.ParsePath(p, "seq_id", &groupSeq)
+
+	var diskID uint32
+	xhttp.ParsePath(p, "disk_id", &diskID)
+
+	err := s.createExtent(version, groupID, groupSeq, diskID)
 	if err != nil {
 		err = xerrors.WithMessage(err, "create extent failed")
 		xlog.ErrorID(reqid, err.Error())
@@ -70,23 +80,18 @@ func (s *Server) createExtentHandler(w http.ResponseWriter, _ *http.Request, p h
 	xhttp.ReplyCode(w, http.StatusOK)
 }
 
-func (s *Server) createExtent(version uint16, extentID uint32, segmentSize int64) error {
-	version = 1 // TODO support more version
+func (s *Server) createExtent(version uint16, groupID uint32, groupSeq uint16, diskID uint32) error {
 
-	// TODO the police is too simple.
-	rootPath := s.disks[atomic.LoadInt64(&s.nextDisk)%int64(len(s.disks))]
-	atomic.AddInt64(&s.nextDisk, 1)
-
-	cfg := &eva.Config{
-		Path:        rootPath,
-		SegmentSize: segmentSize,
-		InsertOnly:  s.cfg.InsertOnly,
+	creator, ok := s.creators[version]
+	if !ok {
+		err := errors.New("could not find creator")
+		return err
 	}
-
-	ext, err := eva.New(cfg, extentID, s.xioers[rootPath].flushJobChan, s.xioers[rootPath].getJobChan)
+	ext, err := creator.Create(groupID, groupSeq, diskID)
 	if err != nil {
 		return err
 	}
-	s.extenters.Store(extentID, ext)
+
+	s.extenters.Store(groupID, ext)
 	return nil
 }
