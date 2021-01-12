@@ -44,17 +44,21 @@ func (s *Server) listDisks() {
 
 }
 
-const DiskInitBlockPrefix = "init_block_"
+const (
+	DiskInitBlockPrefix = "init_block"
+	MaxInitBlockSize    = 4096 * 2
+	MinInitBlockSize    = 4096
+)
 
 // initDisk creates some basic disk info and persisting it(in a file) on disk.
 // It will help to check disk health by checking the digest of this file.
-// init_disk_filepath: root/disk_<disk_id>/init_block_<digest>
+// init_disk_filepath: root/disk_<disk_id>/init_block/<digest>
 func initDisk(fs vfs.FS, diskID uint32, root string) error {
-	d := make([]byte, 4096*2)
+	d := make([]byte, MaxInitBlockSize)
 	rand.Seed(tsc.UnixNano())
-	bsize := rand.Intn(4096 * 2)
+	bsize := rand.Intn(MaxInitBlockSize + 1)
 	if bsize == 0 {
-		bsize = 4096
+		bsize = MinInitBlockSize
 	}
 	d = d[:bsize]
 	rand.Read(d)
@@ -79,10 +83,41 @@ func makeDiskPath(diskID uint32, root string) string {
 	return filepath.Join(root, DiskPrefix+cast.ToString(diskID))
 }
 
+func makeDiskInitBlockPath(diskID uint32, root string) string {
+	return filepath.Join(makeDiskPath(diskID, root), DiskInitBlockPrefix)
+}
+
 // fastHealthCheck checks disk health in a fast way,
 // checking disk is broken or not by checking digest of a special data block.
-func fastHealthCheck(diskID uint32) {
+func fastHealthCheck(fs vfs.FS, diskID uint32, root string) error {
+	ib, err := fs.List(makeDiskInitBlockPath(diskID, root))
+	if err != nil {
+		return err
+	}
+	if len(ib) != 1 {
+		return errors.New("too many init block")
+	}
+	fp := filepath.Join(makeDiskInitBlockPath(diskID, root), ib[0])
+	f, err := fs.Open(fp)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
 
+	stat, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	b := make([]byte, stat.Size())
+	_, err = f.Read(b)
+	if err != nil {
+		return err
+	}
+	digest := xdigest.Sum32(b)
+	if digest != cast.ToUint32(ib) {
+		return errors.New("init block digest mismatched")
+	}
+	return nil
 }
 
 // Disk paths:
