@@ -16,7 +16,10 @@
 
 package extent
 
-import "g.tesamc.com/IT/zaipkg/xbytes"
+import (
+	"g.tesamc.com/IT/zaipkg/xbytes"
+	v1 "g.tesamc.com/IT/zbuf/extent/v1"
+)
 
 // Extenter is the collection of extent methods.
 type Extenter interface {
@@ -39,7 +42,11 @@ const (
 // TODO interface of migrate
 var AvailVersions = []uint16{Version1}
 
+var Creators = map[uint16]Creator{
+	Version1: v1.Creator,
+}
+
 // Creator could create extenter.
 type Creator interface {
-	Create(cfg interface{}) (Extenter, error)
+	Create(groupID uint32, groupSeq uint16, diskID uint32) (Extenter, error)
 }
