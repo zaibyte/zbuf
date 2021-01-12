@@ -5,6 +5,8 @@ g.tesamc.com/IT/zaipkg v0.0.0-20210111084432-0abbad92540d h1:06Ge2x2ucLxF7NIVpny
 g.tesamc.com/IT/zaipkg v0.0.0-20210111084432-0abbad92540d/go.mod h1:93fcdDtGKTRGaC34lLZbyR63/eO2tpy2xKN34oOIJ9A=
 g.tesamc.com/IT/zaipkg v0.0.0-20210111094005-6d190942e3e9 h1:h03rZkQNnQZgw3Ed3AHq3T3BWfPoZGpbk1kHRMizAag=
 g.tesamc.com/IT/zaipkg v0.0.0-20210111094005-6d190942e3e9/go.mod h1:93fcdDtGKTRGaC34lLZbyR63/eO2tpy2xKN34oOIJ9A=
+g.tesamc.com/IT/zaipkg v0.0.0-20210112034933-305b6e9ec8a4 h1:jZAWAerDDOqb12im3zTjSv3o4o2vB2ktayTAFSGJXF8=
+g.tesamc.com/IT/zaipkg v0.0.0-20210112034933-305b6e9ec8a4/go.mod h1:FzQjyBeDVioeWvwy5MR4++SBKNN0jKKQbBhTHdRzQTY=
 g.tesamc.com/IT/zproto v0.0.0-20210112011838-ee54fee786d2 h1:p2P9hpDoidUspqJ+LoSycKWzkMsqMonmkYFjFFz2xAQ=
 g.tesamc.com/IT/zproto v0.0.0-20210112011838-ee54fee786d2/go.mod h1:cOpEEu7RT7ocVlcIh/c4JmLSyIFQoPGbzU+77RVg1NE=
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
@@ -98,6 +100,7 @@ github.com/prometheus/procfs v0.0.11/go.mod h1:lV6e/gmhEcM9IjHGsFOCxxuZ+z1YqCvr4
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=
 github.com/sirupsen/logrus v1.4.2/go.mod h1:tLMulIdttU9McNUspp0xgXVQah82FyeX6MwdIuYE2rE=
+github.com/spf13/cast v1.3.1/go.mod h1:Qx5cxh0v+4UWYiBimWS+eyWzqEqokIECu5etghLkUJE=
 github.com/spf13/cobra v0.0.3/go.mod h1:1l0Ry5zgKvJasoi3XT1TypsSe7PqH0Sj9dhYf7v3XqQ=
 github.com/spf13/pflag v1.0.3/go.mod h1:DYY7MBk1bdzusC3SYhjObp+wFpr4gzcvqqNjLnInEg4=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
