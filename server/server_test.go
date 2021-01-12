@@ -56,7 +56,7 @@ func TestServerObjPutGet(t *testing.T) {
 	}
 	defer os.RemoveAll(dataRoot)
 
-	err = os.Mkdir(filepath.Join(dataRoot, zbufDiskPrefix+"1"), 0755)
+	err = os.Mkdir(filepath.Join(dataRoot, DiskPrefix+"1"), 0755)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +149,7 @@ func TestServerObjPutPerf(t *testing.T) {
 	}
 	defer os.RemoveAll(dataRoot)
 
-	err = os.Mkdir(filepath.Join(dataRoot, zbufDiskPrefix+"1"), 0755)
+	err = os.Mkdir(filepath.Join(dataRoot, DiskPrefix+"1"), 0755)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -234,7 +234,7 @@ func TestServerObjGetPerf(t *testing.T) {
 	}
 	defer os.RemoveAll(dataRoot)
 
-	err = os.Mkdir(filepath.Join(dataRoot, zbufDiskPrefix+"1"), 0755)
+	err = os.Mkdir(filepath.Join(dataRoot, DiskPrefix+"1"), 0755)
 	if err != nil {
 		t.Fatal(err)
 	}
