@@ -31,5 +31,10 @@ type Objecter interface {
 	DeleteObj(reqid, oid uint64) error
 }
 
+const (
+	Version1 = 1
+)
+
 // TODO interface of scheduler scrub
 // TODO interface of migrate
+var AvailVersions = []uint16{Version1}
