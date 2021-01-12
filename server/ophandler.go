@@ -55,7 +55,7 @@ func (s *Server) createExtentHandler(w http.ResponseWriter, req *http.Request, p
 		return
 	}
 
-	var groupID uint32
+	var groupID uint16
 	xhttp.ParsePath(p, "group_id", &groupID)
 	if !uid.IsValidGroupID(groupID) {
 		err := errors.New("illegal group_id")
@@ -80,7 +80,7 @@ func (s *Server) createExtentHandler(w http.ResponseWriter, req *http.Request, p
 	xhttp.ReplyCode(w, http.StatusOK)
 }
 
-func (s *Server) createExtent(version uint16, groupID uint32, groupSeq uint16, diskID uint32) error {
+func (s *Server) createExtent(version uint16, groupID, groupSeq uint16, diskID uint32) error {
 
 	creator, ok := s.creators[version]
 	if !ok {

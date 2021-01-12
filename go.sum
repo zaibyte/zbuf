@@ -11,6 +11,8 @@ g.tesamc.com/IT/zaipkg v0.0.0-20210112045436-74187584e1d3 h1:hWrDGMw+mOsUi1HbD/o
 g.tesamc.com/IT/zaipkg v0.0.0-20210112045436-74187584e1d3/go.mod h1:FzQjyBeDVioeWvwy5MR4++SBKNN0jKKQbBhTHdRzQTY=
 g.tesamc.com/IT/zaipkg v0.0.0-20210112050153-ca5000fff45e h1:EQUw5YagqkVo4QB+PyJovCjvfjpZFsNnc1pw2VKJoh0=
 g.tesamc.com/IT/zaipkg v0.0.0-20210112050153-ca5000fff45e/go.mod h1:FzQjyBeDVioeWvwy5MR4++SBKNN0jKKQbBhTHdRzQTY=
+g.tesamc.com/IT/zaipkg v0.0.0-20210112064024-cec6e343c96e h1:M64LyU46/EYWk9HvUhW63nyLMmyTPBpFhZxnn/MOVpg=
+g.tesamc.com/IT/zaipkg v0.0.0-20210112064024-cec6e343c96e/go.mod h1:FzQjyBeDVioeWvwy5MR4++SBKNN0jKKQbBhTHdRzQTY=
 g.tesamc.com/IT/zproto v0.0.0-20210112011838-ee54fee786d2 h1:p2P9hpDoidUspqJ+LoSycKWzkMsqMonmkYFjFFz2xAQ=
 g.tesamc.com/IT/zproto v0.0.0-20210112011838-ee54fee786d2/go.mod h1:cOpEEu7RT7ocVlcIh/c4JmLSyIFQoPGbzU+77RVg1NE=
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
