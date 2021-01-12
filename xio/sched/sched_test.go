@@ -90,7 +90,7 @@ func testSchedulerIsFairWithPriority(vfsSpeed, iodepth, reqSize int, reqCnts []r
 	go s.FindRunnableLoop()
 
 	speed := vfsSpeed / iodepth
-	sf := &vfs.SpeedFile{Speed: speed}
+	sf := &vfs.SpeedFS{Speed: speed}
 	data := make([]byte, reqSize)
 
 	wg2 := new(sync.WaitGroup)
