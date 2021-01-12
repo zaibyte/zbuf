@@ -31,7 +31,8 @@ import (
 
 // Server is the ZBuf server.
 type Server struct {
-	isRunning int64
+	isRunning   int64
+	development bool
 
 	cfg *config.Config
 
@@ -58,6 +59,8 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 	s.cfg = cfg
 	s.ctx, s.cancel = context.WithCancel(ctx)
 
+	s.development = s.cfg.Develop.Development
+
 	s.objSvr = otcp.NewServer(cfg.ObjSrvAddr, s)
 	s.opSvr = xhttp.NewServer(&xhttp.ServerConfig{
 		Address: cfg.App.HTTPServerAddr,
@@ -67,7 +70,7 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 	s.availExtentVersion = extent.AvailVersions
 	s.creators = extent.Creators
 
-	disks, err := listDisks(vfs.DefaultFS, cfg.DataRoot)
+	disks, err := listDiskIDs(vfs.DefaultFS, cfg.DataRoot)
 	if err != nil {
 		return nil, err
 	}

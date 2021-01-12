@@ -32,6 +32,17 @@ type Config struct {
 	ObjSrvAddr string `json:"obj_srv_addr"`
 	// ZBuf data root path.
 	DataRoot string `toml:"data_root"`
+
+	Develop DevConfig `toml:"develop"`
+}
+
+type DevConfig struct {
+	// Development indicates Server is in development state or not,
+	// we need to set it true for testing sometimes.
+	Development bool `toml:"development"`
+	// NoListDisk will disable listing disks at Server starting.
+	// We could add VDisk manually for testing.
+	NoListDisk bool `toml:"no_list_disk"`
 }
 
 const (
