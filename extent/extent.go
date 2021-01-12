@@ -19,10 +19,13 @@ package extent
 import (
 	"g.tesamc.com/IT/zaipkg/xbytes"
 	v1 "g.tesamc.com/IT/zbuf/extent/v1"
+	"g.tesamc.com/IT/zproto/pkg/metapb"
 )
 
 // Extenter is the collection of extent methods.
 type Extenter interface {
+	GetInfo() metapb.Extent
+
 	Objecter
 	Close() error
 }

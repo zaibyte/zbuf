@@ -18,7 +18,6 @@ package server
 
 import (
 	"context"
-	"net/http"
 	"sync"
 	"sync/atomic"
 
@@ -40,7 +39,10 @@ type Server struct {
 	opSvr  *xhttp.Server // Operator server.
 	// TODO keeper client for heartbeat
 
-	disks      sync.Map // Disks info
+	availExtentVersion []uint16
+	creators           map[uint16]extent.Creator
+
+	vdisks     sync.Map // Disks info
 	schedulers sync.Map
 	extenters  sync.Map
 
@@ -49,7 +51,7 @@ type Server struct {
 	stopWg sync.WaitGroup
 }
 
-// Create creates a zbuf server.
+// Create creates a ZBuf server.
 func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 
 	s := &Server{}
@@ -58,17 +60,24 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 
 	s.objSvr = otcp.NewServer(cfg.ObjSrvAddr, s)
 	s.opSvr = xhttp.NewServer(&xhttp.ServerConfig{
-		Address: cfg.OpAddr,
+		Address: cfg.App.HTTPServerAddr,
 	})
-	s.opSvr.AddHandler(http.MethodPut, "/v1/extent/create/:version/:id/:segmentsize", s.createExtentHandler)
+	s.addHandlers()
+
+	s.availExtentVersion = extent.AvailVersions
+	s.creators = extent.Creators
 
 	disks, err := listDisks(vfs.DefaultFS, cfg.DataRoot)
 	if err != nil {
 		return nil, err
 	}
-	s.disks = disks
+	s.vdisks = disks
 
 	return s, nil
+}
+
+func (s *Server) addHandlers() {
+	s.addOpHandlers()
 }
 
 // TODO should start tsc.Calibrate()
@@ -80,7 +89,7 @@ func (s *Server) Run() error {
 	}
 	s.opSvr.Start()
 
-	for _, disk := range s.disks {
+	for _, disk := range s.vdisks {
 		s.xioers[disk].start()
 	}
 
@@ -88,6 +97,10 @@ func (s *Server) Run() error {
 	xlog.Info("server is running")
 
 	return nil
+}
+
+func (s *Server) runLoops() {
+
 }
 
 func (s *Server) Close() {

@@ -91,7 +91,7 @@ func (s *Server) createExtent(version uint16, groupID, groupSeq uint16, diskID u
 	if err != nil {
 		return err
 	}
-
-	s.extenters.Store(groupID, ext)
+	s.extenters.Store(uid.MakeExtID(groupID, groupSeq), ext)
+	// TODO updating disk info which the extent belongs to
 	return nil
 }
