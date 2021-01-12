@@ -22,6 +22,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"g.tesamc.com/IT/zbuf/vdisk"
+
 	"g.tesamc.com/IT/zaipkg/xdigest"
 	"g.tesamc.com/IT/zbuf/vfs"
 	"github.com/spf13/cast"
@@ -40,11 +42,21 @@ func (s *Server) listDisks() {
 	}
 
 	diskIDs, _ := listDiskIDs(s.fs, s.cfg.DataRoot)
+
 	// TODO I should init diskInfo first
 	for _, diskID := range diskIDs {
 		err := initDisk(s.fs, diskID, s.cfg.DataRoot)
 	}
 
+}
+
+// initDisks initializes Server disks info.
+func (s *Server) initDisks(diskIDs []uint32) {
+	for _, diskID := range diskIDs {
+		disk := vdisk.GetDisk()
+		disk.SetID(diskID)
+
+	}
 }
 
 const (
