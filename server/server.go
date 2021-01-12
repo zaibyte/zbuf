@@ -40,6 +40,8 @@ type Server struct {
 	opSvr  *xhttp.Server // Operator server.
 	// TODO keeper client for heartbeat
 
+	fs vfs.FS
+
 	availExtentVersion []uint16
 	creators           map[uint16]extent.Creator
 

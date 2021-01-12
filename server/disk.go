@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	"g.tesamc.com/IT/zaipkg/xdigest"
-
 	"g.tesamc.com/IT/zbuf/vfs"
 	"github.com/spf13/cast"
 	"github.com/templexxx/tsc"
@@ -40,7 +39,11 @@ func (s *Server) listDisks() {
 		return
 	}
 
-	diskIDs, _ := listDiskIDs(vfs.DefaultFS, s.cfg.DataRoot)
+	diskIDs, _ := listDiskIDs(s.fs, s.cfg.DataRoot)
+	// TODO I should init diskInfo first
+	for _, diskID := range diskIDs {
+		err := initDisk(s.fs, diskID, s.cfg.DataRoot)
+	}
 
 }
 
@@ -54,6 +57,11 @@ const (
 // It will help to check disk health by checking the digest of this file.
 // init_disk_filepath: root/disk_<disk_id>/init_block/<digest>
 func initDisk(fs vfs.FS, diskID uint32, root string) error {
+
+	if isInitBlockExisted(fs, diskID, root) {
+		return nil
+	}
+
 	d := make([]byte, MaxInitBlockSize)
 	rand.Seed(tsc.UnixNano())
 	bsize := rand.Intn(MaxInitBlockSize + 1)
@@ -79,6 +87,17 @@ func initDisk(fs vfs.FS, diskID uint32, root string) error {
 	return f.Sync()
 }
 
+func isInitBlockExisted(fs vfs.FS, diskID uint32, root string) bool {
+	ib, err := fs.List(makeDiskInitBlockPath(diskID, root))
+	if err != nil {
+		return false
+	}
+	if len(ib) != 0 {
+		return true
+	}
+	return false
+}
+
 func makeDiskPath(diskID uint32, root string) string {
 	return filepath.Join(root, DiskPrefix+cast.ToString(diskID))
 }
@@ -93,6 +112,9 @@ func fastHealthCheck(fs vfs.FS, diskID uint32, root string) error {
 	ib, err := fs.List(makeDiskInitBlockPath(diskID, root))
 	if err != nil {
 		return err
+	}
+	if len(ib) == 0 {
+		return errors.New("cannot find init block")
 	}
 	if len(ib) != 1 {
 		return errors.New("too many init block")
