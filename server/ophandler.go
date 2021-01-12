@@ -79,19 +79,3 @@ func (s *Server) createExtentHandler(w http.ResponseWriter, req *http.Request, p
 	}
 	xhttp.ReplyCode(w, http.StatusOK)
 }
-
-func (s *Server) createExtent(version uint16, groupID, groupSeq uint16, diskID uint32) error {
-
-	creator, ok := s.creators[version]
-	if !ok {
-		err := errors.New("could not find creator")
-		return err
-	}
-	ext, err := creator.Create(groupID, groupSeq, diskID)
-	if err != nil {
-		return err
-	}
-	s.extenters.Store(uid.MakeExtID(groupID, groupSeq), ext)
-	// TODO updating disk info which the extent belongs to
-	return nil
-}

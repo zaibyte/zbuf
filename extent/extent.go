@@ -51,5 +51,5 @@ var Creators = map[uint16]Creator{
 
 // Creator could create extenter.
 type Creator interface {
-	Create(groupID, groupSeq uint16, diskID uint32) (Extenter, error)
+	Create(extID uint32, diskID uint32) (Extenter, error)
 }
