@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	"g.tesamc.com/IT/zaipkg/uid"
-	"g.tesamc.com/IT/zbuf/extent"
 )
 
 func (s *Server) createExtent(version uint16, groupID, groupSeq uint16, diskID uint32) error {
@@ -26,8 +25,4 @@ func (s *Server) createExtent(version uint16, groupID, groupSeq uint16, diskID u
 	s.extenters.Store(extID, ext)
 	// TODO updating disk info which the extent belongs to
 	return nil
-}
-
-func (s *Server) addExt(extID uint32, ext extent.Extenter) {
-	s.extenters.Store(extID, ext)
 }
