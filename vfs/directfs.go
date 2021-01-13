@@ -36,7 +36,7 @@ var DirectFS FS = directFS{}
 
 type directFS struct{}
 
-func (fs directFS) OpenDir(name string) (lvfs.File, error) {
+func (fs directFS) OpenDir(name string) (File, error) {
 	return os.OpenFile(name, syscall.O_CLOEXEC, 0)
 }
 

@@ -28,7 +28,7 @@ type FS = lvfs.FS
 type MemFS = lvfs.MemFS
 
 // DefaultFS is a vfs instance using underlying OS fs.
-var DefaultFS FS = lvfs.Default
+var DefaultFS FS = DirectFS
 
 // MemStrictFS is a vfs instance using memfs.
 var MemStrictFS FS = lvfs.NewStrictMem()
