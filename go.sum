@@ -1,6 +1,8 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 g.tesamc.com/IT/zaipkg v0.0.0-20210112064024-cec6e343c96e h1:M64LyU46/EYWk9HvUhW63nyLMmyTPBpFhZxnn/MOVpg=
 g.tesamc.com/IT/zaipkg v0.0.0-20210112064024-cec6e343c96e/go.mod h1:FzQjyBeDVioeWvwy5MR4++SBKNN0jKKQbBhTHdRzQTY=
+g.tesamc.com/IT/zaipkg v0.0.0-20210112221732-a812ce93e71e h1:O65z/NCzkR6Eg8aZBG+iRIMgQfu5cVyDtje9fYqMeyc=
+g.tesamc.com/IT/zaipkg v0.0.0-20210112221732-a812ce93e71e/go.mod h1:YF6uT943hGe/saDkd0DeG7om86FeZ5NpkPYXo0oPJZc=
 g.tesamc.com/IT/zproto v0.0.0-20210112011838-ee54fee786d2 h1:p2P9hpDoidUspqJ+LoSycKWzkMsqMonmkYFjFFz2xAQ=
 g.tesamc.com/IT/zproto v0.0.0-20210112011838-ee54fee786d2/go.mod h1:cOpEEu7RT7ocVlcIh/c4JmLSyIFQoPGbzU+77RVg1NE=
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
@@ -54,6 +56,7 @@ github.com/google/gofuzz v1.0.0/go.mod h1:dBl0BpW6vV/+mYPU4Po3pmUjxk6FQPldtuIdl/
 github.com/google/renameio v0.1.0/go.mod h1:KWCgfxg9yswjAJkECMjeO8J8rahYeXnNhOm40UhjYkI=
 github.com/google/uuid v1.1.1 h1:Gkbcsh/GbpXz7lPftLA3P6TYMwjCLYm83jiFQZF/3gY=
 github.com/google/uuid v1.1.1/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
+github.com/gyuho/linux-inspect v0.0.0-20180929231013-a492bfc5f12a/go.mod h1:u2l1k3IAT/RZKOAwDCcFBlG2CLl9+JE/6hWy6KBLJa0=
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
 github.com/json-iterator/go v1.1.6/go.mod h1:+SdeFBvtyEkXs7REEP0seUULqWtbJapLOCVDaaPEHmU=
 github.com/json-iterator/go v1.1.9/go.mod h1:KdQUCv79m/52Kvf8AW2vK1V8akMuk1QjK/uOdHXbAo4=

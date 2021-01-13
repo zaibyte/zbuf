@@ -42,6 +42,11 @@ func (p *PhyDisk) SetType(diskType metapb.DiskType) {
 }
 
 func (p *PhyDisk) SetState(state metapb.DiskState) {
+	old := p.GetState()
+	if old == metapb.DiskState_Disk_Offline || old == metapb.DiskState_Disk_Tombstone ||
+		old == metapb.DiskState_Disk_Broken {
+		return
+	}
 	p.Disk.State = state
 }
 

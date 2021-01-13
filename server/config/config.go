@@ -34,6 +34,9 @@ type Config struct {
 	DataRoot string `toml:"data_root"`
 
 	Develop DevConfig `toml:"develop"`
+
+	// DiskWeights: disk_id: weight.
+	DiskWeights map[uint32]float64 `toml:"weights"`
 }
 
 type DevConfig struct {

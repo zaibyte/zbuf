@@ -2,14 +2,14 @@ package vdisk
 
 import "g.tesamc.com/IT/zproto/pkg/metapb"
 
-var DefaultDisk VDisk = &PhyDisk{Disk: new(metapb.Disk)}
+var DefaultDisk Disk = &PhyDisk{Disk: new(metapb.Disk)}
 
 // GetDisk returns the vdisk instance used in normal run.
-func GetDisk() VDisk {
+func GetDisk() Disk {
 	return DefaultDisk
 }
 
 // GetTestDisk returns the vdisk instance used in tests.
-func GetTestDisk() VDisk {
+func GetTestDisk() Disk {
 	return DefaultDisk
 }

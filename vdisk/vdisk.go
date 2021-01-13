@@ -2,12 +2,12 @@ package vdisk
 
 import "g.tesamc.com/IT/zproto/pkg/metapb"
 
-type VDisk interface {
-	VDiskGetter
-	VDiskSetter
+type Disk interface {
+	Getter
+	Setter
 }
 
-type VDiskGetter interface {
+type Getter interface {
 	GetDisk() *metapb.Disk
 
 	GetType() metapb.DiskType
@@ -18,7 +18,7 @@ type VDiskGetter interface {
 	GetWeight() float64
 }
 
-type VDiskSetter interface {
+type Setter interface {
 	SetType(diskType metapb.DiskType)
 	SetState(state metapb.DiskState)
 	SetID(id uint32)

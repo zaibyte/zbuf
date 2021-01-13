@@ -22,6 +22,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"g.tesamc.com/IT/zaipkg/xlog"
+	"g.tesamc.com/IT/zproto/pkg/metapb"
+
+	"g.tesamc.com/IT/zaipkg/diskutil"
+
 	"g.tesamc.com/IT/zbuf/vdisk"
 
 	"g.tesamc.com/IT/zaipkg/xdigest"
@@ -43,11 +48,32 @@ func (s *Server) listDisks() {
 
 	diskIDs, _ := listDiskIDs(s.fs, s.cfg.DataRoot)
 
-	// TODO I should init diskInfo first
+	s.initDisks(diskIDs)
+
 	for _, diskID := range diskIDs {
 		err := initDisk(s.fs, diskID, s.cfg.DataRoot)
+		if diskutil.IsBroken(err) {
+			xlog.Errorf("list disk failed, broken disk: %s", err.Error())
+			d := s.getDisk(diskID)
+			d.SetState(metapb.DiskState_Disk_Broken)
+			continue
+		}
+		err = fastHealthCheck(s.fs, diskID, s.cfg.DataRoot)
+		if err != nil {
+			xlog.Errorf("list disk failed, broken disk: %s", err.Error())
+			d := s.getDisk(diskID)
+			d.SetState(metapb.DiskState_Disk_Broken)
+			continue
+		}
 	}
+}
 
+func (s *Server) getDisk(diskID uint32) vdisk.Disk {
+	d, ok := s.vdisks.Load(diskID)
+	if !ok {
+		return nil
+	}
+	return d.(vdisk.Disk)
 }
 
 // initDisks initializes Server disks info.
@@ -55,7 +81,16 @@ func (s *Server) initDisks(diskIDs []uint32) {
 	for _, diskID := range diskIDs {
 		disk := vdisk.GetDisk()
 		disk.SetID(diskID)
-
+		path := makeDiskPath(diskID, s.cfg.DataRoot)
+		disk.SetType(diskutil.GetDiskType(path))
+		usage, _ := diskutil.GetUsageState(path)
+		disk.SetSize(usage.Size)
+		disk.SetUsed(usage.Used)
+		weight, ok := s.cfg.DiskWeights[diskID]
+		if ok {
+			disk.SetWeight(weight)
+		}
+		s.vdisks.Store(diskID, disk)
 	}
 }
 
