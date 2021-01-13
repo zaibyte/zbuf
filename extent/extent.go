@@ -17,6 +17,8 @@
 package extent
 
 import (
+	"path/filepath"
+
 	"g.tesamc.com/IT/zaipkg/xbytes"
 	v1 "g.tesamc.com/IT/zbuf/extent/v1"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
@@ -54,4 +56,11 @@ type Creator interface {
 	Create(extID uint32, diskID uint32) (Extenter, error)
 	// GetSize gets the size of extent which will be created.
 	GetSize() uint64
+}
+
+const ExtPathPrefix = "ext"
+
+// MakeExtPath makes extents paths belong to the diskPath.
+func MakeExtPath(diskPath string) string {
+	return filepath.Join(diskPath, ExtPathPrefix)
 }
