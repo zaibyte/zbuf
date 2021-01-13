@@ -21,6 +21,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"g.tesamc.com/IT/zaipkg/app"
+
 	"g.tesamc.com/IT/zaipkg/orpc/otcp"
 	"g.tesamc.com/IT/zaipkg/xlog"
 	"g.tesamc.com/IT/zaipkg/xnet/xhttp"
@@ -90,18 +92,23 @@ func (s *Server) Run() error {
 	}
 	s.opSvr.Start()
 
-	for _, disk := range s.vdisks {
-		s.xioers[disk].start()
-	}
-
 	atomic.StoreInt64(&s.isRunning, 1)
 	xlog.Info("server is running")
 
 	return nil
 }
 
-func (s *Server) runLoops() {
+// startBgLoops starts Server background jobs which running in loops.
+func (s *Server) startBgLoops() {
+	s.stopWg.Add(1)
+	go app.TimeCalibrateLoop(s.ctx, &s.stopWg, s.cfg.App.TimeCalibrateInterval.Duration)
 
+}
+
+// stopBgLoops stops Server background jobs, blocking until all exited.
+func (s *Server) stopBgLoops() {
+	s.cancel()
+	s.stopWg.Wait()
 }
 
 func (s *Server) Close() {
@@ -116,8 +123,7 @@ func (s *Server) Close() {
 	s.objSvr.Stop()
 	s.opSvr.Close()
 
-	s.cancel()
-	s.stopWg.Wait()
+	s.stopBgLoops()
 
 	s.extenters.Range(func(key, value interface{}) bool {
 		ext := value.(extent.Extenter)
