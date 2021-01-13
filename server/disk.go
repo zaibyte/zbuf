@@ -54,7 +54,7 @@ func (s *Server) listDisks() {
 		err := initDisk(s.fs, diskID, s.cfg.DataRoot)
 		if diskutil.IsBroken(err) {
 			xlog.Errorf("list disk failed, broken disk: %s", err.Error())
-			d := s.getDisk(diskID)
+			d := s.getDisk(diskID) // Must not be nil.
 			d.SetState(metapb.DiskState_Disk_Broken)
 			continue
 		}

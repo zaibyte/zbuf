@@ -72,11 +72,7 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 	s.availExtentVersion = extent.AvailVersions
 	s.creators = extent.Creators
 
-	disks, err := listDiskIDs(vfs.DefaultFS, cfg.DataRoot)
-	if err != nil {
-		return nil, err
-	}
-	s.vdisks = disks
+	s.listDisks()
 
 	return s, nil
 }

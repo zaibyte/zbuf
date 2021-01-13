@@ -52,4 +52,6 @@ var Creators = map[uint16]Creator{
 // Creator could create extenter.
 type Creator interface {
 	Create(extID uint32, diskID uint32) (Extenter, error)
+	// GetSize gets the size of extent which will be created.
+	GetSize() uint64
 }

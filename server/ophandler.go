@@ -18,6 +18,7 @@ package server
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"g.tesamc.com/IT/zaipkg/uid"
@@ -69,6 +70,14 @@ func (s *Server) createExtentHandler(w http.ResponseWriter, req *http.Request, p
 
 	var diskID uint32
 	xhttp.ParsePath(p, "disk_id", &diskID)
+
+	vd := s.getDisk(diskID)
+	if vd == nil {
+		err := errors.New(fmt.Sprintf("disk not found: %d", diskID))
+		xlog.ErrorID(reqid, err.Error())
+		xhttp.ReplyError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	err := s.createExtent(version, groupID, groupSeq, diskID)
 	if err != nil {
