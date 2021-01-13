@@ -22,6 +22,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"g.tesamc.com/IT/zaipkg/directio"
+
 	"g.tesamc.com/IT/zaipkg/xlog"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 
@@ -96,8 +98,7 @@ func (s *Server) initDisks(diskIDs []uint32) {
 
 const (
 	DiskInitBlockPrefix = "init_block"
-	MaxInitBlockSize    = 4096 * 2
-	MinInitBlockSize    = 4096
+	InitBlockSize       = directio.BlockSize
 )
 
 // initDisk creates some basic disk info and persisting it(in a file) on disk.
@@ -109,13 +110,8 @@ func initDisk(fs vfs.FS, diskID uint32, root string) error {
 		return nil
 	}
 
-	d := make([]byte, MaxInitBlockSize)
+	d := make([]byte, InitBlockSize)
 	rand.Seed(tsc.UnixNano())
-	bsize := rand.Intn(MaxInitBlockSize + 1)
-	if bsize == 0 {
-		bsize = MinInitBlockSize
-	}
-	d = d[:bsize]
 	rand.Read(d)
 
 	digest := xdigest.Sum32(d)
@@ -177,7 +173,10 @@ func fastHealthCheck(fs vfs.FS, diskID uint32, root string) error {
 	if err != nil {
 		return err
 	}
-	b := make([]byte, stat.Size())
+	if stat.Size() != InitBlockSize {
+		return errors.New("init block size mismatched")
+	}
+	b := make([]byte, InitBlockSize)
 	_, err = f.Read(b)
 	if err != nil {
 		return err
