@@ -1,6 +1,4 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
-g.tesamc.com/IT/zaipkg v0.0.0-20210112064024-cec6e343c96e h1:M64LyU46/EYWk9HvUhW63nyLMmyTPBpFhZxnn/MOVpg=
-g.tesamc.com/IT/zaipkg v0.0.0-20210112064024-cec6e343c96e/go.mod h1:FzQjyBeDVioeWvwy5MR4++SBKNN0jKKQbBhTHdRzQTY=
 g.tesamc.com/IT/zaipkg v0.0.0-20210112221732-a812ce93e71e h1:O65z/NCzkR6Eg8aZBG+iRIMgQfu5cVyDtje9fYqMeyc=
 g.tesamc.com/IT/zaipkg v0.0.0-20210112221732-a812ce93e71e/go.mod h1:YF6uT943hGe/saDkd0DeG7om86FeZ5NpkPYXo0oPJZc=
 g.tesamc.com/IT/zproto v0.0.0-20210112011838-ee54fee786d2 h1:p2P9hpDoidUspqJ+LoSycKWzkMsqMonmkYFjFFz2xAQ=
@@ -26,6 +24,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/docker/go-units v0.4.0 h1:3uh0PgVws3nIA0Q+MwDC8yjEPf9zjRfZZWXZYDct3Tw=
 github.com/docker/go-units v0.4.0/go.mod h1:fgPhTUdO+D/Jk86RDLlptpiXQzgHJF7gydDDbaIK4Dk=
+github.com/dustin/go-humanize v1.0.0 h1:VSnTsYCnlFHaM2/igO1h6X3HA71jcobQuxemgkq4zYo=
+github.com/dustin/go-humanize v1.0.0/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
 github.com/ghemawat/stream v0.0.0-20171120220530-696b145b53b9/go.mod h1:106OIgooyS7OzLDOpUGgm9fA3bQENb/cFSyyBmMoJDs=
 github.com/go-kit/kit v0.8.0/go.mod h1:xBxKIO96dXMWWy0MnWVtmwkA9/13aqxPnvrjFYMA2as=
 github.com/go-kit/kit v0.9.0/go.mod h1:xBxKIO96dXMWWy0MnWVtmwkA9/13aqxPnvrjFYMA2as=
@@ -56,6 +56,7 @@ github.com/google/gofuzz v1.0.0/go.mod h1:dBl0BpW6vV/+mYPU4Po3pmUjxk6FQPldtuIdl/
 github.com/google/renameio v0.1.0/go.mod h1:KWCgfxg9yswjAJkECMjeO8J8rahYeXnNhOm40UhjYkI=
 github.com/google/uuid v1.1.1 h1:Gkbcsh/GbpXz7lPftLA3P6TYMwjCLYm83jiFQZF/3gY=
 github.com/google/uuid v1.1.1/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
+github.com/gyuho/linux-inspect v0.0.0-20180929231013-a492bfc5f12a h1:rhA92KsUcMmncbNtK/0qfF8oLhVbohNkPrfPuNO2og0=
 github.com/gyuho/linux-inspect v0.0.0-20180929231013-a492bfc5f12a/go.mod h1:u2l1k3IAT/RZKOAwDCcFBlG2CLl9+JE/6hWy6KBLJa0=
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
 github.com/json-iterator/go v1.1.6/go.mod h1:+SdeFBvtyEkXs7REEP0seUULqWtbJapLOCVDaaPEHmU=
