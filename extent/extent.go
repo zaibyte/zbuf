@@ -1,18 +1,22 @@
-/*
- * Copyright (c) 2020. Temple3x (temple3x@gmail.com)
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Extent on local file system:
+// .
+// ├── <data_root>
+// │    ├── disk_<disk_id0>
+// │    ├── disk_<disk_id1>
+// │    └── disk_<disk_id2>
+// │         ├── <digest>.init-block
+// │         └── ext
+// │              ├── <ext_id0>
+// │              ├── <ext_id1>
+// │              └── <ext_id2>
+// │                      ├── boot-sector
+// │                      ├── header
+// │                      ├── <timestamp>.idx-snap
+// │                      ├── <start-end>.idx-wal
+// │                      └── segments
+//
+// p.s.
+// header, idx-snap, idx-wal, segments are extent/v1's concepts.
 
 package extent
 

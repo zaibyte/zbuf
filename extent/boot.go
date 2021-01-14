@@ -11,6 +11,6 @@ const BootSectorSize = directio.BlockSize
 // BootSector struct:
 // 0                                                              BootSectorSize
 // | extent_version(2B) | xdigest(4B) | random_data(BootSectorSize-6B) |
-func CreateBootSector(f vfs.File) error {
+func CreateBootSector(fs vfs.FS) error {
 
 }
