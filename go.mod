@@ -4,7 +4,7 @@ go 1.15
 
 require (
 	g.tesamc.com/IT/zaipkg v0.0.0-20210113091840-b5fe1a07fbd0
-	g.tesamc.com/IT/zproto v0.0.0-20210113091800-2c97afc91798
+	g.tesamc.com/IT/zproto v0.0.0-20210114031511-bb20902bed6f
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/julienschmidt/httprouter v1.2.0
 	github.com/lni/goutils v1.2.0
