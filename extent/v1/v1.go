@@ -10,6 +10,9 @@ func (c *creator) GetSize() uint64 {
 	panic("implement me")
 }
 
-func (c *creator) Create(extID uint32, diskID uint32) (ext extent.Extenter, err error) {
+func (c *creator) Create(extID uint32, dir string) (ext extent.Extenter, err error) {
 	return nil, err
+}
+func (c *creator) CreateOrOpen(extID uint32, dir string) (extent.Extenter, error) {
+	panic("implement me")
 }

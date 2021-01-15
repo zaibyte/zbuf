@@ -13,6 +13,7 @@ import (
 	"g.tesamc.com/IT/zaipkg/uid"
 )
 
+// creators is the collector that this server supports extent versions.
 var creators = map[uint16]extent.Creator{
 	extent.Version1: v1.Creator,
 }
