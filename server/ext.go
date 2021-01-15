@@ -92,11 +92,10 @@ func listExtIDs(diskID uint32, root string, fs vfs.FS) (ids []uint32, err error)
 
 	ids = make([]uint32, 0, 32)
 	cnt := 0
-	prefix := ep + "/" + extNamePrefix
 	for _, fn := range extFns {
-		if strings.HasPrefix(fn, prefix) {
+		if strings.HasPrefix(fn, extNamePrefix) {
 			cnt++
-			idStr := strings.TrimPrefix(fn, prefix)
+			idStr := strings.TrimPrefix(fn, extNamePrefix)
 			id := cast.ToUint32(idStr)
 			ids = append(ids, id)
 		}
