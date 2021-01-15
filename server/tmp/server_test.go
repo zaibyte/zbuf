@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package server
+package tmp_test
 
 import (
 	"bytes"

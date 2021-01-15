@@ -23,8 +23,8 @@ const (
 
 var ErrNoDisk = errors.New("no disk for ZBuf in this instance")
 
-// makeDiskPath makes disk path according diskID
-func makeDiskPath(diskID uint32, root string) string {
+// makeDiskDir makes disk path according diskID
+func makeDiskDir(diskID uint32, root string) string {
 	return filepath.Join(root, diskNamePrefix+cast.ToString(diskID))
 }
 
@@ -64,14 +64,14 @@ func listDiskIDs(fs vfs.FS, root string) (diskIDs []uint32, err error) {
 
 func (s *Server) addDisk(diskID uint32, root string) error {
 
-	fp := makeDiskPath(diskID, root)
+	fp := makeDiskDir(diskID, root)
 	f, err := s.fs.OpenDir(fp)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	disk := s.getDiskInfo(diskID)
+	disk := getDiskInfo(diskID, s.cfg.DataRoot, s.cfg.DiskWeights[diskID])
 	s.vdisks.Store(diskID, disk)
 	return nil
 }
@@ -80,23 +80,21 @@ func (s *Server) addDisk(diskID uint32, root string) error {
 func (s *Server) getDisksInfo(diskIDs []uint32) {
 
 	for _, diskID := range diskIDs {
-		disk := s.getDiskInfo(diskID)
+		disk := getDiskInfo(diskID, s.cfg.DataRoot, s.cfg.DiskWeights[diskID])
 		s.vdisks.Store(diskID, disk)
 	}
 }
 
-func (s *Server) getDiskInfo(diskID uint32) vdisk.Disk {
+func getDiskInfo(diskID uint32, root string, weight float64) vdisk.Disk {
 
-	root := s.cfg.DataRoot
 	disk := vdisk.GetDisk()
 	disk.SetID(diskID)
-	path := makeDiskPath(diskID, root)
+	path := makeDiskDir(diskID, root)
 	disk.SetType(diskutil.GetDiskType(path))
 	usage, _ := diskutil.GetUsageState(path)
 	disk.SetSize(usage.Size)
 	disk.SetUsed(usage.Used)
-	weight, ok := s.cfg.DiskWeights[diskID]
-	if ok {
+	if weight != 0 {
 		disk.SetWeight(weight)
 	}
 	return disk

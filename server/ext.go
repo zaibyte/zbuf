@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"g.tesamc.com/IT/zbuf/vfs"
+
 	v1 "g.tesamc.com/IT/zbuf/extent/v1"
 
 	"g.tesamc.com/IT/zbuf/extent"
@@ -26,6 +28,16 @@ import (
 // creators is the collector that this server supports extent versions.
 var creators = map[uint16]extent.Creator{
 	extent.Version1: v1.Creator,
+}
+
+const (
+	extDirName    = "ext"
+	extNamePrefix = "ext_"
+)
+
+// makeExtDir makes extents paths belong to the diskPath.
+func makeExtDir(extID uint32, diskPath string) string {
+	return filepath.Join(diskPath, extDirName, extNamePrefix+cast.ToString(extID))
 }
 
 func (s *Server) createExtent(version uint16, groupID, groupSeq uint16, diskID uint32) error {
@@ -56,7 +68,7 @@ func (s *Server) createExtent(version uint16, groupID, groupSeq uint16, diskID u
 		return err
 	}
 
-	ext, err := creator.Create(extID, extent.MakeExtDir(extID, makeDiskPath(diskID, s.cfg.DataRoot)))
+	ext, err := creator.Create(extID, makeExtDir(extID, makeDiskDir(diskID, s.cfg.DataRoot)))
 	if err != nil {
 		return err
 	}
@@ -68,12 +80,11 @@ func (s *Server) createExtent(version uint16, groupID, groupSeq uint16, diskID u
 // listExtIDs lists all extent IDs in this Disk    .
 //
 // After listDisks we need to invoke listExtIDs.
-func (s *Server) listExtIDs(diskID uint32) (ids []uint32, err error) {
+func listExtIDs(diskID uint32, root string, fs vfs.FS) (ids []uint32, err error) {
 
-	dp := makeDiskPath(diskID, s.cfg.DataRoot)
-	ep := filepath.Join(dp, extent.ExtDirName)
+	dp := makeDiskDir(diskID, root)
+	ep := filepath.Join(dp, extDirName)
 
-	fs := s.fs
 	extFns, err := fs.List(ep)
 	if err != nil {
 		return nil, err
@@ -81,7 +92,7 @@ func (s *Server) listExtIDs(diskID uint32) (ids []uint32, err error) {
 
 	ids = make([]uint32, 0, 32)
 	cnt := 0
-	prefix := ep + "/" + extent.ExtNamePrefix
+	prefix := ep + "/" + extNamePrefix
 	for _, fn := range extFns {
 		if strings.HasPrefix(fn, prefix) {
 			cnt++
@@ -94,5 +105,4 @@ func (s *Server) listExtIDs(diskID uint32) (ids []uint32, err error) {
 		return nil, nil
 	}
 	return ids[:cnt], nil
-
 }

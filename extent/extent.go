@@ -1,10 +1,6 @@
 package extent
 
 import (
-	"path/filepath"
-
-	"github.com/spf13/cast"
-
 	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 )
@@ -42,14 +38,4 @@ type Creator interface {
 	CreateOrOpen(extID uint32, dir string) (Extenter, error)
 	// GetSize gets the size of extent which will be created.
 	GetSize() uint64
-}
-
-const (
-	ExtDirName    = "ext"
-	ExtNamePrefix = "ext_"
-)
-
-// MakeExtDir makes extents paths belong to the diskPath.
-func MakeExtDir(extID uint32, diskPath string) string {
-	return filepath.Join(diskPath, ExtDirName, ExtNamePrefix+cast.ToString(extID))
 }

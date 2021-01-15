@@ -29,5 +29,4 @@ func TestCreateOpenBootSector(t *testing.T) {
 	}
 
 	assert.Equal(t, extent.VersionTest, over)
-
 }
