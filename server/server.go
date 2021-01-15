@@ -45,7 +45,6 @@ type Server struct {
 	fs vfs.FS
 
 	availExtentVersion []uint16
-	creators           map[uint16]extent.Creator
 
 	vdisks     sync.Map // Disks info
 	schedulers sync.Map
@@ -72,7 +71,6 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 	s.addHandlers()
 
 	s.availExtentVersion = extent.AvailVersions
-	s.creators = extent.Creators
 
 	s.listDisks()
 

@@ -17,32 +17,12 @@ const (
 	BootSectorFilename = "boot-sector"
 )
 
-type BootParamer interface {
-	BootParamMarshaler
-	BootParamUnmarshaler
-}
-
-type BootParamUnmarshaler interface {
-	Unmarshal([]byte) error
-}
-
-type BootParamMarshaler interface {
-	Marshal() ([]byte, error)
-}
-
-// CreateBootSector writes down a data block at the head of extent as the bootstrap of this extent.
+// CreateBootSector writes down a data block in a file as the bootstrap of this extent.
+// Using a boot-sector for leaving various version extents purely independent.
 // BootSector struct:
-// 0                                                                             BootSectorSize
-// | version(2B) | params_len(2B) | params(2048B at most) | random(2040B) | checksum(4B) |
-//
-// params are immutable params, if it's out of 2048B, put them into extent struct but not boot sector.
-// params in boot-sector helps to reduce storage usage of extent header, it may make persist extent header easier.
-func CreateBootSector(fs vfs.FS, extPath string, version uint16, params BootParamMarshaler) error {
-
-	pb, err := params.Marshal()
-	if err != nil {
-		return err
-	}
+// 0                                       BootSectorSize
+// | version(2B) | random(4090B) | checksum(4B) |
+func CreateBootSector(fs vfs.FS, extPath string, version uint16) error {
 
 	fp := filepath.Join(extPath, BootSectorFilename)
 	f, err := fs.Create(fp)
@@ -54,11 +34,9 @@ func CreateBootSector(fs vfs.FS, extPath string, version uint16, params BootPara
 	b := directio.AlignedBlock(BootSectorSize)
 
 	binary.LittleEndian.PutUint16(b[:2], version)
-	binary.LittleEndian.PutUint16(b[2:], uint16(len(pb)))
-	copy(b[4:], pb)
 
 	rand.Seed(tsc.UnixNano())
-	rand.Read(b[2+2+2048 : BootSectorSize-4])
+	rand.Read(b[2 : BootSectorSize-4])
 
 	cs := xdigest.Sum32(b[:BootSectorSize-4])
 	binary.LittleEndian.PutUint32(b[BootSectorSize-4:], cs)
@@ -70,34 +48,31 @@ func CreateBootSector(fs vfs.FS, extPath string, version uint16, params BootPara
 	return f.Sync()
 }
 
-// OpenBootSector opens boot-sector file, returns extent version & immutable params.
+// OpenBootSector opens boot-sector file, returns extent version.
 // Before return, it'll check the checksum.
-func OpenBootSector(fs vfs.FS, extPath string) (version uint16, params []byte, err error) {
+func OpenBootSector(fs vfs.FS, extPath string) (version uint16, err error) {
 
 	fp := filepath.Join(extPath, BootSectorFilename)
 	f, err := fs.Open(fp)
 	if err != nil {
-		return 0, nil, err
+		return 0, err
 	}
 	defer f.Close()
 
 	b := directio.AlignedBlock(BootSectorSize)
 	_, err = f.Read(b)
 	if err != nil {
-		return 0, nil, err
+		return 0, err
 	}
 
 	csExp := binary.LittleEndian.Uint32(b[BootSectorSize-4:])
 	csAct := xdigest.Sum32(b[:BootSectorSize-4])
 
 	if csExp != csAct {
-		return 0, nil, errors.New("boot-sector checksum mismatched")
+		return 0, errors.New("boot-sector checksum mismatched")
 	}
 
 	version = binary.LittleEndian.Uint16(b[:2])
-	pLen := binary.LittleEndian.Uint16(b[2:4])
-	params = make([]byte, pLen)
-	copy(params, b[4:])
 
 	return
 }

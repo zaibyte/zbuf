@@ -5,11 +5,17 @@ import (
 	"strings"
 	"sync/atomic"
 
+	v1 "g.tesamc.com/IT/zbuf/extent/v1"
+
 	"g.tesamc.com/IT/zbuf/extent"
 	"github.com/spf13/cast"
 
 	"g.tesamc.com/IT/zaipkg/uid"
 )
+
+var creators = map[uint16]extent.Creator{
+	extent.Version1: v1.Creator,
+}
 
 func (s *Server) createExtent(version uint16, groupID, groupSeq uint16, diskID uint32) error {
 
@@ -18,7 +24,7 @@ func (s *Server) createExtent(version uint16, groupID, groupSeq uint16, diskID u
 		return errors.New("extent existed")
 	}
 
-	creator, ok := s.creators[version]
+	creator, ok := creators[version]
 	if !ok {
 		err := errors.New("could not find creator")
 		return err

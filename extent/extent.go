@@ -24,7 +24,6 @@ import (
 	"path/filepath"
 
 	"g.tesamc.com/IT/zaipkg/xbytes"
-	v1 "g.tesamc.com/IT/zbuf/extent/v1"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 )
 
@@ -44,16 +43,13 @@ type Objecter interface {
 }
 
 const (
-	Version1 = 1
+	Version1    uint16 = 1
+	VersionTest uint16 = 666
 )
 
 // TODO interface of scheduler scrub
 // TODO interface of migrate
 var AvailVersions = []uint16{Version1}
-
-var Creators = map[uint16]Creator{
-	Version1: v1.Creator,
-}
 
 // Creator could create extenter.
 type Creator interface {
