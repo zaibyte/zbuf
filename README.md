@@ -9,7 +9,6 @@ Extent on local file system:
  │    ├── disk_<disk_id0>
  │    ├── disk_<disk_id1>
  │    └── disk_<disk_id2>
- │         ├── <digest>.init-block
  │         └── ext
  │              ├── <ext_id0>
  │              ├── <ext_id1>
@@ -21,3 +20,5 @@ Extent on local file system:
  │                      └── segments
 ```
 
+p.s.
+header, idx-snap, idx-wal, segments are extent/v1's concepts.

@@ -18,23 +18,17 @@ package server
 
 import (
 	"errors"
-	"math/rand"
 	"path/filepath"
 	"strings"
 
 	"g.tesamc.com/IT/zaipkg/directio"
 
-	"g.tesamc.com/IT/zaipkg/xlog"
-	"g.tesamc.com/IT/zproto/pkg/metapb"
-
 	"g.tesamc.com/IT/zaipkg/diskutil"
 
 	"g.tesamc.com/IT/zbuf/vdisk"
 
-	"g.tesamc.com/IT/zaipkg/xdigest"
 	"g.tesamc.com/IT/zbuf/vfs"
 	"github.com/spf13/cast"
-	"github.com/templexxx/tsc"
 )
 
 // TODO deal with new disk & broken disk
@@ -50,24 +44,7 @@ func (s *Server) listDisks() {
 
 	diskIDs, _ := listDiskIDs(s.fs, s.cfg.DataRoot)
 
-	s.initDisks(diskIDs)
-
-	for _, diskID := range diskIDs {
-		err := initDisk(s.fs, diskID, s.cfg.DataRoot)
-		if diskutil.IsBroken(err) {
-			xlog.Errorf("list disk failed, broken disk: %s", err.Error())
-			d := s.getDisk(diskID) // Must not be nil.
-			d.SetState(metapb.DiskState_Disk_Broken)
-			continue
-		}
-		err = fastHealthCheck(s.fs, diskID, s.cfg.DataRoot)
-		if err != nil {
-			xlog.Errorf("list disk failed, broken disk: %s", err.Error())
-			d := s.getDisk(diskID)
-			d.SetState(metapb.DiskState_Disk_Broken)
-			continue
-		}
-	}
+	s.getDisksInfo(diskIDs)
 }
 
 func (s *Server) getDisk(diskID uint32) vdisk.Disk {
@@ -78,8 +55,8 @@ func (s *Server) getDisk(diskID uint32) vdisk.Disk {
 	return d.(vdisk.Disk)
 }
 
-// initDisks initializes Server disks info.
-func (s *Server) initDisks(diskIDs []uint32) {
+// getDisksInfo initializes Server disks info.
+func (s *Server) getDisksInfo(diskIDs []uint32) {
 	for _, diskID := range diskIDs {
 		disk := vdisk.GetDisk()
 		disk.SetID(diskID)
@@ -101,91 +78,8 @@ const (
 	InitBlockSize       = directio.BlockSize
 )
 
-// initDisk creates some basic disk info and persisting it(in a file) on disk.
-// It will help to check disk health by checking the digest of this file.
-// init_disk_filepath: root/disk_<disk_id>/init_block/<digest>
-func initDisk(fs vfs.FS, diskID uint32, root string) error {
-
-	if isInitBlockExisted(fs, diskID, root) {
-		return nil
-	}
-
-	d := make([]byte, InitBlockSize)
-	rand.Seed(tsc.UnixNano())
-	rand.Read(d)
-
-	digest := xdigest.Sum32(d)
-
-	fp := filepath.Join(makeDiskPath(diskID, root), DiskInitBlockPrefix, cast.ToString(digest))
-	f, err := fs.Create(fp)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	_, err = f.Write(d)
-	if err != nil {
-		return err
-	}
-	return f.Sync()
-}
-
-func isInitBlockExisted(fs vfs.FS, diskID uint32, root string) bool {
-	ib, err := fs.List(makeDiskInitBlockPath(diskID, root))
-	if err != nil {
-		return false
-	}
-	if len(ib) != 0 {
-		return true
-	}
-	return false
-}
-
 func makeDiskPath(diskID uint32, root string) string {
 	return filepath.Join(root, DiskPrefix+cast.ToString(diskID))
-}
-
-func makeDiskInitBlockPath(diskID uint32, root string) string {
-	return filepath.Join(makeDiskPath(diskID, root), DiskInitBlockPrefix)
-}
-
-// fastHealthCheck checks disk health in a fast way,
-// checking disk is broken or not by checking digest of a special data block.
-func fastHealthCheck(fs vfs.FS, diskID uint32, root string) error {
-	ib, err := fs.List(makeDiskInitBlockPath(diskID, root))
-	if err != nil {
-		return err
-	}
-	if len(ib) == 0 {
-		return errors.New("cannot find init block")
-	}
-	if len(ib) != 1 {
-		return errors.New("too many init block")
-	}
-	fp := filepath.Join(makeDiskInitBlockPath(diskID, root), ib[0])
-	f, err := fs.Open(fp)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	stat, err := f.Stat()
-	if err != nil {
-		return err
-	}
-	if stat.Size() != InitBlockSize {
-		return errors.New("init block size mismatched")
-	}
-	b := make([]byte, InitBlockSize)
-	_, err = f.Read(b)
-	if err != nil {
-		return err
-	}
-	digest := xdigest.Sum32(b)
-	if digest != cast.ToUint32(ib) {
-		return errors.New("init block digest mismatched")
-	}
-	return nil
 }
 
 // Disk paths:
