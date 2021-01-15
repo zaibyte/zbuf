@@ -37,7 +37,7 @@ func TestListDiskIDs(t *testing.T) {
 
 	for _, id := range ids {
 		dir := filepath.Join(root, diskNamePrefix+cast.ToString(id))
-		err := fs.MkdirAll(dir, 0777)
+		err = fs.MkdirAll(dir, 0777)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -52,6 +52,8 @@ func TestListDiskIDs(t *testing.T) {
 	for i := range actIDs {
 		actIDsInt[i] = int(actIDs[i])
 	}
+
+	sort.Ints(ids)
 	sort.Ints(actIDsInt)
 
 	assert.Equal(t, ids, actIDsInt)
