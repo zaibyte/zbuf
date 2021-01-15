@@ -18,26 +18,26 @@ import (
 // │    ├── disk_<disk_id0>
 //
 const (
-	diskPathPrefix = "disk_"
+	diskNamePrefix = "disk_"
 )
 
 var ErrNoDisk = errors.New("no disk for ZBuf in this instance")
 
-var dataRoot string
-
 // makeDiskPath makes disk path according diskID
 func makeDiskPath(diskID uint32, root string) string {
-	return filepath.Join(root, diskPathPrefix+cast.ToString(diskID))
+	return filepath.Join(root, diskNamePrefix+cast.ToString(diskID))
 }
 
-func (s *Server) listDisks(root string) {
+func (s *Server) listDisks() {
 	if s.development && s.cfg.Develop.NoListDisk {
 		return
 	}
 
+	root := s.cfg.DataRoot
+
 	diskIDs, _ := listDiskIDs(s.fs, root)
 
-	s.getDisksInfo(diskIDs, root)
+	s.getDisksInfo(diskIDs)
 }
 
 func listDiskIDs(fs vfs.FS, root string) (diskIDs []uint32, err error) {
@@ -49,9 +49,9 @@ func listDiskIDs(fs vfs.FS, root string) (diskIDs []uint32, err error) {
 	diskIDs = make([]uint32, 0, len(diskFns))
 	cnt := 0
 	for _, fn := range diskFns {
-		if strings.HasPrefix(fn, diskPathPrefix) {
+		if strings.HasPrefix(fn, diskNamePrefix) {
 			cnt++
-			idStr := strings.TrimPrefix(fn, diskPathPrefix)
+			idStr := strings.TrimPrefix(fn, diskNamePrefix)
 			id := cast.ToUint32(idStr)
 			diskIDs = append(diskIDs, id)
 		}
@@ -71,20 +71,23 @@ func (s *Server) addDisk(diskID uint32, root string) error {
 	}
 	defer f.Close()
 
-	disk := s.getDiskInfo(diskID, root)
+	disk := s.getDiskInfo(diskID)
 	s.vdisks.Store(diskID, disk)
 	return nil
 }
 
 // getDisksInfo initializes Server disks info.
-func (s *Server) getDisksInfo(diskIDs []uint32, root string) {
+func (s *Server) getDisksInfo(diskIDs []uint32) {
+
 	for _, diskID := range diskIDs {
-		disk := s.getDiskInfo(diskID, root)
+		disk := s.getDiskInfo(diskID)
 		s.vdisks.Store(diskID, disk)
 	}
 }
 
-func (s *Server) getDiskInfo(diskID uint32, root string) vdisk.Disk {
+func (s *Server) getDiskInfo(diskID uint32) vdisk.Disk {
+
+	root := s.cfg.DataRoot
 	disk := vdisk.GetDisk()
 	disk.SetID(diskID)
 	path := makeDiskPath(diskID, root)
