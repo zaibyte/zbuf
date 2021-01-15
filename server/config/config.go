@@ -19,6 +19,8 @@ package config
 import (
 	"runtime"
 
+	v1 "g.tesamc.com/IT/zbuf/extent/v1"
+
 	"g.tesamc.com/IT/zaipkg/config"
 
 	"g.tesamc.com/IT/zaipkg/app"
@@ -37,6 +39,8 @@ type Config struct {
 
 	// DiskWeights: disk_id: weight.
 	DiskWeights map[uint32]float64 `toml:"weights"`
+
+	ExtV1Config v1.Config `toml:"ext_v_1_config"`
 }
 
 type DevConfig struct {

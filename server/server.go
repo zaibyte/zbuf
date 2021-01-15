@@ -21,6 +21,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	v1 "g.tesamc.com/IT/zbuf/extent/v1"
+
 	"g.tesamc.com/IT/zaipkg/app"
 
 	"g.tesamc.com/IT/zaipkg/orpc/otcp"
@@ -48,7 +50,10 @@ type Server struct {
 
 	vdisks     sync.Map // Disks info
 	schedulers sync.Map
-	extenters  sync.Map
+
+	// creators is the collector that this server supports extent versions.
+	creators  map[uint16]extent.Creator
+	extenters sync.Map
 
 	ctx    context.Context
 	cancel func()
@@ -71,6 +76,10 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 	s.addHandlers()
 
 	s.availExtentVersion = extent.AvailVersions
+
+	s.creators = map[uint16]extent.Creator{
+		extent.Version1: v1.NewCreator(&s.cfg.ExtV1Config),
+	}
 
 	s.listDisks()
 

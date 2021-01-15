@@ -4,21 +4,25 @@ import (
 	"g.tesamc.com/IT/zbuf/extent"
 )
 
-var Creator = new(creator)
+type Creator struct {
+	cfg *Config
+}
 
-type creator struct{}
+func NewCreator(cfg *Config) extent.Creator {
+	return &Creator{cfg: cfg}
+}
 
-func (c *creator) GetSize() uint64 {
+func (c *Creator) GetSize() uint64 {
 	panic("implement me")
 }
 
-func (c *creator) Create(extID uint32, dir string) (ext extent.Extenter, err error) {
+func (c *Creator) Create(extID uint32, dir string) (ext extent.Extenter, err error) {
 	return c.create(extID, dir, true)
 }
-func (c *creator) CreateOrOpen(extID uint32, dir string) (ext extent.Extenter, err error) {
+func (c *Creator) CreateOrOpen(extID uint32, dir string) (ext extent.Extenter, err error) {
 	return c.create(extID, dir, false)
 }
 
-func (c *creator) create(extID uint32, dir string, exclusive bool) (ext extent.Extenter, err error) {
+func (c *Creator) create(extID uint32, dir string, exclusive bool) (ext extent.Extenter, err error) {
 	return nil, err
 }

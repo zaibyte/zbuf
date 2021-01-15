@@ -9,9 +9,6 @@ import (
 
 	"g.tesamc.com/IT/zbuf/vfs"
 
-	v1 "g.tesamc.com/IT/zbuf/extent/v1"
-
-	"g.tesamc.com/IT/zbuf/extent"
 	"github.com/spf13/cast"
 
 	"g.tesamc.com/IT/zaipkg/uid"
@@ -24,11 +21,6 @@ import (
 // │    └── disk_<disk_id2>
 // │         └── ext
 // │              ├── <ext_id0>
-
-// creators is the collector that this server supports extent versions.
-var creators = map[uint16]extent.Creator{
-	extent.Version1: v1.Creator,
-}
 
 const (
 	extDirName    = "ext"
@@ -47,7 +39,7 @@ func (s *Server) createExtent(version uint16, groupID, groupSeq uint16, diskID u
 		return errors.New("extent existed")
 	}
 
-	creator, ok := creators[version]
+	creator, ok := s.creators[version]
 	if !ok {
 		err := errors.New("could not find creator")
 		return err
