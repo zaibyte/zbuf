@@ -41,6 +41,9 @@ type Creator interface {
 	GetSize() uint64
 }
 
+// GCer is methods of GC,
+// it's better to let upper layer but not extent to control the GC process,
+// helping to manage I/O cost.
 type GCer interface {
 	// TryGC tries to trigger GC, if there is garbage and need to be collected,
 	// it'll block until GC finished.

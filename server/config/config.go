@@ -19,6 +19,8 @@ package config
 import (
 	"runtime"
 
+	"g.tesamc.com/IT/zaipkg/typeutil"
+
 	v1 "g.tesamc.com/IT/zbuf/extent/v1"
 
 	"g.tesamc.com/IT/zaipkg/config"
@@ -31,7 +33,7 @@ type Config struct {
 	App app.Config `toml:"app"`
 
 	// Object server listen address.
-	ObjSrvAddr string `json:"obj_srv_addr"`
+	ObjSrvAddr string `toml:"obj_srv_addr"`
 	// ZBuf data root path.
 	DataRoot string `toml:"data_root"`
 
@@ -41,6 +43,10 @@ type Config struct {
 	DiskWeights map[uint32]float64 `toml:"weights"`
 
 	ExtV1Config v1.Config `toml:"ext_v_1_config"`
+
+	// GCDuration is the duration between two GCs,
+	// each disk will have a goroutine to do the GC job.
+	GCDuration typeutil.Duration `toml:"gc_duration"`
 }
 
 type DevConfig struct {
