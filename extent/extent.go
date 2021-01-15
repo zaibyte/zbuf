@@ -10,6 +10,7 @@ type Extenter interface {
 	GetInfo() *metapb.Extent
 
 	Objecter
+	GCer
 
 	Close() error
 }
@@ -38,4 +39,10 @@ type Creator interface {
 	CreateOrOpen(extID uint32, dir string) (Extenter, error)
 	// GetSize gets the size of extent which will be created.
 	GetSize() uint64
+}
+
+type GCer interface {
+	// TryGC tries to trigger GC, if there is garbage and need to be collected,
+	// it'll block until GC finished.
+	TryGC()
 }
