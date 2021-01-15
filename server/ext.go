@@ -57,7 +57,7 @@ func (s *Server) createExtent(version uint16, groupID, groupSeq uint16, diskID u
 func (s *Server) listExtIDs() error {
 	s.vdisks.Range(func(key, value interface{}) bool {
 		diskID := key.(uint32)
-		dp := makeDiskPath(diskID, s.cfg.DataRoot)
+		dp := sdisk.makeDiskPath(diskID, s.cfg.DataRoot)
 		ep := extent.MakeExtPath(dp)
 
 		fs := s.fs
@@ -70,9 +70,9 @@ func (s *Server) listExtIDs() error {
 		diskIDs = make([]uint32, 0, len(extFns))
 		cnt := 0
 		for _, fn := range extFns {
-			if strings.HasPrefix(fn, DiskPrefix) {
+			if strings.HasPrefix(fn, diskPathPrefix) {
 				cnt++
-				idStr := strings.TrimPrefix(fn, DiskPrefix)
+				idStr := strings.TrimPrefix(fn, diskPathPrefix)
 				id := cast.ToUint32(idStr)
 				diskIDs = append(diskIDs, id)
 			}

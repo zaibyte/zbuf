@@ -72,7 +72,8 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 
 	s.availExtentVersion = extent.AvailVersions
 
-	s.listDisks()
+	dataRoot = s.cfg.DataRoot
+	s.listDisks(dataRoot)
 
 	return s, nil
 }
