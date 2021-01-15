@@ -26,6 +26,8 @@ import (
 	"testing"
 	"time"
 
+	v1 "g.tesamc.com/IT/zbuf/extent/v1"
+
 	"g.tesamc.com/IT/zaipkg/typeutil"
 
 	"g.tesamc.com/IT/zaipkg/uid"
@@ -46,7 +48,7 @@ func TestExtentPutGet(t *testing.T) {
 	}
 	defer os.RemoveAll(dataRoot)
 
-	cfg := &Config{
+	cfg := &v1.Config{
 		Path:        dataRoot,
 		SegmentSize: 1024 * 1024,
 		flushDelay:  time.Microsecond * 128,
@@ -116,7 +118,7 @@ func TestExtentPutPerf(t *testing.T) {
 	}
 	defer os.RemoveAll(dataRoot)
 
-	cfg := &Config{
+	cfg := &v1.Config{
 		Path:        dataRoot,
 		SegmentSize: 1024 * 1024,
 		InsertOnly:  false,
@@ -171,7 +173,7 @@ func TestExtentGetPerf(t *testing.T) {
 	}
 	defer os.RemoveAll(dataRoot)
 
-	cfg := &Config{
+	cfg := &v1.Config{
 		Path:        dataRoot,
 		SegmentSize: 1024 * 1024,
 		FlushDelay:  typeutil.NewDuration(time.Microsecond * 128),

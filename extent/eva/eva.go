@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	v1 "g.tesamc.com/IT/zbuf/extent/v1"
+
 	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zaipkg/xlog"
 	"g.tesamc.com/IT/zbuf/vfs"
@@ -15,7 +17,7 @@ import (
 
 // EVA is the first generation extent.
 type EVA struct {
-	cfg *Config
+	cfg *v1.Config
 
 	id uint32
 
@@ -36,7 +38,7 @@ type EVA struct {
 }
 
 // Create a new extent.
-func New(cfg *Config, extID uint32, flushJobChan chan<- *xio.FlushJob, getJobChan chan<- *xio.GetJob) (ext *EVA, err error) {
+func New(cfg *v1.Config, extID uint32, flushJobChan chan<- *xio.FlushJob, getJobChan chan<- *xio.GetJob) (ext *EVA, err error) {
 
 	cfg.adjust()
 

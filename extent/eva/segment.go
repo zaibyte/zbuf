@@ -15,19 +15,3 @@
  */
 
 package eva
-
-const (
-	defaultSegmentSize = 1024 * 1024 * 1024
-	segmentCnt         = 256 // Each extent has the same segment count: 256.
-	defaultReservedSeg = 64  // There are 64 segments are reserved for GC in future.
-)
-
-// Segment status
-const (
-	segWriting  = 1
-	segSealed   = 2
-	segWritable = 3
-	segReserved = 4
-	segNeedGC   = 5
-	segGCing    = 6
-)
