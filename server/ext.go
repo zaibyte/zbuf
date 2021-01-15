@@ -2,6 +2,7 @@ package server
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"sync/atomic"
 
@@ -31,7 +32,11 @@ func (s *Server) createExtent(version uint16, groupID, groupSeq uint16, diskID u
 		return err
 	}
 
-	vd := s.getDisk(diskID) // Must not be nil.
+	vd := s.getDisk(diskID)
+	if vd == nil {
+		err := errors.New(fmt.Sprintf("disk not found: %d", diskID))
+		return err
+	}
 	vdd := vd.GetDisk()
 	free := atomic.LoadUint64(&vdd.Size_) - atomic.LoadUint64(&vdd.Used)
 	taken := creator.GetSize()
@@ -42,7 +47,7 @@ func (s *Server) createExtent(version uint16, groupID, groupSeq uint16, diskID u
 		return err
 	}
 
-	ext, err := creator.Create(extID, diskID)
+	ext, err := creator.Create(extID, extent.MakeExtPath(makeDiskPath(diskID, s.cfg.DataRoot)))
 	if err != nil {
 		return err
 	}
