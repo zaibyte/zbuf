@@ -1,14 +1,12 @@
 package v1
 
-import (
-	"g.tesamc.com/IT/zbuf/extent"
-)
+import "g.tesamc.com/IT/zbuf/extent"
 
 type Creator struct {
 	cfg *Config
 }
 
-func NewCreator(cfg *Config) extent.Creator {
+func NewCreator(cfg *Config) *Creator {
 	return &Creator{cfg: cfg}
 }
 
@@ -19,6 +17,7 @@ func (c *Creator) GetSize() uint64 {
 func (c *Creator) Create(extID uint32, dir string) (ext extent.Extenter, err error) {
 	return c.create(extID, dir, true)
 }
+
 func (c *Creator) CreateOrOpen(extID uint32, dir string) (ext extent.Extenter, err error) {
 	return c.create(extID, dir, false)
 }
