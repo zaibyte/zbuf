@@ -11,6 +11,7 @@ type Extenter interface {
 
 	Objecter
 	GCer
+	Cloner
 
 	Close() error
 }
@@ -41,11 +42,20 @@ type Creator interface {
 	GetSize() uint64
 }
 
-// GCer is methods of GC,
+// GCer are methods collector of GC,
 // it's better to let upper layer but not extent to control the GC process,
 // helping to manage I/O cost.
 type GCer interface {
 	// TryGC tries to trigger GC, if there is garbage and need to be collected,
 	// it'll block until GC finished.
 	TryGC()
+}
+
+// Cloner is methods collector of Clone.
+type Cloner interface {
+	// TryClone tries to start clone job.
+	// The job maybe conflict with job already existed,
+	// if so, return an error.
+	// Any error could make clone job starting fail will be returned.
+	TryClone(job *metapb.CloneJob) error
 }
