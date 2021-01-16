@@ -289,6 +289,9 @@ restart:
 
 	for i := 0; i < 2; i++ {
 		tbl := getTbl(ix, i)
+		if tbl == nil {
+			continue
+		}
 		slotCnt := len(tbl)
 		slot := getSlot(slotCnt, digest)
 		n := neighbour
