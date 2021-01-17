@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"g.tesamc.com/IT/zbuf/extent"
+
 	"g.tesamc.com/IT/zbuf/vfs"
 
 	"github.com/spf13/cast"
@@ -37,11 +39,39 @@ func getExtDirParent(extDir string) string {
 	return filepath.Dir(extDir)
 }
 
-func (s *Server) createExtent(version uint16, groupID, groupSeq uint16, diskID uint32) error {
+func (s *Server) createOrOpenExtent(version uint16, groupID, groupSeq uint16, diskID uint32, exclusive bool) error {
 
 	extID := uid.MakeExtID(groupID, groupSeq)
 	if _, ok := s.extenters.Load(extID); ok {
-		return errors.New("extent existed")
+		if exclusive {
+			return fmt.Errorf("extID: %d already existed", extID)
+		}
+		return nil
+	}
+
+	extDir := makeExtDir(extID, makeDiskDir(diskID, s.cfg.DataRoot))
+
+	vBoot, err := extent.OpenBootSector(s.fs, extDir)
+	if err != nil {
+		return err
+	}
+
+	existed := false
+	versionIfHas := version
+	if vfs.IsDirExisted(s.fs, extDir) {
+		if exclusive {
+			return fmt.Errorf("extID: %d already existed", extID)
+		}
+		vBoot, err := extent.OpenBootSector(s.fs, extDir)
+		if err != nil {
+			return err
+		}
+		versionIfHas = vBoot
+		existed = true
+	}
+
+	if versionIfHas != version {
+		return fmt.Errorf("extID: %d version in boot-sector is not match expect", extID)
 	}
 
 	creator, ok := s.creators[version]
@@ -50,22 +80,24 @@ func (s *Server) createExtent(version uint16, groupID, groupSeq uint16, diskID u
 		return err
 	}
 
-	vd := s.getDisk(diskID)
-	if vd == nil {
-		err := errors.New(fmt.Sprintf("disk not found: %d", diskID))
-		return err
-	}
-	vdd := vd.GetDisk()
-	free := atomic.LoadUint64(&vdd.Size_) - atomic.LoadUint64(&vdd.Used)
-	taken := creator.GetSize()
-	// The reserved capacity is under controlled by Keeper.
-	// If there is a request to create extent, ZBuf will do it until there is no enough sapce.
-	if free < taken {
-		err := errors.New("not enough space")
-		return err
+	if !existed {
+		vd := s.getDisk(diskID)
+		if vd == nil {
+			err := errors.New(fmt.Sprintf("disk not found: %d", diskID))
+			return err
+		}
+		vdd := vd.GetDisk()
+		free := atomic.LoadUint64(&vdd.Size_) - atomic.LoadUint64(&vdd.Used)
+		taken := creator.GetSize()
+		// The reserved capacity is under controlled by Keeper.
+		// If there is a request to create extent, ZBuf will do it until there is no enough sapce.
+		if free < taken {
+			err := errors.New("not enough space")
+			return err
+		}
 	}
 
-	ext, err := creator.Create(s.fs, extID, makeExtDir(extID, makeDiskDir(diskID, s.cfg.DataRoot)))
+	ext, err := creator.CreateOrOpen(s.fs, extID, extDir)
 	if err != nil {
 		return err
 	}

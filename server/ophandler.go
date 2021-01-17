@@ -79,7 +79,7 @@ func (s *Server) createExtentHandler(w http.ResponseWriter, req *http.Request, p
 		return
 	}
 
-	err := s.createExtent(version, groupID, groupSeq, diskID)
+	err := s.createOrOpenExtent(version, groupID, groupSeq, diskID, true)
 	if err != nil {
 		err = xerrors.WithMessage(err, "create extent failed")
 		xlog.ErrorID(reqid, err.Error())
