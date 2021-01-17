@@ -9,6 +9,10 @@ type SpeedFile struct {
 	Speed int // MB/s.
 }
 
+func (s *SpeedFile) Fd() uintptr {
+	return 0
+}
+
 func (s *SpeedFile) Close() error {
 	panic("implement me")
 }
