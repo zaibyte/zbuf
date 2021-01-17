@@ -16,14 +16,10 @@
 
 package vfs
 
-import (
-	gvfs "github.com/lni/goutils/vfs"
-)
-
 func GetFS() FS {
 	return MemStrictFS
 }
 
 func GetTestFS() FS {
-	return gvfs.NewStrictMem()
+	return NewStrictMem()
 }

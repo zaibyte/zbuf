@@ -180,7 +180,7 @@ func (s *Scheduler) FindRunnableLoop() {
 			} else {
 				_, err = ar.File.WriteAt(r.Data, r.Offset)
 				if err == nil {
-					err = ar.File.Sync()
+					err = vfs.Fdatasync(ar.File)
 				}
 			}
 			r.Err = err
