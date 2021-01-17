@@ -41,7 +41,7 @@ func (fs directFS) OpenDir(name string) (File, error) {
 }
 
 func (directFS) Create(name string) (File, error) {
-	return directio.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_TRUNC|syscall.O_CLOEXEC|fnc.O_NOATIME|syscall.O_SYNC, 0666)
+	return directio.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_TRUNC|syscall.O_CLOEXEC|fnc.O_NOATIME, 0666)
 }
 
 func (directFS) Link(oldname, newname string) error {
@@ -49,7 +49,7 @@ func (directFS) Link(oldname, newname string) error {
 }
 
 func (directFS) Open(name string, opts ...lvfs.OpenOption) (File, error) {
-	file, err := directio.OpenFile(name, os.O_RDONLY|syscall.O_CLOEXEC|fnc.O_NOATIME|syscall.O_SYNC, 0)
+	file, err := directio.OpenFile(name, os.O_RDONLY|syscall.O_CLOEXEC|fnc.O_NOATIME, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func (directFS) Open(name string, opts ...lvfs.OpenOption) (File, error) {
 }
 
 func (directFS) OpenForAppend(name string) (File, error) {
-	return directio.OpenFile(name, os.O_RDWR|os.O_APPEND|syscall.O_CLOEXEC|fnc.O_NOATIME|syscall.O_SYNC, 0)
+	return directio.OpenFile(name, os.O_RDWR|os.O_APPEND|syscall.O_CLOEXEC|fnc.O_NOATIME, 0)
 }
 
 func (directFS) Remove(name string) error {
@@ -79,7 +79,7 @@ func (fs directFS) ReuseForWrite(oldname, newname string) (File, error) {
 	if err := fs.Rename(oldname, newname); err != nil {
 		return nil, err
 	}
-	return directio.OpenFile(newname, os.O_RDWR|os.O_CREATE|syscall.O_CLOEXEC|fnc.O_NOATIME|syscall.O_SYNC, 0666)
+	return directio.OpenFile(newname, os.O_RDWR|os.O_CREATE|syscall.O_CLOEXEC|fnc.O_NOATIME, 0666)
 }
 
 func (directFS) MkdirAll(dir string, perm os.FileMode) error {

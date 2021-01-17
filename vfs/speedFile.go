@@ -26,6 +26,7 @@ func (s *SpeedFile) ReadAt(p []byte, off int64) (n int, err error) {
 }
 
 func (s *SpeedFile) calcSleepTime(n int) time.Duration {
+
 	st := float64(n) / float64(s.Speed*1024*1024) // seconds.
 	return time.Duration(int64(st * float64(time.Second)))
 }
