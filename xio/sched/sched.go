@@ -179,6 +179,9 @@ func (s *Scheduler) FindRunnableLoop() {
 				_, err = ar.File.ReadAt(r.Data, r.Offset)
 			} else {
 				_, err = ar.File.WriteAt(r.Data, r.Offset)
+				if err == nil {
+					err = ar.File.Sync()
+				}
 			}
 			r.Err = err
 			close(r.Done)
