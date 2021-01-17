@@ -138,3 +138,15 @@ func TempDir() string {
 func Clean(dir string) string {
 	return filepath.Clean(dir)
 }
+
+// IsDirExisted returns dir existed or not.
+func IsDirExisted(fs FS, extDir string) bool {
+	f, err := fs.OpenDir(extDir)
+	if err != nil {
+		if IsNotExist(err) {
+			return false
+		}
+	}
+	defer f.Close()
+	return true
+}
