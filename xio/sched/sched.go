@@ -180,6 +180,8 @@ func (s *Scheduler) FindRunnableLoop() {
 			} else {
 				_, err = ar.File.WriteAt(r.Data, r.Offset)
 				if err == nil {
+					// I don't want update ctime, utime etc. at the same time.
+					// The file size is pre-allocated, data sync is enough.
 					err = vfs.Fdatasync(ar.File)
 				}
 			}
