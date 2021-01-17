@@ -33,13 +33,13 @@ const (
 // TODO interface of migrate
 var AvailVersions = []uint16{Version1}
 
-// Creator could create extenter.
+// Creator could create/open extenter.
 type Creator interface {
 	// Create creates Extenter which not existed.
 	// dir is extent dir.
 	Create(fs vfs.FS, extID uint32, dir string) (Extenter, error)
-	// Create creates Extenter if not existed, otherwise open it.
-	CreateOrOpen(fs vfs.FS, extID uint32, dir string) (Extenter, error)
+	// Open opens an existed Extenter.
+	Open(fs vfs.FS, extID uint32, dir string) (Extenter, error)
 	// GetSize gets the size of extent which will be created.
 	GetSize() uint64
 }
