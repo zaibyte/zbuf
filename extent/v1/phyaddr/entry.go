@@ -1,4 +1,4 @@
-package index
+package phyaddr
 
 import "math/bits"
 

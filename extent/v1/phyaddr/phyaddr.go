@@ -11,7 +11,7 @@
 // 5. Table:
 // An array of buckets.
 //
-// Index is made of sequential entries based on Hopscotch Hashing.
+// PhyAddr is made of sequential entries based on Hopscotch Hashing.
 //
 // The total memory usage of index is about: [512KB, 128MB]*x, x is the amplification.
 // The x is up to 1.6(0.5 for the middle status in expanding process, 0.1 for load factor overhead),
@@ -19,10 +19,10 @@
 // 820KB (for all objects are 4MB) -
 // 205MB (for all objects is <= 16KB)
 //
-// In practice, most of objects in Tesamc are large, we could make a Index with 2^16 capacity at the beginning,
+// In practice, most of objects in Tesamc are large, we could make a PhyAddr with 2^16 capacity at the beginning,
 // and because of the GC overhead, there will be 20% of slots in index are empty, which means 2^16 (512KB) is just
 // the index's memory usage. For a server with 4*8TB disks, 64MB is the total usage.
-package index
+package phyaddr
 
 import (
 	"errors"
@@ -42,15 +42,15 @@ const (
 	// The minimum capacity, index must have MinCap slots, otherwise the tag in entry will not have
 	// the ability to reconstruct the digest back.
 	MinCap = 1 << 16
-	// MaxCap is the maximum capacity of Index.
+	// MaxCap is the maximum capacity of PhyAddr.
 	// The real max number of keys may be around 0.9 * MaxCap.
 	MaxCap = 1 << 25 // In case collision.
 )
 
-// Index is extent/v1
+// PhyAddr is extent/v1 digest:address mapping.
 // Providing Lock-free Write & Wait-free Read.
-type Index struct {
-	// status is a set of flags of Index, see status.go for more details.
+type PhyAddr struct {
+	// status is a set of flags of PhyAddr, see status.go for more details.
 	status uint64
 	// cycle is the container of tables,
 	// it's made of two uint64 slices.
@@ -58,12 +58,12 @@ type Index struct {
 	cycle [2]unsafe.Pointer
 }
 
-// New creates a new Index.
+// New creates a new PhyAddr.
 // cap is the index capacity at the beginning,
-// Index will grow if no bucket to add until meet MaxCap.
+// PhyAddr will grow if no bucket to add until meet MaxCap.
 //
 // If cap is zero, using MinCap.
-func New(cap int) (*Index, error) {
+func New(cap int) (*PhyAddr, error) {
 
 	cap = int(nextPower2(uint64(cap)))
 
@@ -76,14 +76,14 @@ func New(cap int) (*Index, error) {
 
 	cap = calcSlotCnt(cap)
 	bkt0 := make([]uint64, cap, cap) // Create one table at the beginning.
-	return &Index{
+	return &PhyAddr{
 		status: createStatus(),
 		cycle:  [2]unsafe.Pointer{unsafe.Pointer(&bkt0)},
 	}, nil
 }
 
-// Close closes Index and release the resource.
-func (ix *Index) Close() {
+// Close closes PhyAddr and release the resource.
+func (ix *PhyAddr) Close() {
 	ix.close()
 	atomic.StorePointer(&ix.cycle[0], nil)
 	atomic.StorePointer(&ix.cycle[1], nil)
@@ -98,13 +98,13 @@ var (
 	ErrUnknown    = errors.New("unknown")
 )
 
-// Add adds kv entry into Index.
+// Add adds kv entry into PhyAddr.
 // Return nil if succeed.
 //
 // P.S.:
 // It's better to use only one goroutine to Add at the same time,
-// it'll be more friendly for optimistic lock used by Index.
-func (ix *Index) Add(digest, otype, grains, addr uint32) error {
+// it'll be more friendly for optimistic lock used by PhyAddr.
+func (ix *PhyAddr) Add(digest, otype, grains, addr uint32) error {
 
 	if !ix.IsRunning() {
 		return ErrIsClosed
@@ -155,7 +155,7 @@ func (ix *Index) Add(digest, otype, grains, addr uint32) error {
 
 // Search returns the entry which the digest own if has.
 // If the entry is marked removed, still return it has.
-func (ix *Index) Search(digest uint32) (entry uint64, has bool) {
+func (ix *PhyAddr) Search(digest uint32) (entry uint64, has bool) {
 
 	widx := ix.getWritableIdx()
 	next := widx ^ 1
@@ -211,11 +211,11 @@ func (ix *Index) Search(digest uint32) (entry uint64, has bool) {
 	return 0, false
 }
 
-// GetUsage returns Index capacity & usage.
+// GetUsage returns PhyAddr capacity & usage.
 // The usage include removed entries(which grains is 0),
 // Every time after GC, we should check usage, total & count(in higher level, index user),
 // if count is much lower than usage, try to shrink.
-func (ix *Index) GetUsage() (total, usage int) {
+func (ix *PhyAddr) GetUsage() (total, usage int) {
 	total = 0
 	tbl := ix.getWritableTable()
 	if tbl != nil { // In case.
@@ -225,14 +225,14 @@ func (ix *Index) GetUsage() (total, usage int) {
 }
 
 // Remove sets the entry to deleted(grains to 0).
-func (ix *Index) Remove(digest uint32) {
+func (ix *PhyAddr) Remove(digest uint32) {
 	if !ix.IsRunning() {
 		return
 	}
 	ix.tryRemove(digest)
 }
 
-func (ix *Index) expand(ri int) {
+func (ix *PhyAddr) expand(ri int) {
 	rp := atomic.LoadPointer(&ix.cycle[ri])
 	src := *(*[]uint64)(rp)
 
@@ -278,7 +278,7 @@ func (ix *Index) expand(ri int) {
 	}
 }
 
-func (ix *Index) tryRemove(digest uint32) {
+func (ix *PhyAddr) tryRemove(digest uint32) {
 
 restart:
 
@@ -314,7 +314,7 @@ restart:
 	return
 }
 
-func (ix *Index) tryAdd(digest, otype, grains, addr uint32, isLocked bool) (err error) {
+func (ix *PhyAddr) tryAdd(digest, otype, grains, addr uint32, isLocked bool) (err error) {
 
 restart:
 
@@ -417,7 +417,7 @@ const (
 
 // swap swaps the free slot and the another one (closer to the hashed slot).
 // Return position & swapOK if find one.
-func (ix *Index) swap(start, slotCnt int, tbl []uint64) (int, uint8) {
+func (ix *PhyAddr) swap(start, slotCnt int, tbl []uint64) (int, uint8) {
 
 	for i := start; i < slotCnt; i++ {
 		if atomic.LoadUint64(&tbl[i]) == 0 { // Find a free one.

@@ -1,4 +1,4 @@
-package index
+package phyaddr
 
 import "sync/atomic"
 
@@ -12,26 +12,26 @@ import "sync/atomic"
 //
 // is_running: [63], is running or not.
 // locked: [62], is locked or not.
-// sealed: [61], seal Index when there is an unexpected failure.
-// is_scaling: [60], Index is expanding/shrinking.
+// sealed: [61], seal PhyAddr when there is an unexpected failure.
+// is_scaling: [60], PhyAddr is expanding/shrinking.
 // writable: [59], writable table
 // cnt: [0,32), count of added keys.
 
-// IsRunning returns Index is running or not.
-func (ix *Index) IsRunning() bool {
+// IsRunning returns PhyAddr is running or not.
+func (ix *PhyAddr) IsRunning() bool {
 	sa := atomic.LoadUint64(&ix.status)
 	return bitOne(sa, 63)
 }
 
 // close sets status closed.
-func (ix *Index) close() {
+func (ix *PhyAddr) close() {
 	sa := atomic.LoadUint64(&ix.status)
 	sa = clrBit(sa, 63)
 	atomic.StoreUint64(&ix.status, sa)
 }
 
-// lock tries to lock Index, return true if succeed.
-func (ix *Index) lock() bool {
+// lock tries to lock PhyAddr, return true if succeed.
+func (ix *PhyAddr) lock() bool {
 	sa := atomic.LoadUint64(&ix.status)
 	if isLocked(sa) {
 		return false // locked.
@@ -41,8 +41,8 @@ func (ix *Index) lock() bool {
 	return atomic.CompareAndSwapUint64(&ix.status, sa, nsa)
 }
 
-// unlock unlocks Index, Index must be locked.
-func (ix *Index) unlock() {
+// unlock unlocks PhyAddr, PhyAddr must be locked.
+func (ix *PhyAddr) unlock() {
 	sa := atomic.LoadUint64(&ix.status)
 	sa = clrBit(sa, 62)
 	atomic.StoreUint64(&ix.status, sa)
@@ -52,51 +52,51 @@ func isLocked(sa uint64) bool {
 	return bitOne(sa, 62)
 }
 
-// create status when New a Index.
+// create status when New a PhyAddr.
 func createStatus() uint64 {
 
 	return setBit(0, 63) // index isRunning.
 }
 
 // TODO how to deal with sealed. Should pause make bigger table and transfer all data
-// seal seals Index.
-// When there is no writable table setting Index sealed.
-func (ix *Index) seal() {
+// seal seals PhyAddr.
+// When there is no writable table setting PhyAddr sealed.
+func (ix *PhyAddr) seal() {
 	sa := atomic.LoadUint64(&ix.status)
 	sa = setBit(sa, 61)
 	atomic.StoreUint64(&ix.status, sa)
 }
 
-// isSealed returns Index is sealed or not.
-func (ix *Index) isSealed() bool {
+// isSealed returns PhyAddr is sealed or not.
+func (ix *PhyAddr) isSealed() bool {
 	sa := atomic.LoadUint64(&ix.status)
 	return bitOne(sa, 61)
 }
 
-// scale sets Index sealed.
-// When Index is expanding/shrinking setting Index scaling.
-func (ix *Index) scale() {
+// scale sets PhyAddr sealed.
+// When PhyAddr is expanding/shrinking setting PhyAddr scaling.
+func (ix *PhyAddr) scale() {
 	sa := atomic.LoadUint64(&ix.status)
 	sa = setBit(sa, 60)
 	atomic.StoreUint64(&ix.status, sa)
 }
 
-// isScaling returns Index is scaling or not.
-func (ix *Index) isScaling() bool {
+// isScaling returns PhyAddr is scaling or not.
+func (ix *PhyAddr) isScaling() bool {
 	sa := atomic.LoadUint64(&ix.status)
 	return bitOne(sa, 60)
 }
 
-// unScale sets Index scalable.
-func (ix *Index) unScale() {
+// unScale sets PhyAddr scalable.
+func (ix *PhyAddr) unScale() {
 	sa := atomic.LoadUint64(&ix.status)
 	sa = clrBit(sa, 60)
 	atomic.StoreUint64(&ix.status, sa)
 }
 
-// getWritableIdx gets writable table in Index.
+// getWritableIdx gets writable table in PhyAddr.
 // 0 or 1.
-func (ix *Index) getWritableIdx() uint8 {
+func (ix *PhyAddr) getWritableIdx() uint8 {
 	sa := atomic.LoadUint64(&ix.status)
 	return uint8((sa >> 59) & 1)
 }
@@ -106,7 +106,7 @@ func getWritableIdxByStatus(sa uint64) uint8 {
 }
 
 // setWritable sets writable table
-func (ix *Index) setWritable(idx uint8) {
+func (ix *PhyAddr) setWritable(idx uint8) {
 	sa := atomic.LoadUint64(&ix.status)
 	if idx == 0 {
 		sa = clrBit(sa, 59)
@@ -116,24 +116,24 @@ func (ix *Index) setWritable(idx uint8) {
 	atomic.StoreUint64(&ix.status, sa)
 }
 
-// addCnt adds Index count.
-func (ix *Index) addCnt() {
+// addCnt adds PhyAddr count.
+func (ix *PhyAddr) addCnt() {
 	atomic.AddUint64(&ix.status, 1) // cnt is the lowest bits, just +1.
 }
 
-// delCnt minutes Index count.
-func (ix *Index) delCnt() {
+// delCnt minutes PhyAddr count.
+func (ix *PhyAddr) delCnt() {
 	atomic.AddUint64(&ix.status, ^uint64(0))
 }
 
 const cntMask = (1 << 32) - 1
 
-func (ix *Index) getCnt() uint64 {
+func (ix *PhyAddr) getCnt() uint64 {
 	sa := atomic.LoadUint64(&ix.status)
 	return sa & cntMask
 }
 
-// Index x[off] to 1.
+// PhyAddr x[off] to 1.
 func setBit(x uint64, off uint64) uint64 {
 	x |= 1 << off
 	return x
@@ -144,7 +144,7 @@ func bitOne(x, off uint64) bool {
 	return (x>>off)&1 == 1
 }
 
-// Index x[off] to 0.
+// PhyAddr x[off] to 0.
 func clrBit(x uint64, off uint64) uint64 {
 	x &= ^(1 << off)
 	return x
