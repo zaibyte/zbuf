@@ -2,9 +2,11 @@ package extent
 
 import (
 	"encoding/binary"
-	"errors"
 	"math/rand"
 	"path/filepath"
+
+	"g.tesamc.com/IT/zaipkg/orpc"
+	"g.tesamc.com/IT/zaipkg/xerrors"
 
 	"g.tesamc.com/IT/zaipkg/directio"
 	"g.tesamc.com/IT/zaipkg/xdigest"
@@ -19,12 +21,15 @@ const (
 
 // CreateBootSector writes down a data block in a file as the bootstrap of this extent.
 // Using a boot-sector for leaving various version extents purely independent.
+//
+// After Creator.Create() succeed, then invoke CreateBootSector.
+//
 // BootSector struct:
 // 0                                       BootSectorSize
 // | version(2B) | random(4090B) | checksum(4B) |
-func CreateBootSector(fs vfs.FS, extPath string, version uint16) error {
+func CreateBootSector(fs vfs.FS, extDir string, version uint16) error {
 
-	fp := filepath.Join(extPath, BootSectorFilename)
+	fp := filepath.Join(extDir, BootSectorFilename)
 	f, err := fs.Create(fp)
 	if err != nil {
 		return err
@@ -50,9 +55,9 @@ func CreateBootSector(fs vfs.FS, extPath string, version uint16) error {
 
 // OpenBootSector opens boot-sector file, returns extent version.
 // Before return, it'll check the checksum.
-func OpenBootSector(fs vfs.FS, extPath string) (version uint16, err error) {
+func OpenBootSector(fs vfs.FS, extDir string) (version uint16, err error) {
 
-	fp := filepath.Join(extPath, BootSectorFilename)
+	fp := filepath.Join(extDir, BootSectorFilename)
 	f, err := fs.Open(fp)
 	if err != nil {
 		return 0, err
@@ -69,7 +74,7 @@ func OpenBootSector(fs vfs.FS, extPath string) (version uint16, err error) {
 	csAct := xdigest.Sum32(b[:BootSectorSize-4])
 
 	if csExp != csAct {
-		return 0, errors.New("boot-sector checksum mismatched")
+		return 0, xerrors.WithMessage(orpc.ErrChecksumMismatch, "boot-sector checksum mismatch")
 	}
 
 	version = binary.LittleEndian.Uint16(b[:2])
