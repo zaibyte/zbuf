@@ -2,6 +2,7 @@ package extent
 
 import (
 	"g.tesamc.com/IT/zaipkg/xbytes"
+	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 )
 
@@ -35,9 +36,10 @@ var AvailVersions = []uint16{Version1}
 // Creator could create extenter.
 type Creator interface {
 	// Create creates Extenter which not existed.
-	Create(extID uint32, dir string) (Extenter, error)
+	// dir is extent dir.
+	Create(fs vfs.FS, extID uint32, dir string) (Extenter, error)
 	// Create creates Extenter if not existed, otherwise open it.
-	CreateOrOpen(extID uint32, dir string) (Extenter, error)
+	CreateOrOpen(fs vfs.FS, extID uint32, dir string) (Extenter, error)
 	// GetSize gets the size of extent which will be created.
 	GetSize() uint64
 }

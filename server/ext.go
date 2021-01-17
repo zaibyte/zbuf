@@ -60,7 +60,7 @@ func (s *Server) createExtent(version uint16, groupID, groupSeq uint16, diskID u
 		return err
 	}
 
-	ext, err := creator.Create(extID, makeExtDir(extID, makeDiskDir(diskID, s.cfg.DataRoot)))
+	ext, err := creator.Create(s.fs, extID, makeExtDir(extID, makeDiskDir(diskID, s.cfg.DataRoot)))
 	if err != nil {
 		return err
 	}
