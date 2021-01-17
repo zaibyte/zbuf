@@ -23,27 +23,18 @@ func (c *Creator) Create(fs vfs.FS, extID uint32, dir string) (ext extent.Extent
 	return c.createOrOpen(fs, extID, dir, true)
 }
 
-func (c *Creator) CreateOrOpen(fs vfs.FS, extID uint32, dir string) (ext extent.Extenter, err error) {
+func (c *Creator) Open(fs vfs.FS, extID uint32, dir string) (ext extent.Extenter, err error) {
 	return c.createOrOpen(fs, extID, dir, false)
 }
 
-func isExtDirExisted(fs vfs.FS, extDir string) bool {
-	f, err := fs.OpenDir(extDir)
-	if err != nil {
-		if vfs.IsNotExist(err) {
-			return false
-		}
-	}
-	defer f.Close()
-	return true
-}
-
 func (c *Creator) open(fs vfs.FS, extID uint32, dir string) (ext extent.Extenter, err error) {
+
 	return nil, err
 }
 
 func (c *Creator) create(fs vfs.FS, extID uint32, dir string) (ext extent.Extenter, err error) {
 	// TODO after create new file should sync dir.
+	fs.Create()
 
 	return nil, err
 }
