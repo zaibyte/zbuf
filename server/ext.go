@@ -27,9 +27,14 @@ const (
 	extNamePrefix = "ext_"
 )
 
-// makeExtDir makes extents paths belong to the diskPath.
+// makeExtDir makes extents paths belong to the diskDir.
 func makeExtDir(extID uint32, diskDir string) string {
 	return filepath.Join(diskDir, extDirName, extNamePrefix+cast.ToString(extID))
+}
+
+// getExtDirParent gets ext_dir's parent directory.
+func getExtDirParent(extDir string) string {
+	return filepath.Dir(extDir)
 }
 
 func (s *Server) createExtent(version uint16, groupID, groupSeq uint16, diskID uint32) error {
