@@ -8,7 +8,7 @@ type Disk interface {
 }
 
 type Getter interface {
-	GetDisk() *metapb.Disk
+	GetInfo() *metapb.Disk
 
 	GetType() metapb.DiskType
 	GetState() metapb.DiskState
@@ -20,9 +20,10 @@ type Getter interface {
 
 type Setter interface {
 	SetType(diskType metapb.DiskType)
-	SetState(state metapb.DiskState)
+	SetState(state metapb.DiskState, isKeeper bool)
 	SetID(id uint32)
 	SetSize(size uint64)
-	SetUsed(used uint64)
+	// AddUsed adds delta to used. delta could be negative means delta space have been freed.
+	AddUsed(delta int64)
 	SetWeight(weight float64)
 }

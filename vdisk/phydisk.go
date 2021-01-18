@@ -1,6 +1,8 @@
 package vdisk
 
 import (
+	"sync/atomic"
+
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 )
 
@@ -9,7 +11,7 @@ type PhyDisk struct {
 	Disk *metapb.Disk
 }
 
-func (p *PhyDisk) GetDisk() *metapb.Disk {
+func (p *PhyDisk) GetInfo() *metapb.Disk {
 	return p.Disk
 }
 
@@ -18,7 +20,8 @@ func (p *PhyDisk) GetType() metapb.DiskType {
 }
 
 func (p *PhyDisk) GetState() metapb.DiskState {
-	return p.Disk.GetState()
+	state := atomic.LoadInt32((*int32)(&p.Disk.State))
+	return metapb.DiskState(state)
 }
 
 func (p *PhyDisk) GetID() uint32 {
@@ -26,11 +29,11 @@ func (p *PhyDisk) GetID() uint32 {
 }
 
 func (p *PhyDisk) GetSize() uint64 {
-	return p.Disk.GetSize_()
+	return p.Disk.Size_
 }
 
 func (p *PhyDisk) GetUsed() uint64 {
-	return p.Disk.GetUsed()
+	return atomic.LoadUint64(&p.Disk.Used)
 }
 
 func (p *PhyDisk) GetWeight() float64 {
@@ -41,13 +44,18 @@ func (p *PhyDisk) SetType(diskType metapb.DiskType) {
 	p.Disk.Type = diskType
 }
 
-func (p *PhyDisk) SetState(state metapb.DiskState) {
-	old := p.GetState()
-	if old == metapb.DiskState_Disk_Offline || old == metapb.DiskState_Disk_Tombstone ||
-		old == metapb.DiskState_Disk_Broken {
-		return
+func (p *PhyDisk) SetState(state metapb.DiskState, isKeeper bool) {
+
+	oldSate := atomic.LoadInt32((*int32)(&p.Disk.State))
+	if !isKeeper {
+		if metapb.DiskState(oldSate) == metapb.DiskState_Disk_Offline ||
+			metapb.DiskState(oldSate) == metapb.DiskState_Disk_Tombstone ||
+			metapb.DiskState(oldSate) == metapb.DiskState_Disk_Broken {
+			return
+		}
 	}
-	p.Disk.State = state
+
+	atomic.StoreInt32((*int32)(&p.Disk.State), int32(state))
 }
 
 func (p *PhyDisk) SetID(id uint32) {
@@ -58,8 +66,13 @@ func (p *PhyDisk) SetSize(size uint64) {
 	p.Disk.Size_ = size
 }
 
-func (p *PhyDisk) SetUsed(used uint64) {
-	p.Disk.Used = used
+func (p *PhyDisk) AddUsed(delta int64) {
+
+	if delta < 0 {
+		atomic.AddUint64(&p.Disk.Used, ^uint64(-delta-1))
+		return
+	}
+	atomic.AddUint64(&p.Disk.Used, uint64(delta))
 }
 
 func (p *PhyDisk) SetWeight(weight float64) {
