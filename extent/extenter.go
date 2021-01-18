@@ -8,7 +8,7 @@ import (
 
 // Extenter is the collection of extent methods.
 type Extenter interface {
-	GetInfo() *metapb.Extent
+	GetInfo() *Info
 
 	Objecter
 	GCer
