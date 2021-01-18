@@ -2,7 +2,10 @@ package server
 
 import (
 	"errors"
+	"fmt"
 	"sync/atomic"
+
+	"g.tesamc.com/IT/zaipkg/xlog"
 
 	"g.tesamc.com/IT/zaipkg/diskutil"
 	"g.tesamc.com/IT/zaipkg/orpc"
@@ -23,6 +26,7 @@ func (s *Server) handleIOError(err error, extID, diskID uint32) {
 		ext := v.(extent.Extenter)
 		info := ext.GetInfo()
 		setExtState(&info.State, metapb.ExtentState_Extent_Broken, false)
+		xlog.Error(fmt.Sprintf("ext: %d broken: %s", extID, err.Error()))
 		return
 	}
 	if diskutil.IsBroken(err) {
@@ -33,6 +37,7 @@ func (s *Server) handleIOError(err error, extID, diskID uint32) {
 		disk := v.(vdisk.Disk)
 		info := disk.GetDisk()
 		setDiskState(&info.State, metapb.DiskState_Disk_Broken, false)
+		xlog.Error(fmt.Sprintf("disk: %d broken: %s", diskID, err.Error()))
 	}
 	return
 }
