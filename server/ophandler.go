@@ -10,8 +10,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"g.tesamc.com/IT/zaipkg/uid"
-
 	"g.tesamc.com/IT/zaipkg/xerrors"
 	"g.tesamc.com/IT/zaipkg/xlog"
 
@@ -21,7 +19,7 @@ import (
 )
 
 func (s *Server) addOpHandlers() {
-	s.opSvr.AddHandler(http.MethodPut, "/v1/extent/create/:version/:group_id/:seq_id/:disk_id", s.createExtentHandler)
+	s.opSvr.AddHandler(http.MethodPut, "/v1/extent/create/:version/:disk_id/:ext_id", s.createExtentHandler)
 }
 
 // Path: /v1/extent/create/:version/:disk_id/:ext_id
@@ -39,38 +37,29 @@ func (s *Server) createExtentHandler(w http.ResponseWriter, req *http.Request, p
 		}
 	}
 	if !has {
-		err := errors.New("illegal extent version")
+		err := fmt.Errorf("ext version: %d not found", version)
 		xlog.ErrorID(reqid, err.Error())
-		xhttp.ReplyError(w, err.Error(), http.StatusBadRequest)
+		xhttp.ReplyError(w, err.Error(), http.StatusNotFound)
 		return
 	}
-
-	var groupID uint16
-	xhttp.ParsePath(p, "group_id", &groupID)
-	if !uid.IsValidGroupID(groupID) {
-		err := errors.New("illegal group_id")
-		xlog.ErrorID(reqid, err.Error())
-		xhttp.ReplyError(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var groupSeq uint16
-	xhttp.ParsePath(p, "seq_id", &groupSeq)
 
 	var diskID uint32
 	xhttp.ParsePath(p, "disk_id", &diskID)
 
-	vd := s.getDiskInfo(diskID)
-	if vd == nil {
+	var extID uint32
+	xhttp.ParsePath(p, "ext_id", &extID)
+
+	diskInfo := s.getDiskInfo(diskID)
+	if diskInfo == nil {
 		err := errors.New(fmt.Sprintf("disk not found: %d", diskID))
 		xlog.ErrorID(reqid, err.Error())
-		xhttp.ReplyError(w, err.Error(), http.StatusInternalServerError)
+		xhttp.ReplyError(w, err.Error(), http.StatusNotFound)
 		return
 	}
 
-	err := s.createExtent(version, groupID, groupSeq, diskID)
+	err := s.createExtent(version, extID, diskID)
 	if err != nil {
-		err = xerrors.WithMessage(err, "create extent failed")
+		err = xerrors.WithMessage(err, fmt.Sprintf("create extent: %d failed", extID))
 		xlog.ErrorID(reqid, err.Error())
 		xhttp.ReplyError(w, err.Error(), http.StatusInternalServerError)
 		return

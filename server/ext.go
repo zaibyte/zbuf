@@ -44,7 +44,7 @@ func getExtDirParent(extDir string) string {
 }
 
 // createExtent creates new extent.
-func (s *Server) createExtent(version uint16, groupID, groupSeq uint16, diskID uint32) error {
+func (s *Server) createExtent(version uint16, extID, diskID uint32) error {
 
 	extID := uid.MakeExtID(groupID, groupSeq)
 	if _, ok := s.extenters.Load(extID); ok {
