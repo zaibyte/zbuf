@@ -1,18 +1,7 @@
-/*
- * Copyright (c) 2020. Temple3x (temple3x@gmail.com)
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// ophandler are Server's operation handlers,
+// these handlers are used for serve management operations,
+// usually these operations won't be invoked frequently unless there is a bug.
+// And they should be easy to show human readable results for satisfying administrators' needs.
 
 package server
 
@@ -35,7 +24,7 @@ func (s *Server) addOpHandlers() {
 	s.opSvr.AddHandler(http.MethodPut, "/v1/extent/create/:version/:group_id/:seq_id/:disk_id", s.createExtentHandler)
 }
 
-// Path: /v1/extent/create/:version/:group_id/:seq_id/:disk_id
+// Path: /v1/extent/create/:version/:disk_id/:ext_id
 func (s *Server) createExtentHandler(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
 
 	reqid := xhttp.GetReqID(req)
@@ -79,7 +68,7 @@ func (s *Server) createExtentHandler(w http.ResponseWriter, req *http.Request, p
 		return
 	}
 
-	err := s.createOrOpenExtent(version, groupID, groupSeq, diskID, true)
+	err := s.createExtent(version, groupID, groupSeq, diskID)
 	if err != nil {
 		err = xerrors.WithMessage(err, "create extent failed")
 		xlog.ErrorID(reqid, err.Error())
