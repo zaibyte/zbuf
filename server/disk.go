@@ -5,8 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"g.tesamc.com/IT/zaipkg/diskutil"
-
 	"g.tesamc.com/IT/zbuf/vdisk"
 
 	"g.tesamc.com/IT/zbuf/vfs"
@@ -29,9 +27,6 @@ func makeDiskDir(diskID uint32, root string) string {
 }
 
 func (s *Server) listDisks() {
-	if s.development && s.cfg.Develop.NoListDisk {
-		return
-	}
 
 	root := s.cfg.DataRoot
 
@@ -71,8 +66,8 @@ func (s *Server) addDisk(diskID uint32, root string) error {
 	}
 	defer f.Close()
 
-	disk := getDiskInfo(diskID, s.cfg.DataRoot, s.cfg.DiskWeights[diskID])
-	s.diskInfos.Store(diskID, disk)
+	info := getDiskInfo(s.vdisk, diskID, s.cfg.DataRoot, s.cfg.DiskWeights[diskID])
+	s.diskInfos.Store(diskID, info)
 	return nil
 }
 
@@ -85,19 +80,18 @@ func (s *Server) getDisksInfo(diskIDs []uint32) {
 	}
 }
 
-func getDiskInfo(disk vdisk.Disk, diskID uint32, root string, weight float64) vdisk.Disk {
+func getDiskInfo(disk vdisk.Disk, diskID uint32, root string, weight float64) *vdisk.Info {
 
-	disk := vdisk.GetDisk()
-	disk.SetID(diskID)
+	info := new(vdisk.Info)
+	info.PbDisk.Id = diskID
 	path := makeDiskDir(diskID, root)
-	disk.SetType(diskutil.GetDiskType(path))
-	usage, _ := diskutil.GetUsageState(path)
-	disk.SetSize(usage.Size)
-	disk.AddUsed(int64(usage.Used))
+	info.PbDisk.Type = disk.GetType(path)
+	_ = disk.InitUsage(path, info)
 	if weight != 0 {
-		disk.SetWeight(weight)
+		info.PbDisk.Weight = weight
 	}
-	return disk
+
+	return info
 }
 
 func (s *Server) getDisk(diskID uint32) vdisk.Disk {

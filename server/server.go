@@ -50,7 +50,7 @@ type Server struct {
 // Create creates a ZBuf server.
 func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 
-	s := &Server{fs: vfs.GetFS(), vdisk: vdisk.GetDisk()}
+	s := &Server{fs: vfs.GetFS(), vdisk: vdisk.GetDisk()} // Set default FS & Disk at the beginning.
 	s.cfg = cfg
 	s.ctx, s.cancel = context.WithCancel(ctx)
 
