@@ -3,7 +3,6 @@ package server
 import (
 	"errors"
 	"fmt"
-	"sync/atomic"
 
 	"g.tesamc.com/IT/zaipkg/xlog"
 
@@ -25,7 +24,7 @@ func (s *Server) handleIOError(err error, extID, diskID uint32) {
 		}
 		ext := v.(extent.Extenter)
 		info := ext.GetInfo()
-		setExtState(&info.State, metapb.ExtentState_Extent_Broken, false)
+		info.SetState(metapb.ExtentState_Extent_Broken, false)
 		xlog.Error(fmt.Sprintf("ext: %d broken: %s", extID, err.Error()))
 		return
 	}
@@ -35,39 +34,8 @@ func (s *Server) handleIOError(err error, extID, diskID uint32) {
 			return
 		}
 		disk := v.(vdisk.Disk)
-		info := disk.GetDisk()
-		setDiskState(&info.State, metapb.DiskState_Disk_Broken, false)
+		disk.SetState(metapb.DiskState_Disk_Broken, false)
 		xlog.Error(fmt.Sprintf("disk: %d broken: %s", diskID, err.Error()))
 	}
 	return
-}
-
-// setExtSate sets extent state with new one.
-func setExtState(state *metapb.ExtentState, newState metapb.ExtentState, isKeeper bool) {
-
-	oldSate := atomic.LoadInt32((*int32)(state))
-	if !isKeeper {
-		if metapb.ExtentState(oldSate) == metapb.ExtentState_Extent_Offline ||
-			metapb.ExtentState(oldSate) == metapb.ExtentState_Extent_Tombstone ||
-			metapb.ExtentState(oldSate) == metapb.ExtentState_Extent_Broken {
-			return
-		}
-	}
-
-	atomic.StoreInt32((*int32)(state), int32(newState))
-}
-
-// setExtSate sets extent state with new one.
-func setDiskState(state *metapb.DiskState, newState metapb.DiskState, isKeeper bool) {
-
-	oldSate := atomic.LoadInt32((*int32)(state))
-	if !isKeeper {
-		if metapb.DiskState(oldSate) == metapb.DiskState_Disk_Offline ||
-			metapb.DiskState(oldSate) == metapb.DiskState_Disk_Tombstone ||
-			metapb.DiskState(oldSate) == metapb.DiskState_Disk_Broken {
-			return
-		}
-	}
-
-	atomic.StoreInt32((*int32)(state), int32(newState))
 }
