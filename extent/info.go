@@ -27,6 +27,7 @@ func (p *Info) SetState(state metapb.ExtentState, isKeeper bool) {
 	atomic.StoreInt32((*int32)(&p.PbExt.State), int32(state))
 }
 
+// AddUsed adds delta to used. delta could be negative means delta space have been freed.
 func (p *Info) AddUsed(delta int64) {
 
 	if delta < 0 {

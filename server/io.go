@@ -29,7 +29,7 @@ func (s *Server) handleIOError(err error, extID, diskID uint32) {
 		return
 	}
 	if diskutil.IsBroken(err) {
-		v, ok := s.vdisks.Load(diskID)
+		v, ok := s.diskInfos.Load(diskID)
 		if !ok {
 			return
 		}

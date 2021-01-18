@@ -21,6 +21,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"g.tesamc.com/IT/zbuf/vdisk"
+
 	v1 "g.tesamc.com/IT/zbuf/extent/v1"
 
 	"g.tesamc.com/IT/zaipkg/app"
@@ -44,11 +46,12 @@ type Server struct {
 	opSvr  *xhttp.Server // Operator server.
 	// TODO keeper client for heartbeat
 
-	fs vfs.FS
+	fs    vfs.FS
+	vdisk vdisk.Disk
 
 	availExtentVersion []uint16
 
-	vdisks     sync.Map // Disks info
+	diskInfos  sync.Map // Disks info
 	schedulers sync.Map
 
 	// creators is the collector that this server supports extent versions.
@@ -63,7 +66,7 @@ type Server struct {
 // Create creates a ZBuf server.
 func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 
-	s := &Server{}
+	s := &Server{fs: vfs.GetFS(), vdisk: vdisk.GetDisk()}
 	s.cfg = cfg
 	s.ctx, s.cancel = context.WithCancel(ctx)
 
@@ -82,6 +85,7 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 	}
 
 	s.listDisks()
+	s.listExtents()
 
 	return s, nil
 }

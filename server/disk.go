@@ -72,7 +72,7 @@ func (s *Server) addDisk(diskID uint32, root string) error {
 	defer f.Close()
 
 	disk := getDiskInfo(diskID, s.cfg.DataRoot, s.cfg.DiskWeights[diskID])
-	s.vdisks.Store(diskID, disk)
+	s.diskInfos.Store(diskID, disk)
 	return nil
 }
 
@@ -80,12 +80,12 @@ func (s *Server) addDisk(diskID uint32, root string) error {
 func (s *Server) getDisksInfo(diskIDs []uint32) {
 
 	for _, diskID := range diskIDs {
-		disk := getDiskInfo(diskID, s.cfg.DataRoot, s.cfg.DiskWeights[diskID])
-		s.vdisks.Store(diskID, disk)
+		disk := getDiskInfo(s.vdisk, diskID, s.cfg.DataRoot, s.cfg.DiskWeights[diskID])
+		s.diskInfos.Store(diskID, disk)
 	}
 }
 
-func getDiskInfo(diskID uint32, root string, weight float64) vdisk.Disk {
+func getDiskInfo(disk vdisk.Disk, diskID uint32, root string, weight float64) vdisk.Disk {
 
 	disk := vdisk.GetDisk()
 	disk.SetID(diskID)
@@ -101,7 +101,7 @@ func getDiskInfo(diskID uint32, root string, weight float64) vdisk.Disk {
 }
 
 func (s *Server) getDisk(diskID uint32) vdisk.Disk {
-	d, ok := s.vdisks.Load(diskID)
+	d, ok := s.diskInfos.Load(diskID)
 	if !ok {
 		return nil
 	}

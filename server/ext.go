@@ -113,7 +113,7 @@ func (s *Server) createOrOpenExtent(version uint16, groupID, groupSeq uint16, di
 // listExtents lists all valid extents(existed in Keeper).
 // Invoke it after listDisks.
 func (s *Server) listExtents() {
-	s.vdisks.Range(func(key, value interface{}) bool {
+	s.diskInfos.Range(func(key, value interface{}) bool {
 		disk := value.(vdisk.Disk)
 		extIDs, err := listExtIDs(disk.GetID(), s.cfg.DataRoot, s.fs)
 		if err != nil {

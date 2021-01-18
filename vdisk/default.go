@@ -1,8 +1,6 @@
 package vdisk
 
-import "g.tesamc.com/IT/zproto/pkg/metapb"
-
-var DefaultDisk Disk = &PhyDisk{Disk: new(metapb.Disk)}
+var DefaultDisk Disk = &PhyDisk{}
 
 // GetDisk returns the vdisk instance used in normal run.
 func GetDisk() Disk {
