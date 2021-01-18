@@ -49,13 +49,11 @@ type Config struct {
 	GCDuration typeutil.Duration `toml:"gc_duration"`
 }
 
+// DevConfig is the configs only used in development, not service for production.
 type DevConfig struct {
 	// Development indicates Server is in development state or not,
 	// we need to set it true for testing sometimes.
 	Development bool `toml:"development"`
-	// NoListDisk will disable listing disks at Server starting.
-	// We could add VDisk manually for testing.
-	NoListDisk bool `toml:"no_list_disk"`
 }
 
 const (
