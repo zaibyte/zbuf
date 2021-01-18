@@ -27,7 +27,7 @@ func TestMakeExtDir(t *testing.T) {
 
 	assert.Equal(t, filepath.Join(diskPath, "ext", extNamePrefix+cast.ToString(extID)), extDir)
 
-	extDirParent := getExtDirParent(extID, extDir)
+	extDirParent := getExtDirParent(extDir)
 	assert.Equal(t, filepath.Join(diskPath, "ext"), extDirParent)
 }
 
