@@ -94,10 +94,10 @@ func getDiskInfo(disk vdisk.Disk, diskID uint32, root string, weight float64) *v
 	return info
 }
 
-func (s *Server) getDisk(diskID uint32) vdisk.Disk {
+func (s *Server) getDiskInfo(diskID uint32) *vdisk.Info {
 	d, ok := s.diskInfos.Load(diskID)
 	if !ok {
 		return nil
 	}
-	return d.(vdisk.Disk)
+	return d.(*vdisk.Info)
 }

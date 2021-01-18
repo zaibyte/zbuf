@@ -33,8 +33,8 @@ func (s *Server) handleIOError(err error, extID, diskID uint32) {
 		if !ok {
 			return
 		}
-		disk := v.(vdisk.Disk)
-		disk.SetState(metapb.DiskState_Disk_Broken, false)
+		info := v.(*vdisk.Info)
+		info.SetState(metapb.DiskState_Disk_Broken, false)
 		xlog.Error(fmt.Sprintf("disk: %d broken: %s", diskID, err.Error()))
 	}
 	return

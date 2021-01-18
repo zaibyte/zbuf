@@ -71,7 +71,7 @@ func (s *Server) createExtentHandler(w http.ResponseWriter, req *http.Request, p
 	var diskID uint32
 	xhttp.ParsePath(p, "disk_id", &diskID)
 
-	vd := s.getDisk(diskID)
+	vd := s.getDiskInfo(diskID)
 	if vd == nil {
 		err := errors.New(fmt.Sprintf("disk not found: %d", diskID))
 		xlog.ErrorID(reqid, err.Error())

@@ -85,7 +85,7 @@ func (s *Server) createOrOpenExtent(version uint16, groupID, groupSeq uint16, di
 	}
 
 	if !existed {
-		vd := s.getDisk(diskID)
+		vd := s.getDiskInfo(diskID)
 		if vd == nil {
 			err := errors.New(fmt.Sprintf("disk not found: %d", diskID))
 			return err
@@ -114,20 +114,21 @@ func (s *Server) createOrOpenExtent(version uint16, groupID, groupSeq uint16, di
 // Invoke it after listDisks.
 func (s *Server) listExtents() {
 	s.diskInfos.Range(func(key, value interface{}) bool {
-		disk := value.(vdisk.Disk)
-		extIDs, err := listExtIDs(disk.GetID(), s.cfg.DataRoot, s.fs)
+		disk := value.(*vdisk.Info)
+		diskID := disk.PbDisk.Id
+		extIDs, err := listExtIDs(diskID, s.cfg.DataRoot, s.fs)
 		if err != nil {
-			s.handleIOError(err, 0, disk.GetID())
+			s.handleIOError(err, 0, diskID)
 			return true
 		}
 
-		diskDir := makeDiskDir(disk.GetID(), s.cfg.DataRoot)
+		diskDir := makeDiskDir(diskID, s.cfg.DataRoot)
 		for _, extID := range extIDs {
 			if s.verifyExtID() {
 				extDir := makeExtDir(extID, diskDir)
 				ver, err2 := extent.OpenBootSector(s.fs, extDir)
 				if err2 != nil {
-					s.handleIOError(err2, extID, disk.GetID())
+					s.handleIOError(err2, extID, diskID)
 					continue
 				}
 				v, ok := s.creators[ver]
@@ -139,7 +140,7 @@ func (s *Server) listExtents() {
 				creator := v.(extent.Creator)
 				ext, err3 := creator.Open(s.fs, extID, extDir)
 				if err3 != nil {
-					s.handleIOError(err3, extID, disk.GetID())
+					s.handleIOError(err3, extID, diskID)
 					continue
 				}
 				s.extenters.Store(extID, ext)
