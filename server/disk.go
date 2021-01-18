@@ -93,7 +93,7 @@ func getDiskInfo(diskID uint32, root string, weight float64) vdisk.Disk {
 	disk.SetType(diskutil.GetDiskType(path))
 	usage, _ := diskutil.GetUsageState(path)
 	disk.SetSize(usage.Size)
-	disk.SetUsed(usage.Used)
+	disk.AddUsed(int64(usage.Used))
 	if weight != 0 {
 		disk.SetWeight(weight)
 	}

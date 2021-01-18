@@ -7,6 +7,10 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"g.tesamc.com/IT/zaipkg/xlog"
+
+	"g.tesamc.com/IT/zbuf/vdisk"
+
 	"g.tesamc.com/IT/zbuf/extent"
 
 	"g.tesamc.com/IT/zbuf/vfs"
@@ -86,7 +90,7 @@ func (s *Server) createOrOpenExtent(version uint16, groupID, groupSeq uint16, di
 			err := errors.New(fmt.Sprintf("disk not found: %d", diskID))
 			return err
 		}
-		vdd := vd.GetDisk()
+		vdd := vd.GetInfo()
 		free := atomic.LoadUint64(&vdd.Size_) - atomic.LoadUint64(&vdd.Used)
 		taken := creator.GetSize()
 		// The reserved capacity is under controlled by Keeper.
@@ -104,6 +108,46 @@ func (s *Server) createOrOpenExtent(version uint16, groupID, groupSeq uint16, di
 	s.extenters.Store(extID, ext)
 	atomic.AddUint64(&vdd.Used, taken)
 	return nil
+}
+
+// listExtents lists all valid extents(existed in Keeper).
+// Invoke it after listDisks.
+func (s *Server) listExtents() {
+	s.vdisks.Range(func(key, value interface{}) bool {
+		disk := value.(vdisk.Disk)
+		extIDs, err := listExtIDs(disk.GetID(), s.cfg.DataRoot, s.fs)
+		if err != nil {
+			s.handleIOError(err, 0, disk.GetID())
+			return true
+		}
+
+		diskDir := makeDiskDir(disk.GetID(), s.cfg.DataRoot)
+		for _, extID := range extIDs {
+			if s.verifyExtID() {
+				extDir := makeExtDir(extID, diskDir)
+				ver, err2 := extent.OpenBootSector(s.fs, extDir)
+				if err2 != nil {
+					s.handleIOError(err2, extID, disk.GetID())
+					continue
+				}
+				v, ok := s.creators[ver]
+				if !ok {
+					// Just in case when administrator does wrong operation.
+					xlog.Error(fmt.Sprintf("ext version: %d not found in this instance", ver))
+					continue
+				}
+				creator := v.(extent.Creator)
+				ext, err3 := creator.Open(s.fs, extID, extDir)
+				if err3 != nil {
+					s.handleIOError(err3, extID, disk.GetID())
+					continue
+				}
+				s.extenters.Store(extID, ext)
+			}
+		}
+
+		return true
+	})
 }
 
 // listExtIDs lists all extent IDs in this Disk    .
@@ -133,4 +177,11 @@ func listExtIDs(diskID uint32, root string, fs vfs.FS) (ids []uint32, err error)
 		return nil, nil
 	}
 	return ids[:cnt], nil
+}
+
+// TODO check disk instance match or not
+// verifyExtID verifies ext_ids listed are existed in Keeper,
+// if not, clean up local ext.
+func (s *Server) verifyExtID() bool {
+	return true
 }
