@@ -31,7 +31,7 @@ const (
 
 // TODO interface of scheduler scrub
 // TODO interface of migrate
-var AvailVersions = []uint16{Version1}
+var AvailVersions = []uint16{Version1, VersionTest}
 
 // Creator could create/open extenter.
 type Creator interface {
