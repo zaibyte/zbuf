@@ -41,32 +41,44 @@ func getExtDirParent(extDir string) string {
 }
 
 // createExtent creates new extent.
-func (s *Server) createExtent(version uint16, extID, diskID uint32) error {
+func (s *Server) createExtent(version uint16, extID, diskID uint32) (err error) {
+
+	defer func() {
+		if err != nil {
+			s.handleIOError(err, extID, diskID)
+		}
+	}()
 
 	extDir := makeExtDir(extID, makeDiskDir(diskID, s.cfg.DataRoot))
 
 	if vfs.IsDirExisted(s.fs, extDir) {
-		return fmt.Errorf("extID: %d already existed", extID)
-	}
-
-	fs := s.fs
-	err := fs.MkdirAll(extDir, 0755)
-	if err != nil {
-		s.handleIOError(err, extID, diskID)
-		return err
-	}
-
-	creator, ok := s.creators[version]
-	if !ok {
-		err := errors.New("could not find creator")
-		return err
+		err = fmt.Errorf("extID: %d already existed", extID)
+		return
 	}
 
 	diskInfo := s.getDiskInfo(diskID)
 	if diskInfo == nil {
-		err := errors.New(fmt.Sprintf("disk not found: %d", diskID))
+		err = errors.New(fmt.Sprintf("disk not found: %d", diskID))
+		return
+	}
+
+	creator, ok := s.creators[version]
+	if !ok {
+		err = errors.New("could not find creator")
+		return
+	}
+
+	fs := s.fs
+	err = fs.MkdirAll(extDir, 0755)
+	if err != nil {
+		return
+	}
+
+	err = extent.CreateBootSector(fs, extDir, version)
+	if err != nil {
 		return err
 	}
+
 	free := diskInfo.PbDisk.GetSize_() - diskInfo.GetUsed()
 	taken := creator.GetSize()
 	// The reserved capacity is under controlled by Keeper.
@@ -79,8 +91,10 @@ func (s *Server) createExtent(version uint16, extID, diskID uint32) error {
 	if err != nil {
 		return err
 	}
+
 	s.extenters.Store(extID, ext)
 	diskInfo.AddUsed(int64(taken))
+
 	return nil
 }
 

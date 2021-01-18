@@ -40,7 +40,7 @@ type Creator interface {
 	Create(fs vfs.FS, extID uint32, dir string) (Extenter, error)
 	// Open opens an existed Extenter.
 	Open(fs vfs.FS, extID uint32, dir string) (Extenter, error)
-	// GetSize gets the size of extent which will be created.
+	// GetSize gets the space size will be taken by the extent which will be created.
 	GetSize() uint64
 }
 

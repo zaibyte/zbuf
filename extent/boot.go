@@ -22,7 +22,8 @@ const (
 // CreateBootSector writes down a data block in a file as the bootstrap of this extent.
 // Using a boot-sector for leaving various version extents purely independent.
 //
-// After Creator.Create() succeed, then invoke CreateBootSector.
+// Before Creator.Create(), invoking CreateBootSector,
+// because boot-sector is independent with certain version of extent.
 //
 // BootSector struct:
 // 0                                       BootSectorSize

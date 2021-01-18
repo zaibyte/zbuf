@@ -18,14 +18,10 @@ func (c *Creator) GetSize() uint64 {
 }
 
 func (c *Creator) Create(fs vfs.FS, extID uint32, dir string) (ext extent.Extenter, err error) {
+
 	return nil, err
 }
 
 func (c *Creator) Open(fs vfs.FS, extID uint32, dir string) (ext extent.Extenter, err error) {
-	return nil, err
-}
-
-func (c *Creator) open(fs vfs.FS, extID uint32, dir string) (ext extent.Extenter, err error) {
-
 	return nil, err
 }
