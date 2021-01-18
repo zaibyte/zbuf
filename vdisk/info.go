@@ -36,3 +36,7 @@ func (p *Info) AddUsed(delta int64) {
 	}
 	atomic.AddUint64(&p.PbDisk.Used, uint64(delta))
 }
+
+func (p *Info) GetUsed() uint64 {
+	return atomic.LoadUint64(&p.PbDisk.Used)
+}

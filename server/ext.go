@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"sync/atomic"
 
 	"g.tesamc.com/IT/zaipkg/xlog"
 
@@ -16,8 +15,6 @@ import (
 	"g.tesamc.com/IT/zbuf/vfs"
 
 	"github.com/spf13/cast"
-
-	"g.tesamc.com/IT/zaipkg/uid"
 )
 
 // .
@@ -46,37 +43,17 @@ func getExtDirParent(extDir string) string {
 // createExtent creates new extent.
 func (s *Server) createExtent(version uint16, extID, diskID uint32) error {
 
-	extID := uid.MakeExtID(groupID, groupSeq)
-	if _, ok := s.extenters.Load(extID); ok {
-		if exclusive {
-			return fmt.Errorf("extID: %d already existed", extID)
-		}
-		return nil
-	}
-
 	extDir := makeExtDir(extID, makeDiskDir(diskID, s.cfg.DataRoot))
 
-	vBoot, err := extent.OpenBootSector(s.fs, extDir)
-	if err != nil {
-		return err
-	}
-
-	existed := false
-	versionIfHas := version
 	if vfs.IsDirExisted(s.fs, extDir) {
-		if exclusive {
-			return fmt.Errorf("extID: %d already existed", extID)
-		}
-		vBoot, err := extent.OpenBootSector(s.fs, extDir)
-		if err != nil {
-			return err
-		}
-		versionIfHas = vBoot
-		existed = true
+		return fmt.Errorf("extID: %d already existed", extID)
 	}
 
-	if versionIfHas != version {
-		return fmt.Errorf("extID: %d version in boot-sector is not match expect", extID)
+	fs := s.fs
+	err := fs.MkdirAll(extDir, 0755)
+	if err != nil {
+		s.handleIOError(err, extID, diskID)
+		return err
 	}
 
 	creator, ok := s.creators[version]
@@ -85,29 +62,25 @@ func (s *Server) createExtent(version uint16, extID, diskID uint32) error {
 		return err
 	}
 
-	if !existed {
-		vd := s.getDiskInfo(diskID)
-		if vd == nil {
-			err := errors.New(fmt.Sprintf("disk not found: %d", diskID))
-			return err
-		}
-		vdd := vd.GetInfo()
-		free := atomic.LoadUint64(&vdd.Size_) - atomic.LoadUint64(&vdd.Used)
-		taken := creator.GetSize()
-		// The reserved capacity is under controlled by Keeper.
-		// If there is a request to create extent, ZBuf will do it until there is no enough sapce.
-		if free < taken {
-			err := errors.New("not enough space")
-			return err
-		}
+	diskInfo := s.getDiskInfo(diskID)
+	if diskInfo == nil {
+		err := errors.New(fmt.Sprintf("disk not found: %d", diskID))
+		return err
+	}
+	free := diskInfo.PbDisk.GetSize_() - diskInfo.GetUsed()
+	taken := creator.GetSize()
+	// The reserved capacity is under controlled by Keeper.
+	// If there is a request to create extent, ZBuf will do it until there is no enough sapce.
+	if free < taken {
+		return errors.New("not enough space")
 	}
 
-	ext, err := creator.CreateOrOpen(s.fs, extID, extDir)
+	ext, err := creator.Create(s.fs, extID, extDir)
 	if err != nil {
 		return err
 	}
 	s.extenters.Store(extID, ext)
-	atomic.AddUint64(&vdd.Used, taken)
+	diskInfo.AddUsed(int64(taken))
 	return nil
 }
 
@@ -182,6 +155,7 @@ func listExtIDs(diskID uint32, root string, fs vfs.FS) (ids []uint32, err error)
 }
 
 // TODO check disk instance match or not
+// TODO should block until verify finishing
 // verifyExtID verifies ext_ids listed are existed in Keeper,
 // if not, clean up local ext.
 func (s *Server) verifyExtID() bool {

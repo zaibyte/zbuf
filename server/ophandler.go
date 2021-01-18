@@ -6,7 +6,6 @@
 package server
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -48,14 +47,6 @@ func (s *Server) createExtentHandler(w http.ResponseWriter, req *http.Request, p
 
 	var extID uint32
 	xhttp.ParsePath(p, "ext_id", &extID)
-
-	diskInfo := s.getDiskInfo(diskID)
-	if diskInfo == nil {
-		err := errors.New(fmt.Sprintf("disk not found: %d", diskID))
-		xlog.ErrorID(reqid, err.Error())
-		xhttp.ReplyError(w, err.Error(), http.StatusNotFound)
-		return
-	}
 
 	err := s.createExtent(version, extID, diskID)
 	if err != nil {
