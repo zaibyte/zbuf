@@ -7,5 +7,5 @@ import (
 )
 
 func Fdatasync(f *os.File) error {
-	f.Sync()
+	return f.Sync()
 }
