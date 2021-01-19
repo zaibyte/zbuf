@@ -140,8 +140,8 @@ func Clean(dir string) string {
 }
 
 // IsDirExisted returns dir existed or not.
-func IsDirExisted(fs FS, extDir string) bool {
-	f, err := fs.OpenDir(extDir)
+func IsDirExisted(fs FS, dir string) bool {
+	f, err := fs.OpenDir(dir)
 	if err != nil {
 		if IsNotExist(err) {
 			return false
@@ -149,4 +149,15 @@ func IsDirExisted(fs FS, extDir string) bool {
 	}
 	defer f.Close()
 	return true
+}
+
+// SyncDir syncs directory.
+func SyncDir(fs FS, dir string) error {
+	f, err := fs.OpenDir(dir)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	return f.Sync()
 }
