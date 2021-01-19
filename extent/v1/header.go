@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"sync"
 
+	"g.tesamc.com/IT/zaipkg/xdigest"
+
 	"g.tesamc.com/IT/zaipkg/directio"
 	"g.tesamc.com/IT/zbuf/xio"
 
@@ -32,9 +34,10 @@ type Header struct {
 
 	// This part will be persisted to disk.
 	// Any segment state and sealed timestamp changes will be sync to disk.
-	segSize   uint32  // segSize * grain_size = bytes.
-	segStates []byte  // 256 * 1B = 256B
-	sealedTS  []int64 // 256 * 8B = 2048B
+	segSize     uint32 // segSize * grain_size = bytes.
+	reservedSeg uint8
+	segStates   []byte  // 256 * 1B = 256B
+	sealedTS    []int64 // 256 * 8B = 2048B
 
 	// GC & clone job's updates will be write to memory every time, but not to disk every time.
 	// Which means after instance restart from collapse, it may need time to reconstruct.
@@ -55,6 +58,42 @@ const HeaderFileName = "header"
 
 func CreateHeader(sched xio.Scheduler, fs vfs.FS, extDir string, segSize uint32, state metapb.ExtentState,
 	reservedSeg int) (*Header, error) {
+	h := new(Header)
+
+	h.iosched = sched
+	f, err := fs.Create(filepath.Join(extDir, HeaderFileName))
+	if err != nil {
+		return nil, err
+	}
+	h.f = f
+
+	h.rwLock = new(sync.RWMutex)
+	h.state = state
+	h.segSize = segSize
+	h.reservedSeg = uint8(reservedSeg)
+	h.segStates = make([]byte, segmentCnt)
+	for i := range h.segStates {
+		if i < segmentCnt-reservedSeg {
+			h.segStates[i] = segReady
+		} else {
+			h.segStates[i] = segReserved
+		}
+	}
+	h.segStates[0] = segWritable // Set first seg writable.
+	h.sealedTS = make([]int64, segmentCnt)
+	h.cloneJob = new(metapb.CloneJob)
+	h.segRemoved = make([]uint32, segmentCnt)
+
+	err = h.Store(h.state)
+	if err != nil {
+		return nil, err
+	}
+
+	return h, nil
+}
+
+// Load loads header from disk.
+func LoadHeader(sched xio.Scheduler, fs vfs.FS, extDir string) (*Header, error) {
 	h := new(Header)
 
 	h.iosched = sched
@@ -88,11 +127,6 @@ func CreateHeader(sched xio.Scheduler, fs vfs.FS, extDir string, segSize uint32,
 	return h, nil
 }
 
-// Load loads header from disk
-func (h *Header) Load() error {
-	return nil
-}
-
 // Store stores Header to disk as a header file, the file size is 4KB.
 // The reason to use a independent file to store header file is to reduce fdatasync stall.
 // If header & segments are in the same file, the fdatasync will flush all write(caused by object writing/
@@ -116,10 +150,14 @@ func (h *Header) Store(state metapb.ExtentState) error {
 	}
 	binary.LittleEndian.PutUint32(b[2559:2563], h.gcSrcCursor)
 	binary.LittleEndian.PutUint32(b[2563:2567], h.gcDstCursor)
-	_, err := h.cloneJob.MarshalTo(b[2567:])
+	b[2567] = h.reservedSeg
+	n, err := h.cloneJob.MarshalTo(b[2568:])
 	if err != nil {
 		return err
 	}
+
+	digest := xdigest.Sum32(b[:2568+n]) // The size must be enough.
+	binary.LittleEndian.PutUint32(b[2568+n:], digest)
 
 	return h.iosched.DoTimeout(xio.ReqMetaWrite, h.f, 0, b, 0)
 }
