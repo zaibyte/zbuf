@@ -2,10 +2,6 @@
 
 package vfs
 
-import (
-	"os"
-)
-
-func Fdatasync(f *os.File) error {
+func Fdatasync(f File) error {
 	return f.Sync()
 }
