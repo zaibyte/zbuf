@@ -69,6 +69,12 @@ func CreateHeader(sched xio.Scheduler, fs vfs.FS, extDir string, segSize uint32,
 	if err != nil {
 		return nil, err
 	}
+	err = vfs.SyncDir(fs, extDir)
+	if err != nil {
+		_ = f.Close()
+		return nil, err
+	}
+
 	h.f = f
 
 	h.rwLock = new(sync.RWMutex)
@@ -179,4 +185,9 @@ func (h *Header) Store(state metapb.ExtentState) error {
 	binary.LittleEndian.PutUint32(b[4092:], digest)
 
 	return h.iosched.DoTimeout(xio.ReqMetaWrite, h.f, 0, b, 0)
+}
+
+// Close releases the resource.
+func (h *Header) Close() {
+	_ = h.f.Close()
 }

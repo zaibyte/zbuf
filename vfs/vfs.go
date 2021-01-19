@@ -148,6 +148,7 @@ func IsDirExisted(fs FS, dir string) bool {
 		}
 	}
 	defer f.Close()
+
 	return true
 }
 
