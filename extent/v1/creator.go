@@ -25,3 +25,8 @@ func (c *Creator) Create(fs vfs.FS, extID uint32, dir string) (ext extent.Extent
 func (c *Creator) Open(fs vfs.FS, extID uint32, dir string) (ext extent.Extenter, err error) {
 	return nil, err
 }
+
+// TODO after Create we should open ext too.
+func (c *Creator) open() {
+
+}
