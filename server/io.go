@@ -16,6 +16,7 @@ import (
 // handleIOError handles I/O errors,
 // if it's checksum mismatched -> extent broken.
 // if it's disk/filesystem error -> disk broken.
+// TODO is it slow?
 func (s *Server) handleIOError(err error, extID, diskID uint32) {
 	if errors.Is(err, orpc.ErrChecksumMismatch) {
 		v, ok := s.extenters.Load(extID)
