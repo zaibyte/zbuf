@@ -5,14 +5,18 @@ import (
 	"path/filepath"
 	"sync"
 
-	"g.tesamc.com/IT/zaipkg/uid"
+	"g.tesamc.com/IT/zaipkg/directio"
+	"g.tesamc.com/IT/zbuf/xio"
 
+	"g.tesamc.com/IT/zaipkg/uid"
 	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 )
 
 // Header is extent.v1 header.
 type Header struct {
+	iosched xio.Scheduler
+
 	f vfs.File // Header will open a file, and keeping it opening until close.
 
 	// Using a lock here won't break down performance,
@@ -49,10 +53,11 @@ type Header struct {
 
 const HeaderFileName = "header"
 
-func CreateHeader(fs vfs.FS, extDir string, segSize uint32, state metapb.ExtentState,
+func CreateHeader(sched xio.Scheduler, fs vfs.FS, extDir string, segSize uint32, state metapb.ExtentState,
 	reservedSeg int) (*Header, error) {
 	h := new(Header)
 
+	h.iosched = sched
 	f, err := fs.Create(filepath.Join(extDir, HeaderFileName))
 	if err != nil {
 		return nil, err
@@ -83,6 +88,7 @@ func CreateHeader(fs vfs.FS, extDir string, segSize uint32, state metapb.ExtentS
 	return h, nil
 }
 
+// Load loads header from disk
 func (h *Header) Load() error {
 	return nil
 }
@@ -100,7 +106,7 @@ func (h *Header) Store(state metapb.ExtentState) error {
 	h.rwLock.RLock()
 	defer h.rwLock.RUnlock()
 
-	b := make([]byte, uid.GrainSize)
+	b := directio.AlignedBlock(uid.GrainSize)
 	binary.LittleEndian.PutUint32(b[:4], uint32(state))
 	binary.LittleEndian.PutUint32(b[4:8], h.segSize)
 	copy(b[8:], h.segStates)
@@ -115,5 +121,5 @@ func (h *Header) Store(state metapb.ExtentState) error {
 		return err
 	}
 
-	return nil
+	return h.iosched.DoTimeout(xio.ReqMetaWrite, h.f, 0, b, 0)
 }
