@@ -61,6 +61,10 @@ const (
 	// ReqMetaWrite is I/O requests of extent meta write.
 	// Should have high/highest priority.
 	ReqMetaWrite = 6
+	// In instance starting process, we'll read the meta.
+	// Actually the I/O priority won't be a issue in this period,
+	// but I still want all I/O go through the scheduler.
+	ReqMetaRead = 7
 )
 
 // IsReqRead returns request is a read or not.
