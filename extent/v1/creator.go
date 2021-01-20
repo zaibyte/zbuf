@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"sync"
 
+	"g.tesamc.com/IT/zbuf/extent/v1/phyaddr"
+
 	"g.tesamc.com/IT/zbuf/extent"
 	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zbuf/xio"
@@ -44,12 +46,13 @@ func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, ins
 		return nil, err
 	}
 
-	// TODO create segments file & cache
 	segFile, err := fs.Create(filepath.Join(extDir, SegmentsFileName))
 	if err != nil {
 		h.Close()
 		return nil, err
 	}
+
+	phyAddr, _ := phyaddr.New(phyaddr.MinCap)
 
 	ext = &Extenter{
 		cfg: c.cfg,
@@ -63,8 +66,13 @@ func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, ins
 			InstanceId: instanceID,
 		}},
 		iosched: c.iosched,
-		ctx:     ctx,
-		stopWg:  wg,
+		segFile: segFile,
+		phyAddr: phyAddr,
+
+		putChan: make(chan *putResult, 1024),
+
+		ctx:    ctx,
+		stopWg: wg,
 	}
 
 	// TODO create wal & snapshot file

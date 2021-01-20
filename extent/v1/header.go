@@ -201,3 +201,5 @@ func (h *Header) Store(state metapb.ExtentState) error {
 func (h *Header) Close() {
 	_ = h.f.Close()
 }
+
+// TODO may add methods to modify fields in header
