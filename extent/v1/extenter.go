@@ -35,8 +35,7 @@ type Extenter struct {
 	phyAddr *phyaddr.PhyAddr
 	// TODO write-back cache
 
-	putChan    chan<- *putResult
-	deleteChan chan<- *deleteResult
+	putChan chan<- *putResult
 
 	ctx    context.Context
 	stopWg *sync.WaitGroup
