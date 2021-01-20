@@ -69,20 +69,24 @@ func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, ins
 		segFile: segFile,
 		phyAddr: phyAddr,
 
-		putChan: make(chan *putResult, 1024),
+		putChan: make(chan *putResult, c.cfg.PutPending),
 
 		ctx:    ctx,
 		stopWg: wg,
 	}
 
-	// TODO create wal & snapshot file
-
 	return ext, err
 }
 
-func (c *Creator) Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, instanceID, diskID, extID uint32, extDir string) (ext extent.Extenter, err error) {
+func (c *Creator) Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, extID uint32, extDir string) (ext extent.Extenter, err error) {
 
 	// TODO should check instanceID & diskID & extID
+	h, err := CreateHeader(c.iosched, fs, extDir, c.cfg.SegmentSize, metapb.ExtentState_Extent_ReadWrite, int(c.cfg.ReservedSeg))
+	if err != nil {
+		return nil, err
+	}
+
+	if h.
 
 	return nil, err
 }

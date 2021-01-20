@@ -7,8 +7,8 @@ import (
 
 // There are default configs for eva.
 const (
-	defaultFlushDelay = -1 // Flush immediately. Rely on disk latency.
-	defaultPutPending = 64 // Each extent has 64 pending put.
+	defaultFlushDelay = -1  // Flush immediately. Rely on disk latency.
+	defaultPutPending = 512 // Each extent has 512 pending put, same as default Scheduler pending.
 	// 128KB is enough for NVMe device read/write sequentially.
 	defaultWriteBufferSize = 128 * 1024
 	defaultReadBufferSize  = 128 * 1024

@@ -42,7 +42,7 @@ type Creator interface {
 	// dir is extent dir.
 	Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, instanceID, diskID, extID uint32, dir string) (Extenter, error)
 	// Open opens an existed Extenter.
-	Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, instanceID, diskID, extID uint32, dir string) (Extenter, error)
+	Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, extID uint32, dir string) (Extenter, error)
 	// GetSize gets the space size will be taken by the extent which will be created.
 	GetSize() uint64
 }
