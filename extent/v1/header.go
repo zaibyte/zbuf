@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"path/filepath"
@@ -60,7 +61,7 @@ type Header struct {
 
 const HeaderFileName = "header"
 
-func CreateHeader(sched xio.Scheduler, fs vfs.FS, extDir string, segSize uint32, state metapb.ExtentState,
+func CreateHeader(ctx context.Context, wg *sync.WaitGroup, sched xio.Scheduler, fs vfs.FS, extDir string, segSize uint32, state metapb.ExtentState,
 	reservedSeg int) (*Header, error) {
 	h := new(Header)
 
@@ -104,7 +105,7 @@ func CreateHeader(sched xio.Scheduler, fs vfs.FS, extDir string, segSize uint32,
 }
 
 // Load loads header from disk.
-func LoadHeader(sched xio.Scheduler, fs vfs.FS, extDir string) (*Header, error) {
+func LoadHeader(ctx context.Context, wg *sync.WaitGroup, sched xio.Scheduler, fs vfs.FS, extDir string) (*Header, error) {
 	h := new(Header)
 
 	h.iosched = sched
