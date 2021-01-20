@@ -32,7 +32,7 @@ type Extenter struct {
 
 	fs vfs.FS
 
-	info    *extent.Info
+	info   *extent.Info
 	header *Header
 
 	iosched xio.Scheduler
@@ -71,4 +71,6 @@ func (e *Extenter) LoadPhyAddr() {
 
 }
 
-func (e *Extenter) MakePhyAdd
+func (e *Extenter) MakePhyAddSnap() {
+	copy()
+}
