@@ -17,6 +17,7 @@
 package v1
 
 import (
+	"context"
 	"sync"
 
 	"g.tesamc.com/IT/zaipkg/xbytes"
@@ -37,8 +38,8 @@ type Extenter struct {
 	putChan    chan<- *putResult
 	deleteChan chan<- *deleteResult
 
-	stopChan chan struct{}
-	stopWg   sync.WaitGroup
+	ctx    context.Context
+	stopWg *sync.WaitGroup
 }
 
 func (e *Extenter) GetInfo() *extent.Info {
