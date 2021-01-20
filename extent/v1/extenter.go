@@ -17,8 +17,12 @@
 package v1
 
 import (
+	"sync"
+
 	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zbuf/extent"
+	"g.tesamc.com/IT/zbuf/extent/v1/phyaddr"
+	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zbuf/xio"
 )
 
@@ -26,6 +30,15 @@ type Extenter struct {
 	cfg     *Config
 	info    *extent.Info
 	iosched xio.Scheduler
+	segFile vfs.File
+	phyAddr *phyaddr.PhyAddr
+	// TODO write-back cache
+
+	putChan    chan<- *putResult
+	deleteChan chan<- *deleteResult
+
+	stopChan chan struct{}
+	stopWg   sync.WaitGroup
 }
 
 func (e *Extenter) GetInfo() *extent.Info {
