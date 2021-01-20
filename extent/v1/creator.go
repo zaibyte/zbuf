@@ -53,8 +53,9 @@ func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, ins
 	phyAddr, _ := phyaddr.New(phyaddr.MinCap)
 
 	ext = &Extenter{
-		cfg: c.cfg,
-		fs:  fs,
+		cfg:    c.cfg,
+		fs:     fs,
+		header: h,
 		info: &extent.Info{PbExt: &metapb.Extent{
 			State:      h.state,
 			Id:         extID,
@@ -94,8 +95,9 @@ func (c *Creator) Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, insta
 	phyAddr, _ := phyaddr.New(phyaddr.MinCap)
 
 	ext = &Extenter{
-		cfg: c.cfg,
-		fs:  fs,
+		cfg:    c.cfg,
+		fs:     fs,
+		header: h,
 		info: &extent.Info{PbExt: &metapb.Extent{
 			State:      h.state,
 			Id:         extID,

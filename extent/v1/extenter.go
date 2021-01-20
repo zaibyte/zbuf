@@ -33,6 +33,8 @@ type Extenter struct {
 	fs vfs.FS
 
 	info    *extent.Info
+	header *Header
+
 	iosched xio.Scheduler
 	segFile vfs.File
 	phyAddr *phyaddr.PhyAddr
@@ -68,3 +70,5 @@ func (e *Extenter) Close() error {
 func (e *Extenter) LoadPhyAddr() {
 
 }
+
+func (e *Extenter) MakePhyAdd
