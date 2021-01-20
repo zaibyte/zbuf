@@ -20,19 +20,35 @@ func (c *Creator) GetSize() uint64 {
 	panic("implement me")
 }
 
-func (c *Creator) Create(fs vfs.FS, extID uint32, dir string) (ext extent.Extenter, err error) {
+func (c *Creator) Create(fs vfs.FS, instanceID, diskID, extID uint32, extDir string) (ext extent.Extenter, err error) {
 
-	h, err := CreateHeader(c.iosched, fs, dir, c.cfg.SegmentSize, metapb.ExtentState_Extent_ReadWrite, int(c.cfg.ReservedSeg))
+	h, err := CreateHeader(c.iosched, fs, extDir, c.cfg.SegmentSize, metapb.ExtentState_Extent_ReadWrite, int(c.cfg.ReservedSeg))
 	if err != nil {
 		return nil, err
 	}
 
-	ext = new(Extenter)
+	// TODO create segments file & cache
+
+	ext = &Extenter{
+		cfg: c.cfg,
+		info: &extent.Info{PbExt: &metapb.Extent{
+			State:      h.state,
+			Id:         extID,
+			Size_:      uint64(c.cfg.SegmentSize * uint32(segmentCnt)),
+			Used:       0,
+			Version:    uint32(extent.Version1),
+			DiskId:     diskID,
+			InstanceId: instanceID,
+		}},
+		iosched: c.iosched,
+	}
+
+	// TODO create wal & snapshot file
 
 	return ext, err
 }
 
-func (c *Creator) Open(fs vfs.FS, extID uint32, dir string) (ext extent.Extenter, err error) {
+func (c *Creator) Open(fs vfs.FS, instanceID, diskID, extID uint32, extDir string) (ext extent.Extenter, err error) {
 	return nil, err
 }
 

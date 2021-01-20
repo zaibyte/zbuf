@@ -19,11 +19,13 @@ package v1
 import (
 	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zbuf/extent"
+	"g.tesamc.com/IT/zbuf/xio"
 )
 
 type Extenter struct {
-	cfg  *Config
-	info *extent.Info
+	cfg     *Config
+	info    *extent.Info
+	iosched xio.Scheduler
 }
 
 func (e *Extenter) GetInfo() *extent.Info {
