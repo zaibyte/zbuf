@@ -12,8 +12,8 @@ const (
 	// 128KB is enough for NVMe device read/write sequentially.
 	defaultWriteBufferSize = 128 * 1024
 	defaultReadBufferSize  = 128 * 1024
-	defaultSegmentSize     = 1024 * 1024 * 1024
-	segmentCnt             = 256 // Each extent has the same segment count: 256.
+	defaultSegmentSize     = 1024 * 1024 * 1024 // 1GiB.
+	segmentCnt             = 256                // Each extent has the same segment count: 256.
 	// There are 16 segments are reserved for GC, in Tesamc, there'll be only few random deletion,
 	// 16 segments may be enough.
 	defaultReservedSeg = 16

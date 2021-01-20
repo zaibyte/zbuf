@@ -160,5 +160,6 @@ func SyncDir(fs FS, dir string) error {
 	}
 	defer f.Close()
 
-	return f.Sync()
+	err = f.Sync()
+	return err
 }

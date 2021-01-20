@@ -140,8 +140,9 @@ func LoadHeader(sched xio.Scheduler, fs vfs.FS, extDir string) (*Header, error) 
 	h.gcSrcCursor = binary.LittleEndian.Uint32(b[2559:2563])
 	h.gcDstCursor = binary.LittleEndian.Uint32(b[2563:2567])
 
+	n := binary.LittleEndian.Uint32(b[4092-4 : 4092])
 	h.cloneJob = new(metapb.CloneJob)
-	err = h.cloneJob.Unmarshal(b[2568:])
+	err = h.cloneJob.Unmarshal(b[2568 : 2568+n])
 	if err != nil {
 		_ = f.Close()
 		return nil, err
@@ -170,18 +171,19 @@ func (h *Header) Store(state metapb.ExtentState) error {
 	binary.LittleEndian.PutUint32(b[4:8], h.segSize)
 	copy(b[8:], h.segStates)
 	for i := range h.sealedTS {
-		ts := h.segStates[i]
+		ts := h.sealedTS[i]
 		binary.LittleEndian.PutUint64(b[264+i*8:264+i*8+8], uint64(ts))
 	}
 	binary.LittleEndian.PutUint32(b[2559:2563], h.gcSrcCursor)
 	binary.LittleEndian.PutUint32(b[2563:2567], h.gcDstCursor)
 	b[2567] = h.reservedSeg
-	_, err := h.cloneJob.MarshalTo(b[2568:])
+	n, err := h.cloneJob.MarshalTo(b[2568:])
 	if err != nil {
 		return err
 	}
 
-	digest := xdigest.Sum32(b[:4092]) // The size must be enough.
+	binary.LittleEndian.PutUint32(b[4092-4:4092], uint32(n)) // The size must be enough.
+	digest := xdigest.Sum32(b[:4092])
 	binary.LittleEndian.PutUint32(b[4092:], digest)
 
 	return h.iosched.DoTimeout(xio.ReqMetaWrite, h.f, 0, b, 0)
