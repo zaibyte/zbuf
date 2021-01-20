@@ -16,9 +16,8 @@ Extent on local file system:
  │                      ├── boot-sector
  │                      ├── header
  │                      ├── <timestamp>.idx-snap
- │                      ├── <start-end>.idx-wal
  │                      └── segments
 ```
 
 p.s.
-header, idx-snap, idx-wal, segments are extent/v1's concepts.
+header, idx-snap, segments are extent/v1's concepts.
