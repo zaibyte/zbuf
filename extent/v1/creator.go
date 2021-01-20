@@ -1,6 +1,9 @@
 package v1
 
 import (
+	"context"
+	"sync"
+
 	"g.tesamc.com/IT/zbuf/extent"
 	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zbuf/xio"
@@ -20,7 +23,7 @@ func (c *Creator) GetSize() uint64 {
 	panic("implement me")
 }
 
-func (c *Creator) Create(fs vfs.FS, instanceID, diskID, extID uint32, extDir string) (ext extent.Extenter, err error) {
+func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, instanceID, diskID, extID uint32, extDir string) (ext extent.Extenter, err error) {
 
 	h, err := CreateHeader(c.iosched, fs, extDir, c.cfg.SegmentSize, metapb.ExtentState_Extent_ReadWrite, int(c.cfg.ReservedSeg))
 	if err != nil {
@@ -41,6 +44,8 @@ func (c *Creator) Create(fs vfs.FS, instanceID, diskID, extID uint32, extDir str
 			InstanceId: instanceID,
 		}},
 		iosched: c.iosched,
+		ctx:     ctx,
+		stopWg:  wg,
 	}
 
 	// TODO create wal & snapshot file
@@ -48,7 +53,10 @@ func (c *Creator) Create(fs vfs.FS, instanceID, diskID, extID uint32, extDir str
 	return ext, err
 }
 
-func (c *Creator) Open(fs vfs.FS, instanceID, diskID, extID uint32, extDir string) (ext extent.Extenter, err error) {
+func (c *Creator) Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, instanceID, diskID, extID uint32, extDir string) (ext extent.Extenter, err error) {
+
+	// TODO should check instanceID & diskID & extID
+
 	return nil, err
 }
 
