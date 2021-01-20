@@ -126,7 +126,7 @@ func (s *Server) listExtents() {
 					continue
 				}
 				creator := v.(extent.Creator)
-				ext, err3 := creator.Open(s.ctx, &s.stopWg, s.fs, extID, extDir)
+				ext, err3 := creator.Open(s.ctx, &s.stopWg, s.fs, s.cfg.App.InstanceID, diskID, extID, extDir)
 				if err3 != nil {
 					s.handleIOError(err3, extID, diskID)
 					continue

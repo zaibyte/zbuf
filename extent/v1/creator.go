@@ -78,20 +78,43 @@ func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, ins
 	return ext, err
 }
 
-func (c *Creator) Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, extID uint32, extDir string) (ext extent.Extenter, err error) {
+func (c *Creator) Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, instanceID, diskID, extID uint32, extDir string) (ext extent.Extenter, err error) {
 
-	// TODO should check instanceID & diskID & extID
-	h, err := CreateHeader(c.iosched, fs, extDir, c.cfg.SegmentSize, metapb.ExtentState_Extent_ReadWrite, int(c.cfg.ReservedSeg))
+	h, err := LoadHeader(c.iosched, fs, extDir)
 	if err != nil {
 		return nil, err
 	}
 
-	if h.
+	segFile, err := fs.Open(filepath.Join(extDir, SegmentsFileName))
+	if err != nil {
+		h.Close()
+		return nil, err
+	}
 
-	return nil, err
-}
+	// TODO open phyAddr by snapshot & traverse writable segments
+	phyAddr, _ := phyaddr.New(phyaddr.MinCap)
 
-// TODO after Create we should open ext too.
-func (c *Creator) open() {
+	ext = &Extenter{
+		cfg: c.cfg,
+		info: &extent.Info{PbExt: &metapb.Extent{
+			State:      h.state,
+			Id:         extID,
+			Size_:      uint64(c.cfg.SegmentSize * uint32(segmentCnt)),
+			Used:       0,
+			Version:    uint32(extent.Version1),
+			DiskId:     diskID,
+			InstanceId: instanceID,
+		}},
+		iosched: c.iosched,
+		segFile: segFile,
+		phyAddr: phyAddr,
 
+		putChan: make(chan *putResult, c.cfg.PutPending),
+
+		ctx:    ctx,
+		stopWg: wg,
+	}
+
+	return ext, err
+	// TODO start clone job in a goroutine before return
 }
