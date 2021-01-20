@@ -27,7 +27,7 @@ const (
 
 // Config is the configs of v1 extent.
 type Config struct {
-	SegmentSize int64 `toml:"segment_size"`
+	SegmentSize uint32 `toml:"segment_size"`
 	// ReservedSeg are the count of segments reserved for GC.
 	ReservedSeg float64 `toml:"reserved_seg"`
 

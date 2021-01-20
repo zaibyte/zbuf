@@ -18,18 +18,17 @@ package v1
 
 import (
 	"g.tesamc.com/IT/zaipkg/xbytes"
-	"g.tesamc.com/IT/zproto/pkg/metapb"
+	"g.tesamc.com/IT/zbuf/extent"
 )
 
 type Extenter struct {
-	cfg    *Config
-	status *metapb.Extent
+	cfg  *Config
+	info *extent.Info
 }
 
-func (e *Extenter) GetInfo() *metapb.Extent {
+func (e *Extenter) GetInfo() *extent.Info {
 
-	ret := new(metapb.Extent)
-	return ret
+	return e.info
 }
 
 func (e *Extenter) PutObj(reqid, oid uint64, objData xbytes.Buffer) error {
