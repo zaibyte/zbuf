@@ -46,6 +46,8 @@ func TestCreateLoadHeader(t *testing.T) {
 	assert.Equal(t, h.segRemoved, lh.segRemoved) // Because removed won't be sync to disk, so comparing empty is still meaningful.
 	assert.Equal(t, h.gcSrcCursor, lh.gcSrcCursor)
 	assert.Equal(t, h.gcDstCursor, lh.gcDstCursor)
+	assert.Equal(t, h.writableHistoryCnt, lh.writableHistoryCnt)
+	assert.Equal(t, h.writableHistory, lh.writableHistory)
 
 	h.reservedSeg += 1
 	rand.Seed(tsc.UnixNano())
@@ -66,6 +68,8 @@ func TestCreateLoadHeader(t *testing.T) {
 	}
 	h.gcSrcCursor = rand.Uint32()
 	h.gcDstCursor = rand.Uint32()
+	h.writableHistory[1] = 255
+	h.writableHistoryCnt = 2
 
 	err = h.Store(metapb.ExtentState_Extent_Broken)
 	if err != nil {
@@ -87,4 +91,6 @@ func TestCreateLoadHeader(t *testing.T) {
 	assert.Equal(t, h.segRemoved, lh.segRemoved) // Because removed won't be sync to disk, so comparing empty is still meaningful.
 	assert.Equal(t, h.gcSrcCursor, lh.gcSrcCursor)
 	assert.Equal(t, h.gcDstCursor, lh.gcDstCursor)
+	assert.Equal(t, h.writableHistoryCnt, lh.writableHistoryCnt)
+	assert.Equal(t, h.writableHistory, lh.writableHistory)
 }

@@ -6,16 +6,13 @@ import (
 	"path/filepath"
 	"sync"
 
-	"g.tesamc.com/IT/zaipkg/orpc"
-	"g.tesamc.com/IT/zaipkg/xerrors"
-
-	"g.tesamc.com/IT/zaipkg/xdigest"
-
 	"g.tesamc.com/IT/zaipkg/directio"
-	"g.tesamc.com/IT/zbuf/xio"
-
+	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/uid"
+	"g.tesamc.com/IT/zaipkg/xdigest"
+	"g.tesamc.com/IT/zaipkg/xerrors"
 	"g.tesamc.com/IT/zbuf/vfs"
+	"g.tesamc.com/IT/zbuf/xio"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 )
 
@@ -38,10 +35,12 @@ type Header struct {
 
 	// This part will be persisted to disk.
 	// Any segment state and sealed timestamp changes will be sync to disk.
-	segSize     uint32 // segSize * grain_size = bytes.
-	reservedSeg uint8
-	segStates   []byte  // 256 * 1B = 256B
-	sealedTS    []int64 // 256 * 8B = 2048B
+	segSize            uint32 // segSize * grain_size = bytes.
+	reservedSeg        uint8
+	segStates          []byte  // 256 * 1B = 256B
+	sealedTS           []int64 // 256 * 8B = 2048B
+	writableHistoryCnt uint8
+	writableHistory    []uint8 // 256 * 1B = 256B
 
 	// GC & clone job's updates will be write to memory every time, but not to disk every time.
 	// Which means after instance restart from collapse, it may need time to reconstruct.
@@ -93,6 +92,9 @@ func CreateHeader(sched xio.Scheduler, fs vfs.FS, extDir string, segSize uint32,
 	h.sealedTS = make([]int64, segmentCnt)
 	h.cloneJob = new(metapb.CloneJob)
 	h.segRemoved = make([]uint32, segmentCnt)
+
+	h.writableHistoryCnt = 1
+	h.writableHistory = make([]byte, segmentCnt)
 
 	err = h.Store(h.state)
 	if err != nil {
@@ -147,6 +149,9 @@ func LoadHeader(sched xio.Scheduler, fs vfs.FS, extDir string) (*Header, error) 
 		_ = f.Close()
 		return nil, err
 	}
+	h.writableHistoryCnt = b[2568+n]
+	h.writableHistory = make([]byte, segmentCnt)
+	copy(h.writableHistory, b[2569+n:2569+n+256])
 
 	h.segRemoved = make([]uint32, segmentCnt)
 
@@ -181,6 +186,9 @@ func (h *Header) Store(state metapb.ExtentState) error {
 	if err != nil {
 		return err
 	}
+
+	b[2568+n] = h.writableHistoryCnt
+	copy(b[2569+n:2569+n+256], h.writableHistory)
 
 	binary.LittleEndian.PutUint32(b[4092-4:4092], uint32(n)) // The size must be enough.
 	digest := xdigest.Sum32(b[:4092])
