@@ -28,7 +28,10 @@ import (
 )
 
 type Extenter struct {
-	cfg     *Config
+	cfg *Config
+
+	fs vfs.FS
+
 	info    *extent.Info
 	iosched xio.Scheduler
 	segFile vfs.File
@@ -60,4 +63,8 @@ func (e *Extenter) DeleteObj(reqid, oid uint64) error {
 
 func (e *Extenter) Close() error {
 	panic("implement me")
+}
+
+func (e *Extenter) LoadPhyAddr() {
+
 }

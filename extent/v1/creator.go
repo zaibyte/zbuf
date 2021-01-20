@@ -31,8 +31,6 @@ func cleanFailedCreate(fs vfs.FS, extDir string) {
 	_ = fs.RemoveAll(extDir)
 }
 
-const SegmentsFileName = "segments"
-
 func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, instanceID, diskID, extID uint32, extDir string) (ext extent.Extenter, err error) {
 
 	defer func() {
@@ -56,6 +54,7 @@ func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, ins
 
 	ext = &Extenter{
 		cfg: c.cfg,
+		fs:  fs,
 		info: &extent.Info{PbExt: &metapb.Extent{
 			State:      h.state,
 			Id:         extID,
@@ -96,6 +95,7 @@ func (c *Creator) Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, insta
 
 	ext = &Extenter{
 		cfg: c.cfg,
+		fs:  fs,
 		info: &extent.Info{PbExt: &metapb.Extent{
 			State:      h.state,
 			Id:         extID,

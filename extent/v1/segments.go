@@ -16,6 +16,9 @@ const (
 	segGCDst  // Doing GC(destination).
 )
 
+// segments file is made of sequential segments, it's the objects container.
+const SegmentsFileName = "segments"
+
 // TODO
 // addrToSeg gets what is the segment address belongs to.
 func addrToSeg(addr uint32, segSize int64) int {
