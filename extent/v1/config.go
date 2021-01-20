@@ -13,7 +13,11 @@ const (
 	defaultWriteBufferSize = 128 * 1024
 	defaultReadBufferSize  = 128 * 1024
 	defaultSegmentSize     = 1024 * 1024 * 1024 // 1GiB.
-	segmentCnt             = 256                // Each extent has the same segment count: 256.
+	// Each extent has the same segment count: 256.
+	// Warn:
+	// Don't change it, because in present there are some hard codes are using 256 directly.
+	// e.g. header.
+	segmentCnt = 256
 	// There are 16 segments are reserved for GC, in Tesamc, there'll be only few random deletion,
 	// 16 segments may be enough.
 	defaultReservedSeg = 16
