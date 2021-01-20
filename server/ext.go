@@ -87,7 +87,7 @@ func (s *Server) createExtent(version uint16, extID, diskID uint32) (err error) 
 		return errors.New("not enough space")
 	}
 
-	ext, err := creator.Create(s.fs, extID, extDir)
+	ext, err := creator.Create(s.fs, s.cfg.App.InstanceID, diskID, extID, extDir)
 	if err != nil {
 		return err
 	}
@@ -126,7 +126,7 @@ func (s *Server) listExtents() {
 					continue
 				}
 				creator := v.(extent.Creator)
-				ext, err3 := creator.Open(s.fs, extID, extDir)
+				ext, err3 := creator.Open(s.fs, s.cfg.App.InstanceID, diskID, extID, extDir)
 				if err3 != nil {
 					s.handleIOError(err3, extID, diskID)
 					continue

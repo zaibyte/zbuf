@@ -37,9 +37,9 @@ var AvailVersions = []uint16{Version1, VersionTest}
 type Creator interface {
 	// Create creates Extenter which not existed.
 	// dir is extent dir.
-	Create(fs vfs.FS, extID uint32, dir string) (Extenter, error)
+	Create(fs vfs.FS, instanceID, diskID, extID uint32, dir string) (Extenter, error)
 	// Open opens an existed Extenter.
-	Open(fs vfs.FS, extID uint32, dir string) (Extenter, error)
+	Open(fs vfs.FS, instanceID, diskID, extID uint32, dir string) (Extenter, error)
 	// GetSize gets the space size will be taken by the extent which will be created.
 	GetSize() uint64
 }

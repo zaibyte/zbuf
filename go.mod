@@ -3,7 +3,7 @@ module g.tesamc.com/IT/zbuf
 go 1.15
 
 require (
-	g.tesamc.com/IT/zaipkg v0.0.0-20210115091310-586926080908
+	g.tesamc.com/IT/zaipkg v0.0.0-20210120045128-ec1b43842a75
 	g.tesamc.com/IT/zproto v0.0.0-20210118084343-66712020b06d
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/julienschmidt/httprouter v1.2.0
