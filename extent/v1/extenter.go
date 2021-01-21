@@ -28,8 +28,13 @@ import (
 )
 
 type Extenter struct {
-	cfg     *Config
-	info    *extent.Info
+	cfg *Config
+
+	fs vfs.FS
+
+	info   *extent.Info
+	header *Header
+
 	iosched xio.Scheduler
 	segFile vfs.File
 	phyAddr *phyaddr.PhyAddr
@@ -60,4 +65,12 @@ func (e *Extenter) DeleteObj(reqid, oid uint64) error {
 
 func (e *Extenter) Close() error {
 	panic("implement me")
+}
+
+func (e *Extenter) LoadPhyAddr() {
+
+}
+
+func (e *Extenter) MakePhyAddSnap() {
+	copy()
 }

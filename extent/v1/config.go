@@ -18,8 +18,9 @@ const (
 	// Don't change it, because in present there are some hard codes are using 256 directly.
 	// e.g. header.
 	segmentCnt = 256
-	// There are 16 segments are reserved for GC, in Tesamc, there'll be only few random deletion,
-	// 16 segments may be enough.
+	// There are 16 segments are reserved for GC:
+	// 1. The load factor is 0.94 at most, suitable for the phyaddr algorithm.
+	// 2. 94% usable storage is quite good.
 	defaultReservedSeg = 16
 )
 
