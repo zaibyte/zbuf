@@ -19,9 +19,13 @@ const (
 	// e.g. header.
 	segmentCnt = 256
 	// There are 16 segments are reserved for GC:
-	// 1. The load factor is 0.94 at most, suitable for the phyaddr algorithm.
+	// 1. The load factor is 0.94 at most, suitable for the phy_addr algorithm.
 	// 2. 94% usable storage is quite good.
 	defaultReservedSeg = 16
+
+	// For the worst cases, 128 means 128*4MB = 512MB, is the half of segment,
+	// snapshot still has big chance to catch up the changes enough fast.
+	defaultMaxDirtyCount = 128
 )
 
 // TODO may no need to create get queue
@@ -52,6 +56,10 @@ type Config struct {
 	// Size of write buffer per reads in bytes.
 	// Default value is defaultReadBufferSize.
 	ReadBufferSize int `toml:"read_buffer_size"`
+
+	// MaxDirtyCount is the maximum dirty updates in phy_addr(memory) which we could tolerate,
+	// if the dirty_count > MaxDirtyCount we should trigger a snapshot making event.
+	MaxDirtyCount int `toml:"max_dirty_count"`
 }
 
 func (cfg *Config) adjust() {
@@ -61,4 +69,5 @@ func (cfg *Config) adjust() {
 	config.Adjust(&cfg.FlushDelay, defaultFlushDelay)
 	config.Adjust(&cfg.WriteBufferSize, defaultWriteBufferSize)
 	config.Adjust(&cfg.ReadBufferSize, defaultReadBufferSize)
+	config.Adjust(&cfg.MaxDirtyCount, defaultMaxDirtyCount)
 }

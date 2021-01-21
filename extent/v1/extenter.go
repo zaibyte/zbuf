@@ -45,6 +45,10 @@ type Extenter struct {
 	info   *extent.Info
 	header *Header
 
+	// lastPhyAddrSnapshotTS stores last time the phy_addr snapshot flushed to disk.
+	lastPhyAddrSnapshotTS int64
+	dirtyUpdates          uint32 // dirtyUpdates is the count of phy_addr changes haven't flushed to disk.
+
 	iosched xio.Scheduler
 	segFile vfs.File
 	phyAddr *phyaddr.PhyAddr
@@ -81,6 +85,10 @@ func (e *Extenter) LoadPhyAddr() {
 
 }
 
-func (e *Extenter) MakePhyAddSnap() {
+// MakePhyAddrSnapshot makes phy_addr snapshot.
+//
+// Warning:
+// Extenter should be locked already.
+func (e *Extenter) MakePhyAddrSnapshot() {
 	copy()
 }
