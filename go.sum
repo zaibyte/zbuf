@@ -1,6 +1,4 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
-g.tesamc.com/IT/zaipkg v0.0.0-20210115091310-586926080908 h1:YT+msAoWU7qquCPL3yG8QC1qmq4r9dRsjWAIlhmVm2A=
-g.tesamc.com/IT/zaipkg v0.0.0-20210115091310-586926080908/go.mod h1:+FAB5LPTjccJdT9SK/4n0uFewM84P5vlPDJgwiTQ2bU=
 g.tesamc.com/IT/zaipkg v0.0.0-20210120045128-ec1b43842a75 h1:qOylhaO/Hrdlbt3ZQRUXUKHv3QMCi1xD0QQcMHMBDU0=
 g.tesamc.com/IT/zaipkg v0.0.0-20210120045128-ec1b43842a75/go.mod h1:+FAB5LPTjccJdT9SK/4n0uFewM84P5vlPDJgwiTQ2bU=
 g.tesamc.com/IT/zproto v0.0.0-20210114071438-1018be4c55d3 h1:T9uNHqRS9Bf0KtAOmVEKHDjlRW9vOjskccyyU1BsW8s=
@@ -85,6 +83,8 @@ github.com/modern-go/reflect2 v1.0.1/go.mod h1:bx2lNnkwVCuqBIxFjflWJWanXIb3Rllmb
 github.com/mwitkow/go-conntrack v0.0.0-20161129095857-cc309e4a2223/go.mod h1:qRWi+5nqEBWmkhHvq77mSJWrCKwh8bxhgT7d/eI7P4U=
 github.com/panjf2000/ants/v2 v2.4.3 h1:wHghL17YKFanB62QjPQ9o+DuM4q7WrQ7zAhoX8+eBXU=
 github.com/panjf2000/ants/v2 v2.4.3/go.mod h1:f6F0NZVFsGCp5A7QW/Zj/m92atWwOkY0OIhFxRNFr4A=
+github.com/pierrec/lz4/v4 v4.1.3 h1:/dvQpkb0o1pVlSgKNQqfkavlnXaIK+hJ0LXsKRUN9D4=
+github.com/pierrec/lz4/v4 v4.1.3/go.mod h1:gZWDp/Ze/IJXGXf23ltt2EXimqmTUXEy0GFuRQyBid4=
 github.com/pkg/errors v0.8.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=

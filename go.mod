@@ -8,6 +8,7 @@ require (
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/julienschmidt/httprouter v1.2.0
 	github.com/lni/goutils v1.2.0
+	github.com/pierrec/lz4/v4 v4.1.3
 	github.com/spf13/cast v1.3.1
 	github.com/stretchr/testify v1.6.1
 	github.com/templexxx/fnc v1.0.1
