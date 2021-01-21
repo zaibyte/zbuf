@@ -25,12 +25,22 @@ type Header struct {
 
 	// This part will be persisted to disk.
 	// Any segment state and sealed timestamp changes will be sync to disk.
-	segSize            uint32 // segSize * grain_size = bytes.
-	reservedSeg        uint8
-	segStates          []byte  // 256 * 1B = 256B
-	sealedTS           []int64 // 256 * 8B = 2048B
-	writableHistoryCnt uint8
-	writableHistory    []uint8 // 256 * 1B = 256B
+	segSize     uint32 // segSize * grain_size = bytes.
+	reservedSeg uint8
+	segStates   []byte  // 256 * 1B = 256B
+	sealedTS    []int64 // 256 * 8B = 2048B
+
+	// writableHistory records the writable segment changing history.
+	// The history length is 32.
+	// NexIdx indicates the next slot to put new writable segment.
+	// writableHistoryTS records the timestamp of changing.
+	// If the idx catch up the head and the head's timestamp is bigger than Extenter.lastPhyAddrSnapshotTS
+	// which means the phy_addr snapshot flushing is too slow, we shouldn't make writable segment until the
+	// new snapshot created. If this happens, there must be something wrong make a monitor event and make this
+	// extent broken.
+	writableHistory        []uint8 // 32 * 1B = 32B
+	writableHistoryTS      []int64 // 32 * 8B = 256B
+	writableHistoryNextIdx uint8
 
 	// GC & clone job's updates will be write to memory every time, but not to disk every time.
 	// Which means after instance restart from collapse, it may need time to reconstruct.
@@ -77,7 +87,7 @@ func CreateHeader(sched xio.Scheduler, fs vfs.FS, extDir string, segSize uint32,
 	h.cloneJob = new(metapb.CloneJob)
 	h.segRemoved = make([]uint32, segmentCnt)
 
-	h.writableHistoryCnt = 1
+	h.writableHistoryNextIdx = 1
 	h.writableHistory = make([]byte, segmentCnt)
 
 	err = h.Store(h.state)
@@ -132,7 +142,7 @@ func LoadHeader(sched xio.Scheduler, fs vfs.FS, extDir string) (*Header, error) 
 		_ = f.Close()
 		return nil, err
 	}
-	h.writableHistoryCnt = b[2568+n]
+	h.writableHistoryNextIdx = b[2568+n]
 	h.writableHistory = make([]byte, segmentCnt)
 	copy(h.writableHistory, b[2569+n:2569+n+256])
 
@@ -167,7 +177,7 @@ func (h *Header) Store(state metapb.ExtentState) error {
 		return err
 	}
 
-	b[2568+n] = h.writableHistoryCnt
+	b[2568+n] = h.writableHistoryNextIdx
 	copy(b[2569+n:2569+n+256], h.writableHistory)
 
 	binary.LittleEndian.PutUint32(b[4092-4:4092], uint32(n)) // The size must be enough.
