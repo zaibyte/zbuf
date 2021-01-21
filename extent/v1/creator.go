@@ -52,6 +52,13 @@ func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, ins
 		return nil, err
 	}
 
+	err = vfs.SyncDir(fs, extDir)
+	if err != nil {
+		h.Close()
+		_ = segFile.Close()
+		return nil, err
+	}
+
 	phyAddr, _ := phyaddr.New(phyaddr.MinCap)
 
 	ext = &Extenter{

@@ -68,11 +68,6 @@ func CreateHeader(sched xio.Scheduler, fs vfs.FS, extDir string, segSize uint32,
 	if err != nil {
 		return nil, err
 	}
-	err = vfs.SyncDir(fs, extDir)
-	if err != nil {
-		_ = f.Close()
-		return nil, err
-	}
 
 	h.f = f
 
