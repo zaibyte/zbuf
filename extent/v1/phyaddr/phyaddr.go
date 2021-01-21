@@ -434,7 +434,7 @@ func (ix *PhyAddr) swap(start, slotCnt int, tbl []uint64) (int, uint8) {
 					e = MakeEntry(digest,
 						uint32(i)-uint32(jslot), otype, grains, addr)
 					// Put e first may cause meet same entry twice in traverse process,
-					// but in index, there is no such traverse.
+					// but in PhyAddr, there is no such traverse promise.
 					// If we don't put e first, we could lost the entry when we try to search,
 					// because search may finish before swap done.
 					// And we must set tbl[j] to 0, because in the next round to call swap, we will check it's zero or not.
