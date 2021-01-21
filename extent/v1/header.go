@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"path/filepath"
-	"sync"
 
 	"g.tesamc.com/IT/zaipkg/directio"
 	"g.tesamc.com/IT/zaipkg/orpc"
@@ -21,15 +20,6 @@ type Header struct {
 	iosched xio.Scheduler
 
 	f vfs.File // Header will open a file, and keeping it opening until close.
-
-	// Using a lock here won't break down performance,
-	// in some situation, it may improve performance, e.g. traversing segStates for header.Store,
-	// if we are using atomic, we have to load it one by one and copy it to a new allocated slice,
-	// using a lock could write done the states directly.
-	// And as a Header in extent, there won't be more than one thread to update Header,
-	// so the lock operation is just a lock instruction & an atomic compare, it won't be a slow lock
-	// which is waiting for wake up.
-	rwLock *sync.RWMutex
 
 	state metapb.ExtentState // State will be stored in disk too.
 
@@ -71,7 +61,6 @@ func CreateHeader(sched xio.Scheduler, fs vfs.FS, extDir string, segSize uint32,
 
 	h.f = f
 
-	h.rwLock = new(sync.RWMutex)
 	h.state = state
 	h.segSize = segSize
 	h.reservedSeg = uint8(reservedSeg)
@@ -110,7 +99,6 @@ func LoadHeader(sched xio.Scheduler, fs vfs.FS, extDir string) (*Header, error) 
 		return nil, err
 	}
 	h.f = f
-	h.rwLock = new(sync.RWMutex)
 
 	b := directio.AlignedBlock(uid.GrainSize)
 	err = h.iosched.DoTimeout(xio.ReqMetaRead, f, 0, b, 0)
@@ -162,9 +150,6 @@ func LoadHeader(sched xio.Scheduler, fs vfs.FS, extDir string) (*Header, error) 
 //
 // state is passed by caller.
 func (h *Header) Store(state metapb.ExtentState) error {
-
-	h.rwLock.RLock()
-	defer h.rwLock.RUnlock()
 
 	b := directio.AlignedBlock(uid.GrainSize)
 	binary.LittleEndian.PutUint32(b[:4], uint32(state))

@@ -30,6 +30,16 @@ import (
 type Extenter struct {
 	cfg *Config
 
+	// Using a lock here won't break down performance,
+	// in some situation, it may improve performance, e.g. copy a slice,
+	// if we are using atomic, we have to load it one by one,
+	// using a lock could write done it directly because of the memory barrier brought by lock.
+	// For an extent, there won't be more than one thread to update it,
+	// so the lock operation is just a lock instruction & an atomic compare, it won't be a slow lock
+	// which is waiting for wake up.
+	// At the same time, part of fields in Extenter will still be modified by atomic for wait-free atomic read.
+	rwMutex *sync.RWMutex
+
 	fs vfs.FS
 
 	info   *extent.Info
