@@ -8,6 +8,7 @@ import (
 
 // DefaultTimeout is the default I/O request timeout,
 // the request size in ZBuf is always under 4MB, 3 seconds is enough.
+// TODO how to deal with timeout? If it is background job.
 const DefaultTimeout = 3 * time.Second
 
 // Scheduler is the ZBuf I/O queue. Each disk/core has one(depends on implementations).
