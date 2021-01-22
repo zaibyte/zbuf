@@ -1,7 +1,7 @@
-NV (Non-Volatile) 
+Colf(Colfer)
 ===
 
-Package NV provides data structs which could be marshaled/unmarshaled, helping us to 
+Package Colf provides data structs which could be marshaled/unmarshaled by colfer, helping us to 
 flush them to non-volatile devices.
 
 There are two kinds of data need to be persisted:
@@ -9,6 +9,13 @@ There are two kinds of data need to be persisted:
 1. Infos of segments (header)
 
 2. Infos of physical address (physical address snapshot)
+
+We won't put all datas which need to be persisted into colfer:
+
+1. The limitation of colfer: actually none of serialization implementations are friendly for big data block
+   (physical address tables may need quite large data block, e.g. 200MB)
+   
+2. We're using direct I/O in ZBuf, we can't have the exact size of header/snapshot files, which makes unmarshal unpredictable.
 
 ## Segments
 

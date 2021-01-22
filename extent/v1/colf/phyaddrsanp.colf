@@ -1,5 +1,6 @@
 package nv
 
+// Non-Volatile PhyAddrSnap is a part of Physical Address Snapshot using colfer to serialize.
 type PhyAddrSnap struct {
     // CreatTS is the snapshot starting creating timestamp.
     CreatTS    int64
@@ -20,8 +21,4 @@ type PhyAddrSnap struct {
     CloneJobProgress             float64
     CloneJobPhyAddrTable         uint8
     CloneJobPhyAddrCursor        uint32
-
-    // Physical Address two tables.
-    Table0    []uint64
-    Table1    []uint64
 }

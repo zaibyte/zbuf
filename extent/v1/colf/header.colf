@@ -1,7 +1,7 @@
 package nv
 
-// Non-Volatile Header is the part of Header which need to be persisted on non-volatile device.
-type NVHeader struct {
+// Non-Volatile Header is the part of Header using colfer to serialize.
+type Header struct {
 	SegSize     uint32 // segSize * grain_size = bytes.
     ReservedSeg uint8
     SegStates   []byte  // 256 * 1B = 256B
