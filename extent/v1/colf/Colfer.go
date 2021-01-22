@@ -679,7 +679,7 @@ type PhyAddrSnap struct {
 
 	GcSrcSeg int64
 
-	GCDstSeg int64
+	GcDstSeg int64
 
 	GcSrcCursor uint32
 
@@ -739,7 +739,7 @@ func (o *PhyAddrSnap) MarshalTo(buf []byte) int {
 		i++
 	}
 
-	if v := o.GCDstSeg; v != 0 {
+	if v := o.GcDstSeg; v != 0 {
 		x := uint64(v)
 		if v >= 0 {
 			buf[i] = 2
@@ -902,7 +902,7 @@ func (o *PhyAddrSnap) MarshalLen() (int, error) {
 		}
 	}
 
-	if v := o.GCDstSeg; v != 0 {
+	if v := o.GcDstSeg; v != 0 {
 		l += 2
 		x := uint64(v)
 		if v < 0 {
@@ -1139,7 +1139,7 @@ func (o *PhyAddrSnap) Unmarshal(data []byte) (int, error) {
 				x |= (b & 0x7f) << shift
 			}
 		}
-		o.GCDstSeg = int64(x)
+		o.GcDstSeg = int64(x)
 
 		header = data[i]
 		i++
@@ -1167,7 +1167,7 @@ func (o *PhyAddrSnap) Unmarshal(data []byte) (int, error) {
 				x |= (b & 0x7f) << shift
 			}
 		}
-		o.GCDstSeg = int64(^x + 1)
+		o.GcDstSeg = int64(^x + 1)
 
 		header = data[i]
 		i++

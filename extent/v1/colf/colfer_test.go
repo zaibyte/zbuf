@@ -7,7 +7,7 @@ import (
 	"g.tesamc.com/IT/zaipkg/uid"
 )
 
-func TestHeaderMaxSize(t *testing.T) {
+func TestHeader_MaxMarshalLen(t *testing.T) {
 	h := new(Header)
 	h.State = math.MaxInt32
 	h.SealedTS = make([]int64, 256)
