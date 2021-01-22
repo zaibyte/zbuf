@@ -5,14 +5,21 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/templexxx/tsc"
+
 	"g.tesamc.com/IT/zaipkg/directio"
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/uid"
 	"g.tesamc.com/IT/zaipkg/xdigest"
 	"g.tesamc.com/IT/zaipkg/xerrors"
+	"g.tesamc.com/IT/zbuf/extent/v1/colf"
 	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zbuf/xio"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
+)
+
+const (
+	historyCnt = 32
 )
 
 // Header is extent.v1 header.
@@ -21,35 +28,7 @@ type Header struct {
 
 	f vfs.File // Header will open a file, and keeping it opening until close.
 
-	state metapb.ExtentState // State will be stored in disk too.
-
-	// This part will be persisted to disk.
-	// Any segment state and sealed timestamp changes will be sync to disk.
-	segSize     uint32 // segSize * grain_size = bytes.
-	reservedSeg uint8
-	segStates   []byte  // 256 * 1B = 256B
-	sealedTS    []int64 // 256 * 8B = 2048B
-
-	// writableHistory records the writable segment changing history.
-	// The history length is 32.
-	// NexIdx indicates the next slot to put new writable segment.
-	// writableHistoryTS records the timestamp of changing.
-	// If the idx catch up the head and the head's timestamp is bigger than Extenter.lastPhyAddrSnapshotTS
-	// which means the phy_addr snapshot flushing is too slow, we shouldn't make writable segment until the
-	// new snapshot created. If this happens, there must be something wrong make a monitor event and make this
-	// extent broken.
-	writableHistory        []uint8 // 32 * 1B = 32B
-	writableHistoryTS      []int64 // 32 * 8B = 256B
-	writableHistoryNextIdx uint8
-
-	// GC & clone job's updates will be write to memory every time, but not to disk every time.
-	// Which means after instance restart from collapse, it may need time to reconstruct.
-	// This could help to reduce I/O overhead.
-	// GC cursor will be sync to disk every 1024*8 grains(32MB).
-	gcSrcCursor uint32 // GC source uid.GrainSize.
-	gcDstCursor uint32 // GC destination uid.GrainSize.
-	// Clone job progress will be sync to disk every 1024*8 grains(32MB) or there is new order comes from Keeper.
-	cloneJob *metapb.CloneJob // Marshal CloneJob may cost dozens Bytes.
+	coHeader *colf.Header
 
 	// This part will just keep in memory, because the changes of them are too frequently,
 	// and the fields could be reconstructed without persistence.
@@ -57,8 +36,11 @@ type Header struct {
 	segRemoved []uint32
 }
 
+// HeaderFileName is header filename in local file system.
 const HeaderFileName = "header"
 
+// CreateHeader creates a new Header with a new writable segment(segment[0]),
+// and persist it on local file system.
 func CreateHeader(sched xio.Scheduler, fs vfs.FS, extDir string, segSize uint32, state metapb.ExtentState,
 	reservedSeg int) (*Header, error) {
 	h := new(Header)
@@ -71,26 +53,27 @@ func CreateHeader(sched xio.Scheduler, fs vfs.FS, extDir string, segSize uint32,
 
 	h.f = f
 
-	h.state = state
-	h.segSize = segSize
-	h.reservedSeg = uint8(reservedSeg)
-	h.segStates = make([]byte, segmentCnt)
-	for i := range h.segStates {
+	h.coHeader.State = int32(state)
+	h.coHeader.SegSize = segSize
+	h.coHeader.ReservedSeg = uint8(reservedSeg)
+	h.coHeader.SegStates = make([]byte, segmentCnt)
+	for i := range h.coHeader.SegStates {
 		if i < segmentCnt-reservedSeg {
-			h.segStates[i] = segReady
+			h.coHeader.SegStates[i] = segReady
 		} else {
-			h.segStates[i] = segReserved
+			h.coHeader.SegStates[i] = segReserved
 		}
 	}
-	h.segStates[0] = segWritable // Set first seg writable.
-	h.sealedTS = make([]int64, segmentCnt)
-	h.cloneJob = new(metapb.CloneJob)
+	h.coHeader.SegStates[0] = segWritable // Set first seg writable.
+	h.coHeader.SealedTS = make([]int64, segmentCnt)
+
+	h.coHeader.WritableHistory = make([]byte, historyCnt)
+	h.coHeader.WritableHistoryTS[0] = tsc.UnixNano()
+	h.coHeader.WritableHistoryNextIdx = 1 // segment_0 is writable now.
+
 	h.segRemoved = make([]uint32, segmentCnt)
 
-	h.writableHistoryNextIdx = 1
-	h.writableHistory = make([]byte, segmentCnt)
-
-	err = h.Store(h.state)
+	err = h.Store(state)
 	if err != nil {
 		_ = h.f.Close() // Avoiding leak.
 		return nil, err
@@ -99,7 +82,7 @@ func CreateHeader(sched xio.Scheduler, fs vfs.FS, extDir string, segSize uint32,
 	return h, nil
 }
 
-// Load loads header from disk.
+// Load loads existed header from file system.
 func LoadHeader(sched xio.Scheduler, fs vfs.FS, extDir string) (*Header, error) {
 	h := new(Header)
 
@@ -162,27 +145,14 @@ func LoadHeader(sched xio.Scheduler, fs vfs.FS, extDir string) (*Header, error) 
 func (h *Header) Store(state metapb.ExtentState) error {
 
 	b := directio.AlignedBlock(uid.GrainSize)
-	binary.LittleEndian.PutUint32(b[:4], uint32(state))
-	binary.LittleEndian.PutUint32(b[4:8], h.segSize)
-	copy(b[8:], h.segStates)
-	for i := range h.sealedTS {
-		ts := h.sealedTS[i]
-		binary.LittleEndian.PutUint64(b[264+i*8:264+i*8+8], uint64(ts))
-	}
-	binary.LittleEndian.PutUint32(b[2559:2563], h.gcSrcCursor)
-	binary.LittleEndian.PutUint32(b[2563:2567], h.gcDstCursor)
-	b[2567] = h.reservedSeg
-	n, err := h.cloneJob.MarshalTo(b[2568:])
-	if err != nil {
-		return err
-	}
 
-	b[2568+n] = h.writableHistoryNextIdx
-	copy(b[2569+n:2569+n+256], h.writableHistory)
+	h.coHeader.State = int32(state)
 
-	binary.LittleEndian.PutUint32(b[4092-4:4092], uint32(n)) // The size must be enough.
-	digest := xdigest.Sum32(b[:4092])
-	binary.LittleEndian.PutUint32(b[4092:], digest)
+	n := h.coHeader.MarshalTo(b[4:])
+	binary.LittleEndian.PutUint32(b[:4], uint32(n))
+
+	checksum := xdigest.Sum32(b[:uid.GrainSize-4])
+	binary.LittleEndian.PutUint32(b[uid.GrainSize-4:], checksum)
 
 	return h.iosched.DoTimeout(xio.ReqMetaWrite, h.f, 0, b, 0)
 }
