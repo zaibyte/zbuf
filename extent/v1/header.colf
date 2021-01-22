@@ -1,0 +1,35 @@
+package v1
+
+// Non-Volatile Header is the part of Header which need to be persisted on non-volatile device.
+type NVHeader struct {
+	SegSize     uint32 // segSize * grain_size = bytes.
+    ReservedSeg uint8
+    SegStates   []byte  // 256 * 1B = 256B
+    SealedTS    []int64 // 256 * 8B = 2048B
+
+    // writableHistory records the writable segment changing history.
+    // The history length is 32.
+    // NexIdx indicates the next slot to put new writable segment.
+    // writableHistoryTS records the timestamp of changing.
+    // If the idx catch up the head and the head's timestamp is bigger than Extenter.lastPhyAddrSnapshotTS
+    // which means the phy_addr snapshot flushing is too slow, we shouldn't make writable segment until the
+    // new snapshot created. If this happens, there must be something wrong make a monitor event and make this
+    // extent broken.
+    WritableHistory        []uint8 // 32 * 1B = 32B
+    WritableHistoryTS      []int64 // 32 * 8B = 256B
+    WritableHistoryNextIdx uint8
+
+    // GC & clone job's updates will be write to memory every time, but not to disk every time.
+    // Which means after instance restart from collapse, it may need time to reconstruct.
+    // This could help to reduce I/O overhead.
+    // GC cursor will be sync to disk every 1024*8 grains(32MB).
+    GcSrcCursor uint32 // GC source uid.GrainSize.
+    GcDstCursor uint32 // GC destination uid.GrainSize.
+    // Clone job progress will be sync to disk every 1024*8 grains(32MB) or there is new order comes from Keeper.
+    CloneJobState        int32
+    CloneJobParentId             uint64
+    CloneJobSourceExtId          uint32
+    CloneJobProgress             float64
+    CloneJobPhyAddrTable         uint8
+    CloneJobPhyAddrCursor        uint32
+}
