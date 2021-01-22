@@ -37,7 +37,7 @@ func TestLZ4Compress(t *testing.T) {
 
 	cnt := 1 << 19
 	ix, _ := New(cnt)
-	ens := generatesEntries(cnt / 2)
+	ens := generatesEntriesFast(cnt / 2)
 
 	for i := 1024 * 16; i <= cnt/2; i *= 2 {
 		for _, en := range ens[:i] {
@@ -79,7 +79,7 @@ func TestIndexExpand(t *testing.T) {
 	ix, _ := New(cnt)
 	ix.scale()
 
-	ens := generatesEntries(cnt * 2)
+	ens := generatesEntriesFast(cnt * 2)
 
 	mitFull := 0
 	for i, en := range ens[:cnt] {
@@ -121,18 +121,46 @@ func TestMitFull(t *testing.T) {
 	rets := make(map[int]int)
 
 	for n := start; n <= end; n *= 2 {
-		okCnt := testMitFull(n)
+		okCnt := testMitFull(n, false)
 		rets[n] = okCnt
 	}
 
 	printRets(rets)
 }
 
-func testMitFull(cnt int) int {
+// Using bytes as source of digest, try to simulate phy_addr with real objects digest.
+// Reference:
+// with fixed 12KiB rand bytes, [ MinCap, MaxCap ]: load_factor: avg: 0.92, min: 0.90(n: 33554432), max: 0.96(n: 65536)
+// with 4KiB - 12KiB rand bytes, [ MaxCap/4, MaxCap/2 ]: load_factor: avg: 0.91, min: 0.91(n: 16777216), max: 0.92(n: 8388608)
+func TestMitFullBytes(t *testing.T) {
+
+	if !IsPropEnabled() {
+		t.Skip("skip testing, because it may take too long time")
+	}
+
+	start := MaxCap / 4
+	end := MaxCap / 2 // We hope in the MaxCap/2 working fine, because this is extent's address number.
+
+	rets := make(map[int]int)
+
+	for n := start; n <= end; n *= 2 {
+		okCnt := testMitFull(n, true)
+		rets[n] = okCnt
+	}
+
+	printRets(rets)
+}
+
+func testMitFull(cnt int, slow bool) int {
 	ix, _ := New(cnt)
 
 	ix.scale()
-	ens := generatesEntries(cnt)
+	var ens []entryFields
+	if slow {
+		ens = generatesEntriesSlow(cnt, 12*1024) // 12KiB object with 4KiB object_header, filling 16KiB address alignment.
+	} else {
+		ens = generatesEntriesFast(cnt)
+	}
 	for i, en := range ens {
 		err := ix.Add(en.digest, en.otype, en.grains, en.addr)
 		if err == ErrAddTooFast {

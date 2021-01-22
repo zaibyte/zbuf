@@ -19,7 +19,7 @@ func TestIndex_Search(t *testing.T) {
 
 	start := MinCap
 	for n := start; n <= MinCap*2; n *= 2 {
-		ens := generatesEntries(n)
+		ens := generatesEntriesFast(n)
 		ix, _ := New(n)
 
 		wg := new(sync.WaitGroup)
@@ -62,7 +62,7 @@ func TestIndex_Remove(t *testing.T) {
 
 	start := MinCap
 	for n := start; n <= MinCap*2; n *= 2 {
-		ens := generatesEntries(n / 2)
+		ens := generatesEntriesFast(n / 2)
 		ix, _ := New(n)
 		for _, en := range ens {
 			err := ix.Add(en.digest, en.otype, en.grains, en.addr)
@@ -99,7 +99,7 @@ func TestIndex_UpdateConcurrent(t *testing.T) {
 
 	n := MinCap
 	ix, _ := New(n)
-	ens := generatesEntries(n * 2)
+	ens := generatesEntriesFast(n * 2)
 	for i := range ens[:n] {
 		err := ix.Add(ens[i].digest, ens[i].otype, ens[i].grains, ens[i].addr)
 		if err != nil {
@@ -150,20 +150,30 @@ type entryFields struct {
 	addr   uint32
 }
 
-func generatesEntries(cnt int) []entryFields {
+// generatesEntriesFast generates entries using rand number.
+func generatesEntriesFast(cnt int) []entryFields {
 
+	return generatesEntries(cnt, generatesNumberDigest, 8)
+}
+
+// generatesEntriesSlow generates entries using rand bytes(with n length).
+// n should <= 16KiB.
+func generatesEntriesSlow(cnt, n int) []entryFields {
+
+	return generatesEntries(cnt, generatesBytesDigest, n)
+}
+
+func generatesEntries(cnt int, digestFunc func(buf []byte, n int) uint32, digestSrcN int) []entryFields {
 	rand.Seed(tsc.UnixNano())
 
 	ens := make([]entryFields, cnt)
 
 	digests := make(map[uint32]struct{})
 
-	srcBuf := make([]byte, 8)
+	srcBuf := make([]byte, 16*1024) // Max length.
 	for i := range ens {
 		for {
-			src := uint64(rand.Intn(math.MaxInt64))
-			binary.LittleEndian.PutUint64(srcBuf, src)
-			digest := xdigest.Sum32(srcBuf)
+			digest := digestFunc(srcBuf, digestSrcN)
 			if _, ok := digests[digest]; ok {
 				continue
 			}
@@ -187,13 +197,29 @@ func generatesEntries(cnt int) []entryFields {
 	return ens
 }
 
+func generatesNumberDigest(buf []byte, n int) uint32 {
+	src := uint64(rand.Intn(math.MaxInt64))
+	binary.LittleEndian.PutUint64(buf, src)
+	return xdigest.Sum32(buf[:n])
+}
+
+func generatesBytesDigest(buf []byte, n int) uint32 {
+
+	n = rand.Intn(n + 1)
+	if n < 4096 {
+		n = 4096
+	}
+	rand.Read(buf[:n])
+	return xdigest.Sum32(buf[:n])
+}
+
 // Two existed situations should be caught:
 // 1. In writable table
 // 2. In scaling source table
 func TestIndex_Existed(t *testing.T) {
 	n := MinCap
 	ix, _ := New(n)
-	ens := generatesEntries(n)
+	ens := generatesEntriesFast(n)
 	err := ix.Add(ens[0].digest, ens[0].otype, ens[0].grains, ens[0].addr)
 	if err != nil {
 		t.Fatal(err)
