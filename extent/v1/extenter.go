@@ -90,5 +90,5 @@ func (e *Extenter) LoadPhyAddr() {
 // Warning:
 // Extenter should be locked already.
 func (e *Extenter) MakePhyAddrSnapshot() {
-	copy()
+
 }

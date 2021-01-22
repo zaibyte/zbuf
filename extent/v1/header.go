@@ -51,6 +51,7 @@ func CreateHeader(sched xio.Scheduler, fs vfs.FS, extDir string, segSize uint32,
 
 	h.f = f
 
+	h.coHeader = new(colf.Header)
 	h.coHeader.State = int32(state)
 	h.coHeader.SegSize = segSize
 	h.coHeader.ReservedSeg = uint8(reservedSeg)
@@ -66,6 +67,7 @@ func CreateHeader(sched xio.Scheduler, fs vfs.FS, extDir string, segSize uint32,
 	h.coHeader.SealedTS = make([]int64, segmentCnt)
 
 	h.coHeader.WritableHistory = make([]byte, historyCnt)
+	h.coHeader.WritableHistoryTS = make([]int64, historyCnt)
 	h.coHeader.WritableHistoryTS[0] = tsc.UnixNano()
 	h.coHeader.WritableHistoryNextIdx = 1 // segment_0 is writable now.
 

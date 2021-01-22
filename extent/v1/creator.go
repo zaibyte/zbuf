@@ -65,7 +65,7 @@ func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, ins
 		rwMutex: new(sync.RWMutex),
 		header:  h,
 		info: &extent.Info{PbExt: &metapb.Extent{
-			State:      h.state,
+			State:      metapb.ExtentState(h.coHeader.State),
 			Id:         extID,
 			Size_:      uint64(c.cfg.SegmentSize * uint32(segmentCnt)),
 			Used:       0,
@@ -108,7 +108,7 @@ func (c *Creator) Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, insta
 		fs:      fs,
 		header:  h,
 		info: &extent.Info{PbExt: &metapb.Extent{
-			State:      h.state,
+			State:      metapb.ExtentState(h.coHeader.State),
 			Id:         extID,
 			Size_:      uint64(c.cfg.SegmentSize * uint32(segmentCnt)),
 			Used:       0,

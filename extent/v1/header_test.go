@@ -6,14 +6,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/templexxx/tsc"
-
-	"github.com/stretchr/testify/assert"
-
-	"g.tesamc.com/IT/zproto/pkg/metapb"
-
 	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zbuf/xio"
+	"g.tesamc.com/IT/zproto/pkg/metapb"
+	"github.com/stretchr/testify/assert"
+	"github.com/templexxx/tsc"
 )
 
 func TestCreateLoadHeader(t *testing.T) {
@@ -38,38 +35,24 @@ func TestCreateLoadHeader(t *testing.T) {
 	defer lh.Close()
 
 	// Compare "empty" header.
-	assert.Equal(t, h.segSize, lh.segSize)
-	assert.Equal(t, h.reservedSeg, lh.reservedSeg)
-	assert.Equal(t, h.segStates, h.segStates)
-	assert.Equal(t, h.sealedTS, lh.sealedTS)
-	assert.Equal(t, h.cloneJob, lh.cloneJob)
-	assert.Equal(t, h.segRemoved, lh.segRemoved) // Because removed won't be sync to disk, so comparing empty is still meaningful.
-	assert.Equal(t, h.gcSrcCursor, lh.gcSrcCursor)
-	assert.Equal(t, h.gcDstCursor, lh.gcDstCursor)
-	assert.Equal(t, h.writableHistoryNextIdx, lh.writableHistoryNextIdx)
-	assert.Equal(t, h.writableHistory, lh.writableHistory)
+	assert.Equal(t, h.coHeader.State, lh.coHeader.State)
+	assert.Equal(t, h.coHeader.SegSize, lh.coHeader.SegSize)
+	assert.Equal(t, h.coHeader.WritableHistoryNextIdx, lh.coHeader.WritableHistoryNextIdx)
+	assert.Equal(t, h.coHeader.WritableHistory, lh.coHeader.WritableHistory)
+	assert.Equal(t, h.coHeader.WritableHistoryTS, lh.coHeader.WritableHistoryTS)
+	assert.Equal(t, h.coHeader.SegStates, lh.coHeader.SegStates)
+	assert.Equal(t, h.coHeader.SealedTS, lh.coHeader.SealedTS) // Because removed won't be sync to disk, so comparing empty is still meaningful.
+	assert.Equal(t, h.coHeader.ReservedSeg, lh.coHeader.ReservedSeg)
+	assert.Equal(t, h.segRemoved, lh.segRemoved)
 
-	h.reservedSeg += 1
-	rand.Seed(tsc.UnixNano())
-	for i := range h.sealedTS {
-		h.sealedTS[i] = rand.Int63()
-	}
-	h.segSize = rand.Uint32()
-	for i := range h.segStates {
-		h.segStates[i] = uint8(i & 7)
-	}
-	h.cloneJob = &metapb.CloneJob{
-		State:       metapb.CloneJobState_CloneJob_Doing,
-		Id:          rand.Uint64(),
-		ParentId:    rand.Uint64(),
-		SourceExtId: rand.Uint32(),
-		Size_:       rand.Uint64(),
-		Progress:    rand.Float64(),
-	}
-	h.gcSrcCursor = rand.Uint32()
-	h.gcDstCursor = rand.Uint32()
-	h.writableHistory[1] = 255
-	h.writableHistoryNextIdx = 2
+	h.coHeader.State += 1
+	h.coHeader.SegSize = rand.Uint32()
+	h.coHeader.WritableHistoryNextIdx = 2
+	h.coHeader.WritableHistory[1] = 255
+	h.coHeader.WritableHistoryTS[1] = tsc.UnixNano()
+	h.coHeader.SegStates[255] = segSealed
+	h.coHeader.SealedTS[255] = tsc.UnixNano()
+	h.coHeader.ReservedSeg += 1
 
 	err = h.Store(metapb.ExtentState_Extent_Broken)
 	if err != nil {
@@ -83,14 +66,13 @@ func TestCreateLoadHeader(t *testing.T) {
 	defer lh.Close()
 
 	// Compare non-empty header with random data.
-	assert.Equal(t, h.segSize, lh.segSize)
-	assert.Equal(t, h.reservedSeg, lh.reservedSeg)
-	assert.Equal(t, h.segStates, h.segStates)
-	assert.Equal(t, h.sealedTS, lh.sealedTS)
-	assert.Equal(t, h.cloneJob, lh.cloneJob)
-	assert.Equal(t, h.segRemoved, lh.segRemoved) // Because removed won't be sync to disk, so comparing empty is still meaningful.
-	assert.Equal(t, h.gcSrcCursor, lh.gcSrcCursor)
-	assert.Equal(t, h.gcDstCursor, lh.gcDstCursor)
-	assert.Equal(t, h.writableHistoryNextIdx, lh.writableHistoryNextIdx)
-	assert.Equal(t, h.writableHistory, lh.writableHistory)
+	assert.Equal(t, h.coHeader.State, lh.coHeader.State)
+	assert.Equal(t, h.coHeader.SegSize, lh.coHeader.SegSize)
+	assert.Equal(t, h.coHeader.WritableHistoryNextIdx, lh.coHeader.WritableHistoryNextIdx)
+	assert.Equal(t, h.coHeader.WritableHistory, lh.coHeader.WritableHistory)
+	assert.Equal(t, h.coHeader.WritableHistoryTS, lh.coHeader.WritableHistoryTS)
+	assert.Equal(t, h.coHeader.SegStates, lh.coHeader.SegStates)
+	assert.Equal(t, h.coHeader.SealedTS, lh.coHeader.SealedTS)
+	assert.Equal(t, h.coHeader.ReservedSeg, lh.coHeader.ReservedSeg)
+	assert.Equal(t, h.segRemoved, lh.segRemoved)
 }
