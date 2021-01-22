@@ -18,10 +18,14 @@ const (
 	// Don't change it, because in present there are some hard codes are using 256 directly.
 	// e.g. header.
 	segmentCnt = 256
-	// There are 16 segments are reserved for GC:
-	// 1. The load factor is 0.94 at most, suitable for the phy_addr algorithm.
-	// 2. 94% usable storage is quite good.
-	defaultReservedSeg = 16
+	// There are 48 segments are reserved for GC:
+	// 1. The load factor is 0.8125 at most, suitable for the phy_addr algorithm.
+	// 2. 81.25% usable storage is quite good for NVMe drivers:
+	// NVMe drivers need to scrub before writing when there is a new writing if there is no free space,
+	// that's why it's getting slow when the disk is more than 50% full.
+	// For extent.v1 almost all writing are sequentially writing, and the garbage will be collected in sequentially
+	// way, which means even get 80% full, the performance won't be impacted in theory.
+	defaultReservedSeg = 48
 
 	// For the worst cases, 128 means 128*4MB = 512MB, is the half of segment,
 	// snapshot still has big chance to catch up the changes enough fast.
