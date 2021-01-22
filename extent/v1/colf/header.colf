@@ -2,6 +2,7 @@ package colf
 
 // Non-Volatile Header is the part of Header using colfer to serialize.
 type Header struct {
+    State       int32
 	SegSize     uint32 // segSize * grain_size = bytes.
     ReservedSeg uint8
     SegStates   binary  // 256 * 1B = 256B

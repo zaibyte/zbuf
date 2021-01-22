@@ -44,6 +44,8 @@ func (i ColferTail) Error() string {
 
 // Non-Volatile Header is the part of Header using colfer to serialize.
 type Header struct {
+	State int32
+
 	SegSize uint32
 
 	ReservedSeg uint8
@@ -71,12 +73,30 @@ type Header struct {
 func (o *Header) MarshalTo(buf []byte) int {
 	var i int
 
+	if v := o.State; v != 0 {
+		x := uint32(v)
+		if v >= 0 {
+			buf[i] = 0
+		} else {
+			x = ^x + 1
+			buf[i] = 0 | 0x80
+		}
+		i++
+		for x >= 0x80 {
+			buf[i] = byte(x | 0x80)
+			x >>= 7
+			i++
+		}
+		buf[i] = byte(x)
+		i++
+	}
+
 	if x := o.SegSize; x >= 1<<21 {
-		buf[i] = 0 | 0x80
+		buf[i] = 1 | 0x80
 		intconv.PutUint32(buf[i+1:], x)
 		i += 5
 	} else if x != 0 {
-		buf[i] = 0
+		buf[i] = 1
 		i++
 		for x >= 0x80 {
 			buf[i] = byte(x | 0x80)
@@ -88,14 +108,14 @@ func (o *Header) MarshalTo(buf []byte) int {
 	}
 
 	if x := o.ReservedSeg; x != 0 {
-		buf[i] = 1
+		buf[i] = 2
 		i++
 		buf[i] = x
 		i++
 	}
 
 	if l := len(o.SegStates); l != 0 {
-		buf[i] = 2
+		buf[i] = 3
 		i++
 		x := uint(l)
 		for x >= 0x80 {
@@ -109,7 +129,7 @@ func (o *Header) MarshalTo(buf []byte) int {
 	}
 
 	if l := len(o.SealedTS); l != 0 {
-		buf[i] = 3
+		buf[i] = 4
 		i++
 		x := uint(l)
 		for x >= 0x80 {
@@ -132,7 +152,7 @@ func (o *Header) MarshalTo(buf []byte) int {
 	}
 
 	if l := len(o.WritableHistory); l != 0 {
-		buf[i] = 4
+		buf[i] = 5
 		i++
 		x := uint(l)
 		for x >= 0x80 {
@@ -146,7 +166,7 @@ func (o *Header) MarshalTo(buf []byte) int {
 	}
 
 	if l := len(o.WritableHistoryTS); l != 0 {
-		buf[i] = 5
+		buf[i] = 6
 		i++
 		x := uint(l)
 		for x >= 0x80 {
@@ -169,7 +189,7 @@ func (o *Header) MarshalTo(buf []byte) int {
 	}
 
 	if x := o.WritableHistoryNextIdx; x != 0 {
-		buf[i] = 6
+		buf[i] = 7
 		i++
 		buf[i] = x
 		i++
@@ -184,6 +204,16 @@ func (o *Header) MarshalTo(buf []byte) int {
 // The error return option is colf.ColferMax.
 func (o *Header) MarshalLen() (int, error) {
 	l := 1
+
+	if v := o.State; v != 0 {
+		x := uint32(v)
+		if v < 0 {
+			x = ^x + 1
+		}
+		for l += 2; x >= 0x80; l++ {
+			x >>= 7
+		}
+	}
 
 	if x := o.SegSize; x >= 1<<21 {
 		l += 5
@@ -287,6 +317,64 @@ func (o *Header) Unmarshal(data []byte) (int, error) {
 	i := 1
 
 	if header == 0 {
+		if i+1 >= len(data) {
+			i++
+			goto eof
+		}
+		x := uint32(data[i])
+		i++
+
+		if x >= 0x80 {
+			x &= 0x7f
+			for shift := uint(7); ; shift += 7 {
+				b := uint32(data[i])
+				i++
+				if i >= len(data) {
+					goto eof
+				}
+
+				if b < 0x80 {
+					x |= b << shift
+					break
+				}
+				x |= (b & 0x7f) << shift
+			}
+		}
+		o.State = int32(x)
+
+		header = data[i]
+		i++
+	} else if header == 0|0x80 {
+		if i+1 >= len(data) {
+			i++
+			goto eof
+		}
+		x := uint32(data[i])
+		i++
+
+		if x >= 0x80 {
+			x &= 0x7f
+			for shift := uint(7); ; shift += 7 {
+				b := uint32(data[i])
+				i++
+				if i >= len(data) {
+					goto eof
+				}
+
+				if b < 0x80 {
+					x |= b << shift
+					break
+				}
+				x |= (b & 0x7f) << shift
+			}
+		}
+		o.State = int32(^x + 1)
+
+		header = data[i]
+		i++
+	}
+
+	if header == 1 {
 		start := i
 		i++
 		if i >= len(data) {
@@ -314,7 +402,7 @@ func (o *Header) Unmarshal(data []byte) (int, error) {
 
 		header = data[i]
 		i++
-	} else if header == 0|0x80 {
+	} else if header == 1|0x80 {
 		start := i
 		i += 4
 		if i >= len(data) {
@@ -325,7 +413,7 @@ func (o *Header) Unmarshal(data []byte) (int, error) {
 		i++
 	}
 
-	if header == 1 {
+	if header == 2 {
 		start := i
 		i++
 		if i >= len(data) {
@@ -336,7 +424,7 @@ func (o *Header) Unmarshal(data []byte) (int, error) {
 		i++
 	}
 
-	if header == 2 {
+	if header == 3 {
 		if i >= len(data) {
 			goto eof
 		}
@@ -377,7 +465,7 @@ func (o *Header) Unmarshal(data []byte) (int, error) {
 		i++
 	}
 
-	if header == 3 {
+	if header == 4 {
 		if i >= len(data) {
 			goto eof
 		}
@@ -441,7 +529,7 @@ func (o *Header) Unmarshal(data []byte) (int, error) {
 		i++
 	}
 
-	if header == 4 {
+	if header == 5 {
 		if i >= len(data) {
 			goto eof
 		}
@@ -482,7 +570,7 @@ func (o *Header) Unmarshal(data []byte) (int, error) {
 		i++
 	}
 
-	if header == 5 {
+	if header == 6 {
 		if i >= len(data) {
 			goto eof
 		}
@@ -546,7 +634,7 @@ func (o *Header) Unmarshal(data []byte) (int, error) {
 		i++
 	}
 
-	if header == 6 {
+	if header == 7 {
 		start := i
 		i++
 		if i >= len(data) {
