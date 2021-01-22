@@ -2,7 +2,6 @@ package v1
 
 import (
 	"encoding/binary"
-	"fmt"
 	"path/filepath"
 
 	"github.com/templexxx/tsc"
@@ -11,7 +10,6 @@ import (
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/uid"
 	"g.tesamc.com/IT/zaipkg/xdigest"
-	"g.tesamc.com/IT/zaipkg/xerrors"
 	"g.tesamc.com/IT/zbuf/extent/v1/colf"
 	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zbuf/xio"
@@ -99,35 +97,22 @@ func LoadHeader(sched xio.Scheduler, fs vfs.FS, extDir string) (*Header, error) 
 		_ = f.Close()
 		return nil, err
 	}
-	expDigest := xdigest.Sum32(b[:4092])
-	actDigest := binary.LittleEndian.Uint32(b[4092:])
-	if expDigest != actDigest {
+
+	expChecksum := xdigest.Sum32(b[:uid.GrainSize-4])
+	actChecksum := binary.LittleEndian.Uint32(b[uid.GrainSize-4:])
+	if expChecksum != actChecksum {
 		_ = f.Close()
-		return nil, xerrors.WithMessage(orpc.ErrChecksumMismatch, fmt.Sprintf("ext: %s header load failed", extDir))
+		return nil, orpc.ErrChecksumMismatch
 	}
 
-	h.state = metapb.ExtentState(binary.LittleEndian.Uint32(b[:4]))
-	h.segSize = binary.LittleEndian.Uint32(b[4:8])
-	h.segStates = make([]byte, segmentCnt)
-	h.reservedSeg = b[2567]
-	copy(h.segStates, b[8:])
-	h.sealedTS = make([]int64, segmentCnt)
-	for i := range h.sealedTS {
-		h.sealedTS[i] = int64(binary.LittleEndian.Uint64(b[264+i*8 : 264+i*8+8]))
-	}
-	h.gcSrcCursor = binary.LittleEndian.Uint32(b[2559:2563])
-	h.gcDstCursor = binary.LittleEndian.Uint32(b[2563:2567])
-
-	n := binary.LittleEndian.Uint32(b[4092-4 : 4092])
-	h.cloneJob = new(metapb.CloneJob)
-	err = h.cloneJob.Unmarshal(b[2568 : 2568+n])
+	coHeaderLen := binary.LittleEndian.Uint32(b[:4])
+	coh := new(colf.Header)
+	_, err = coh.Unmarshal(b[4 : 4+coHeaderLen])
 	if err != nil {
 		_ = f.Close()
 		return nil, err
 	}
-	h.writableHistoryNextIdx = b[2568+n]
-	h.writableHistory = make([]byte, segmentCnt)
-	copy(h.writableHistory, b[2569+n:2569+n+256])
+	h.coHeader = coh
 
 	h.segRemoved = make([]uint32, segmentCnt)
 
