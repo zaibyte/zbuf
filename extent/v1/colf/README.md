@@ -35,5 +35,6 @@ the snapshot and traverse from the cursor(before the cursor the addresses are re
 ## Generates Codes
 
 ```shell
+go get -u github.com/pascaldekloe/colfer/cmd/colf
 colf -b ../ Go *.colf
 ```

@@ -14,7 +14,6 @@ type PhyAddrSnap struct {
     GcDstSeg    int64   // When -1, means no gc dst in present.
     GcSrcCursor uint32 // GC source uid.GrainSize.
     GcDstCursor uint32 // GC destination uid.GrainSize.
-    // Clone job progress will be sync to disk every 1024*8 grains(32MB) or there is new order comes from Keeper.
     CloneJobState        int32
     CloneJobParentId             uint64
     CloneJobSourceExtId          uint32

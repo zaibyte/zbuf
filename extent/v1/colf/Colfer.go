@@ -684,7 +684,7 @@ type PhyAddrSnap struct {
 	GcSrcCursor uint32
 
 	GcDstCursor uint32
-	// Clone job progress will be sync to disk every 1024*8 grains(32MB) or there is new order comes from Keeper.
+
 	CloneJobState int32
 
 	CloneJobParentId uint64
