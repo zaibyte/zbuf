@@ -1,4 +1,4 @@
-package nv
+package colf
 
 // Non-Volatile PhyAddrSnap is a part of Physical Address Snapshot using colfer to serialize.
 type PhyAddrSnap struct {

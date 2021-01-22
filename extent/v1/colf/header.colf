@@ -1,10 +1,10 @@
-package nv
+package colf
 
 // Non-Volatile Header is the part of Header using colfer to serialize.
 type Header struct {
 	SegSize     uint32 // segSize * grain_size = bytes.
     ReservedSeg uint8
-    SegStates   []byte  // 256 * 1B = 256B
+    SegStates   binary  // 256 * 1B = 256B
     SealedTS    []int64 // 256 * 8B = 2048B
 
     // writableHistory records the writable segment changing history.
@@ -15,7 +15,7 @@ type Header struct {
     // which means the phy_addr snapshot flushing is too slow, we shouldn't make writable segment until the
     // new snapshot created. If this happens, there must be something wrong make a monitor event and make this
     // extent broken.
-    WritableHistory        []uint8 // 32 * 1B = 32B
+    WritableHistory        binary // 32 * 1B = 32B
     WritableHistoryTS      []int64 // 32 * 8B = 256B
     WritableHistoryNextIdx uint8
 }

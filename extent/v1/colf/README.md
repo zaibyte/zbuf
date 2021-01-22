@@ -32,3 +32,8 @@ the snapshot and traverse from the cursor(before the cursor the addresses are re
 2. GC src & GC dst cursor
 3. Clone job cursor
 
+## Generates Codes
+
+```shell
+colf -b ../ Go *.colf
+```
