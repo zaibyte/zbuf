@@ -19,6 +19,10 @@ package v1
 import (
 	"context"
 	"sync"
+	"sync/atomic"
+
+	"g.tesamc.com/IT/zbuf/extent/v1/colf"
+	"github.com/templexxx/tsc"
 
 	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zbuf/extent"
@@ -52,6 +56,9 @@ type Extenter struct {
 	iosched xio.Scheduler
 	segFile vfs.File
 	phyAddr *phyaddr.PhyAddr
+	// lastPhyAddrSnap is the last Phy_Addr snapshot.
+	lastPhyAddrSnap *colf.PhyAddrSnap
+
 	// TODO write-back cache
 
 	putChan chan<- *putResult
@@ -90,5 +97,35 @@ func (e *Extenter) LoadPhyAddr() {
 // Warning:
 // Extenter should be locked already.
 func (e *Extenter) MakePhyAddrSnapshot() {
+
+	snap := new(colf.PhyAddrSnap)
+
+	snap.CreatTS = tsc.UnixNano()
+
+	pa := e.phyAddr
+
+	t0 := phyaddr.GetTbl(pa, 0)
+	t1 := phyaddr.GetTbl(pa, 1)
+
+	// TODO could I use mfence, then copy the whole table?
+	// TODO I could make table aligned to cache line when create phy_addr, then allocate dst align to cache line,
+	// because after/include skylake(in Tesamc, surely has), no loading will be not atomic in memmove.
+	// In memmove, even the biggest operation won't cross the cacheline, if we already make the slice aligned to cache line.
+	// But I think, the Go race detection will fail if I just use copy.
+	var t0dst []uint64
+	if t0 != nil {
+		t0dst = make([]uint64, len(t0))
+		for i := range t0 {
+			t0dst[i] = atomic.LoadUint64(&t0[i])
+		}
+	}
+
+	var t1dst []uint64
+	if t1 != nil {
+		t1dst = make([]uint64, len(t1))
+		for i := range t1 {
+			t1dst[i] = atomic.LoadUint64(&t1[i])
+		}
+	}
 
 }
