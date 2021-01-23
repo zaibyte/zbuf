@@ -29,6 +29,10 @@ const (
 
 	// For the worst cases, 128 means 128*4MB = 512MB, is the half of segment,
 	// snapshot still has big chance to catch up the changes enough fast.
+	// But for small objects, 128 is really bad, if every 128 updates we will do a snapshot syncing:
+	// 1. The updates will be too frequently.
+	// 2. The snapshot will be huge because the number of objects is big in a extent.
+	// I've implemented a algorithm to measure the opportunity of making snapshot.
 	defaultMaxDirtyCount = 128
 )
 
