@@ -33,9 +33,9 @@ func backToOriginCap(c int) int {
 	return c + 1 - neighbour
 }
 
-func (ix *PhyAddr) getWritableTable() []uint64 {
-	idx := ix.getWritableIdx()
-	p := atomic.LoadPointer(&ix.cycle[idx])
+func (pa *PhyAddr) getWritableTable() []uint64 {
+	idx := pa.getWritableIdx()
+	p := atomic.LoadPointer(&pa.cycle[idx])
 	return *(*[]uint64)(p)
 }
 
@@ -43,8 +43,8 @@ func getSlot(slotCnt int, digest uint32) int {
 	return int(digest & (calcMask(uint32(slotCnt))))
 }
 
-func getTbl(ix *PhyAddr, idx int) []uint64 {
-	p := atomic.LoadPointer(&ix.cycle[idx])
+func GetTbl(pa *PhyAddr, idx int) []uint64 {
+	p := atomic.LoadPointer(&pa.cycle[idx])
 	if p == nil {
 		return nil
 	}

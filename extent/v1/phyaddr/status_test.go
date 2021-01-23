@@ -46,65 +46,65 @@ func TestBitsOperator(t *testing.T) {
 
 func TestIndex_IsRunning(t *testing.T) {
 
-	ix, _ := New(0)
-	if !ix.IsRunning() {
+	pa, _ := New(0)
+	if !pa.IsRunning() {
 		t.Fatal("should be running")
 	}
 }
 
 func TestIndex_Close(t *testing.T) {
 
-	ix, _ := New(0)
-	ix.Close()
-	if ix.IsRunning() {
+	pa, _ := New(0)
+	pa.Close()
+	if pa.IsRunning() {
 		t.Fatal("should be closed")
 	}
-	ix.close()
-	if ix.IsRunning() {
+	pa.close()
+	if pa.IsRunning() {
 		t.Fatal("should be closed")
 	}
 }
 
 func TestCreateStatusWritable(t *testing.T) {
 
-	ix, _ := New(0)
-	if ix.getWritableIdx() != 0 {
+	pa, _ := New(0)
+	if pa.getWritableIdx() != 0 {
 		t.Fatal("writable table mismatched")
 	}
 }
 
 func TestIndex_Writable(t *testing.T) {
 
-	ix, _ := New(0)
-	ix.setWritable(1)
-	if ix.getWritableIdx() != 1 {
+	pa, _ := New(0)
+	pa.setWritable(1)
+	if pa.getWritableIdx() != 1 {
 		t.Fatal("writable table mismatched")
 	}
-	ix.setWritable(0)
-	if ix.getWritableIdx() != 0 {
+	pa.setWritable(0)
+	if pa.getWritableIdx() != 0 {
 		t.Fatal("writable table mismatched")
 	}
 }
 
 func TestIndex_Lock(t *testing.T) {
 
-	ix, _ := New(0)
-	if !ix.lock() {
+	pa, _ := New(0)
+	if !pa.lock() {
 		t.Fatal("lock should be succeed")
 	}
 
-	if ix.lock() {
+	if pa.lock() {
 		t.Fatal("should be locked")
 	}
 
-	sa := atomic.LoadUint64(&ix.status)
+	sa := atomic.LoadUint64(&pa.status)
 	if !isLocked(sa) {
 		t.Fatal("should be locked")
 	}
 
-	ix.unlock()
+	pa.unlock()
 
-	sa = atomic.LoadUint64(&ix.status)
+	sa = atomic.LoadUint64(&pa.status)
 	if isLocked(sa) {
 		t.Fatal("should be unlocked")
 	}

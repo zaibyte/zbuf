@@ -18,34 +18,34 @@ import "sync/atomic"
 // cnt: [0,32), count of added keys.
 
 // IsRunning returns PhyAddr is running or not.
-func (ix *PhyAddr) IsRunning() bool {
-	sa := atomic.LoadUint64(&ix.status)
+func (pa *PhyAddr) IsRunning() bool {
+	sa := atomic.LoadUint64(&pa.status)
 	return bitOne(sa, 63)
 }
 
 // close sets status closed.
-func (ix *PhyAddr) close() {
-	sa := atomic.LoadUint64(&ix.status)
+func (pa *PhyAddr) close() {
+	sa := atomic.LoadUint64(&pa.status)
 	sa = clrBit(sa, 63)
-	atomic.StoreUint64(&ix.status, sa)
+	atomic.StoreUint64(&pa.status, sa)
 }
 
 // lock tries to lock PhyAddr, return true if succeed.
-func (ix *PhyAddr) lock() bool {
-	sa := atomic.LoadUint64(&ix.status)
+func (pa *PhyAddr) lock() bool {
+	sa := atomic.LoadUint64(&pa.status)
 	if isLocked(sa) {
 		return false // locked.
 	}
 
 	nsa := setBit(sa, 62)
-	return atomic.CompareAndSwapUint64(&ix.status, sa, nsa)
+	return atomic.CompareAndSwapUint64(&pa.status, sa, nsa)
 }
 
 // unlock unlocks PhyAddr, PhyAddr must be locked.
-func (ix *PhyAddr) unlock() {
-	sa := atomic.LoadUint64(&ix.status)
+func (pa *PhyAddr) unlock() {
+	sa := atomic.LoadUint64(&pa.status)
 	sa = clrBit(sa, 62)
-	atomic.StoreUint64(&ix.status, sa)
+	atomic.StoreUint64(&pa.status, sa)
 }
 
 func isLocked(sa uint64) bool {
@@ -61,75 +61,71 @@ func createStatus() uint64 {
 // TODO how to deal with sealed. Should pause make bigger table and transfer all data
 // seal seals PhyAddr.
 // When there is no writable table setting PhyAddr sealed.
-func (ix *PhyAddr) seal() {
-	sa := atomic.LoadUint64(&ix.status)
+func (pa *PhyAddr) seal() {
+	sa := atomic.LoadUint64(&pa.status)
 	sa = setBit(sa, 61)
-	atomic.StoreUint64(&ix.status, sa)
+	atomic.StoreUint64(&pa.status, sa)
 }
 
 // isSealed returns PhyAddr is sealed or not.
-func (ix *PhyAddr) isSealed() bool {
-	sa := atomic.LoadUint64(&ix.status)
+func (pa *PhyAddr) isSealed() bool {
+	sa := atomic.LoadUint64(&pa.status)
 	return bitOne(sa, 61)
 }
 
 // scale sets PhyAddr sealed.
 // When PhyAddr is expanding/shrinking setting PhyAddr scaling.
-func (ix *PhyAddr) scale() {
-	sa := atomic.LoadUint64(&ix.status)
+func (pa *PhyAddr) scale() {
+	sa := atomic.LoadUint64(&pa.status)
 	sa = setBit(sa, 60)
-	atomic.StoreUint64(&ix.status, sa)
+	atomic.StoreUint64(&pa.status, sa)
 }
 
 // isScaling returns PhyAddr is scaling or not.
-func (ix *PhyAddr) isScaling() bool {
-	sa := atomic.LoadUint64(&ix.status)
+func (pa *PhyAddr) isScaling() bool {
+	sa := atomic.LoadUint64(&pa.status)
 	return bitOne(sa, 60)
 }
 
 // unScale sets PhyAddr scalable.
-func (ix *PhyAddr) unScale() {
-	sa := atomic.LoadUint64(&ix.status)
+func (pa *PhyAddr) unScale() {
+	sa := atomic.LoadUint64(&pa.status)
 	sa = clrBit(sa, 60)
-	atomic.StoreUint64(&ix.status, sa)
+	atomic.StoreUint64(&pa.status, sa)
 }
 
 // getWritableIdx gets writable table in PhyAddr.
 // 0 or 1.
-func (ix *PhyAddr) getWritableIdx() uint8 {
-	sa := atomic.LoadUint64(&ix.status)
-	return uint8((sa >> 59) & 1)
-}
-
-func getWritableIdxByStatus(sa uint64) uint8 {
+func (pa *PhyAddr) getWritableIdx() uint8 {
+	sa := atomic.LoadUint64(&pa.status)
 	return uint8((sa >> 59) & 1)
 }
 
 // setWritable sets writable table
-func (ix *PhyAddr) setWritable(idx uint8) {
-	sa := atomic.LoadUint64(&ix.status)
+func (pa *PhyAddr) setWritable(idx uint8) {
+	sa := atomic.LoadUint64(&pa.status)
 	if idx == 0 {
 		sa = clrBit(sa, 59)
 	} else {
 		sa = setBit(sa, 59)
 	}
-	atomic.StoreUint64(&ix.status, sa)
+	atomic.StoreUint64(&pa.status, sa)
 }
 
 // addCnt adds PhyAddr count.
-func (ix *PhyAddr) addCnt() {
-	atomic.AddUint64(&ix.status, 1) // cnt is the lowest bits, just +1.
+func (pa *PhyAddr) addCnt() {
+	atomic.AddUint64(&pa.status, 1) // cnt is the lowest bits, just +1.
 }
 
 // delCnt minutes PhyAddr count.
-func (ix *PhyAddr) delCnt() {
-	atomic.AddUint64(&ix.status, ^uint64(0))
+func (pa *PhyAddr) delCnt() {
+	atomic.AddUint64(&pa.status, ^uint64(0))
 }
 
 const cntMask = (1 << 32) - 1
 
-func (ix *PhyAddr) getCnt() uint64 {
-	sa := atomic.LoadUint64(&ix.status)
+func (pa *PhyAddr) getCnt() uint64 {
+	sa := atomic.LoadUint64(&pa.status)
 	return sa & cntMask
 }
 

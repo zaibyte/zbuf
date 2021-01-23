@@ -83,10 +83,10 @@ func New(cap int) (*PhyAddr, error) {
 }
 
 // Close closes PhyAddr and release the resource.
-func (ix *PhyAddr) Close() {
-	ix.close()
-	atomic.StorePointer(&ix.cycle[0], nil)
-	atomic.StorePointer(&ix.cycle[1], nil)
+func (pa *PhyAddr) Close() {
+	pa.close()
+	atomic.StorePointer(&pa.cycle[0], nil)
+	atomic.StorePointer(&pa.cycle[1], nil)
 }
 
 var (
@@ -104,63 +104,63 @@ var (
 // P.S.:
 // It's better to use only one goroutine to Add at the same time,
 // it'll be more friendly for optimistic lock used by PhyAddr.
-func (ix *PhyAddr) Add(digest, otype, grains, addr uint32) error {
+func (pa *PhyAddr) Add(digest, otype, grains, addr uint32) error {
 
-	if !ix.IsRunning() {
+	if !pa.IsRunning() {
 		return ErrIsClosed
 	}
 
-	err := ix.tryAdd(digest, otype, grains, addr, false)
+	err := pa.tryAdd(digest, otype, grains, addr, false)
 	switch err {
 
 	case nil:
-		ix.addCnt()
-		ix.unlock()
+		pa.addCnt()
+		pa.unlock()
 		return nil
 
 	case ErrIsFull:
-		if ix.isScaling() {
-			ix.unlock()
+		if pa.isScaling() {
+			pa.unlock()
 			// In practice, it's rare to have such fast adding.
 			// Which means the caller's speed if fast than 'sequential traverse'
 			return ErrAddTooFast
 		}
 
 		// Last writable table is full, try to expand to new table.
-		idx := ix.getWritableIdx()
-		p := atomic.LoadPointer(&ix.cycle[idx])
+		idx := pa.getWritableIdx()
+		p := atomic.LoadPointer(&pa.cycle[idx])
 		tbl := *(*[]uint64)(p)
 		oc := backToOriginCap(len(tbl))
 		if oc*2 > MaxCap {
-			ix.unlock()
+			pa.unlock()
 			return ErrIsFull // Already MaxCap.
 		}
 
-		ix.scale()
+		pa.scale()
 		next := idx ^ 1
 		newTbl := make([]uint64, calcSlotCnt(oc*2))
-		atomic.StorePointer(&ix.cycle[next], unsafe.Pointer(&newTbl))
-		ix.setWritable(next)
-		_ = ix.tryAdd(digest, otype, grains, addr, true) // First insert must be succeed.
-		go ix.expand(int(idx))
-		ix.addCnt()
-		ix.unlock()
+		atomic.StorePointer(&pa.cycle[next], unsafe.Pointer(&newTbl))
+		pa.setWritable(next)
+		_ = pa.tryAdd(digest, otype, grains, addr, true) // First insert must be succeed.
+		go pa.expand(int(idx))
+		pa.addCnt()
+		pa.unlock()
 		return nil
 
 	default:
-		ix.unlock()
+		pa.unlock()
 		return err
 	}
 }
 
 // Search returns the entry which the digest own if has.
 // If the entry is marked removed, still return it has.
-func (ix *PhyAddr) Search(digest uint32) (entry uint64, has bool) {
+func (pa *PhyAddr) Search(digest uint32) (entry uint64, has bool) {
 
-	widx := ix.getWritableIdx()
+	widx := pa.getWritableIdx()
 	next := widx ^ 1
-	wt := getTbl(ix, int(widx))
-	nt := getTbl(ix, int(next))
+	wt := GetTbl(pa, int(widx))
+	nt := GetTbl(pa, int(next))
 
 	// 1. Search writable table first.
 	if wt != nil {
@@ -215,31 +215,31 @@ func (ix *PhyAddr) Search(digest uint32) (entry uint64, has bool) {
 // The usage include removed entries(which grains is 0),
 // Every time after GC, we should check usage, total & count(in higher level, index user),
 // if count is much lower than usage, try to shrink.
-func (ix *PhyAddr) GetUsage() (total, usage int) {
+func (pa *PhyAddr) GetUsage() (total, usage int) {
 	total = 0
-	tbl := ix.getWritableTable()
+	tbl := pa.getWritableTable()
 	if tbl != nil { // In case.
 		total = backToOriginCap(len(tbl))
 	}
-	return total, int(ix.getCnt())
+	return total, int(pa.getCnt())
 }
 
 // Remove sets the entry to deleted(grains to 0).
-func (ix *PhyAddr) Remove(digest uint32) {
-	if !ix.IsRunning() {
+func (pa *PhyAddr) Remove(digest uint32) {
+	if !pa.IsRunning() {
 		return
 	}
-	ix.tryRemove(digest)
+	pa.tryRemove(digest)
 }
 
-func (ix *PhyAddr) expand(ri int) {
-	rp := atomic.LoadPointer(&ix.cycle[ri])
+func (pa *PhyAddr) expand(ri int) {
+	rp := atomic.LoadPointer(&pa.cycle[ri])
 	src := *(*[]uint64)(rp)
 
 	n, cnt := len(src), 0
 	for i := range src {
 
-		if !ix.IsRunning() {
+		if !pa.IsRunning() {
 			return
 		}
 
@@ -249,7 +249,7 @@ func (ix *PhyAddr) expand(ri int) {
 		}
 
 	restart:
-		if !ix.lock() {
+		if !pa.lock() {
 			pause()
 			goto restart
 		}
@@ -259,36 +259,36 @@ func (ix *PhyAddr) expand(ri int) {
 			tag, neighOff, otype, grains, addr := ParseEntry(e)
 			digest := backToDigest(tag, uint32(n), uint32(i), neighOff)
 
-			err := ix.tryAdd(digest, otype, grains, addr, true)
+			err := pa.tryAdd(digest, otype, grains, addr, true)
 			if err == ErrIsFull {
-				ix.seal()
-				ix.unlock()
+				pa.seal()
+				pa.unlock()
 				return
 			}
 
 			cnt++
 		}
 		if i == n-1 { // Last one is finished.
-			atomic.StorePointer(&ix.cycle[ri], unsafe.Pointer(nil))
-			ix.unScale()
-			ix.unlock()
+			atomic.StorePointer(&pa.cycle[ri], unsafe.Pointer(nil))
+			pa.unScale()
+			pa.unlock()
 			return
 		}
-		ix.unlock()
+		pa.unlock()
 	}
 }
 
-func (ix *PhyAddr) tryRemove(digest uint32) {
+func (pa *PhyAddr) tryRemove(digest uint32) {
 
 restart:
 
-	if !ix.lock() {
+	if !pa.lock() {
 		pause()
 		goto restart
 	}
 
 	for i := 0; i < 2; i++ {
-		tbl := getTbl(ix, i)
+		tbl := GetTbl(pa, i)
 		if tbl == nil {
 			continue
 		}
@@ -310,27 +310,27 @@ restart:
 		}
 	}
 
-	ix.unlock()
+	pa.unlock()
 	return
 }
 
-func (ix *PhyAddr) tryAdd(digest, otype, grains, addr uint32, isLocked bool) (err error) {
+func (pa *PhyAddr) tryAdd(digest, otype, grains, addr uint32, isLocked bool) (err error) {
 
 restart:
 
 	if !isLocked {
-		if !ix.lock() {
+		if !pa.lock() {
 			pause()
 			goto restart
 		}
 	}
 
-	if ix.isSealed() {
+	if pa.isSealed() {
 		return ErrIsSealed
 	}
 
-	idx := ix.getWritableIdx()
-	tbl := getTbl(ix, int(idx))
+	idx := pa.getWritableIdx()
+	tbl := GetTbl(pa, int(idx))
 	if tbl == nil {
 		return ErrUnknown
 	}
@@ -364,7 +364,7 @@ restart:
 		// For scaling, it's checking the source itself, so meaningless.
 		// For first adding, which means the digest have passed the unique checking when the last trying of Adding,
 		// but met full.
-		otbl := getTbl(ix, int(idx^1))
+		otbl := GetTbl(pa, int(idx^1))
 		if otbl != nil {
 			oslotCnt := len(otbl)
 			oslot := getSlot(oslotCnt, digest)
@@ -396,7 +396,7 @@ restart:
 	// 4. Linear probe to find an empty slot and swap.
 	j := slot + neighbour
 	for { // Closer and closer.
-		free, status := ix.swap(j, len(tbl), tbl)
+		free, status := pa.swap(j, len(tbl), tbl)
 		if status == swapFull {
 			return ErrIsFull
 		}
@@ -417,7 +417,7 @@ const (
 
 // swap swaps the free slot and the another one (closer to the hashed slot).
 // Return position & swapOK if find one.
-func (ix *PhyAddr) swap(start, slotCnt int, tbl []uint64) (int, uint8) {
+func (pa *PhyAddr) swap(start, slotCnt int, tbl []uint64) (int, uint8) {
 
 	for i := start; i < slotCnt; i++ {
 		if atomic.LoadUint64(&tbl[i]) == 0 { // Find a free one.

@@ -36,12 +36,12 @@ func TestLZ4Compress(t *testing.T) {
 	}
 
 	cnt := 1 << 19
-	ix, _ := New(cnt)
+	pa, _ := New(cnt)
 	ens := generatesEntriesFast(cnt / 2)
 
 	for i := 1024 * 16; i <= cnt/2; i *= 2 {
 		for _, en := range ens[:i] {
-			err := ix.Add(en.digest, en.otype, en.grains, en.addr)
+			err := pa.Add(en.digest, en.otype, en.grains, en.addr)
 			if err == ErrExisted {
 				continue
 			}
@@ -50,7 +50,7 @@ func TestLZ4Compress(t *testing.T) {
 			}
 		}
 		buf := bytes.NewBuffer(nil)
-		err := binary.Write(buf, binary.LittleEndian, getTbl(ix, 0))
+		err := binary.Write(buf, binary.LittleEndian, GetTbl(pa, 0))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -76,26 +76,26 @@ func TestIndexExpand(t *testing.T) {
 	}
 
 	cnt := 1 << 16
-	ix, _ := New(cnt)
-	ix.scale()
+	pa, _ := New(cnt)
+	pa.scale()
 
 	ens := generatesEntriesFast(cnt * 2)
 
 	mitFull := 0
 	for i, en := range ens[:cnt] {
-		err := ix.Add(en.digest, en.otype, en.grains, en.addr)
+		err := pa.Add(en.digest, en.otype, en.grains, en.addr)
 		if err == ErrAddTooFast {
 			mitFull = i
 			break
 		}
 	}
 
-	ix2, _ := New(cnt * 2)
-	ix2.scale()
+	pa2, _ := New(cnt * 2)
+	pa2.scale()
 
 	mitFull2 := 0
 	for i, en := range ens {
-		err := ix2.Add(en.digest, en.otype, en.grains, en.addr)
+		err := pa2.Add(en.digest, en.otype, en.grains, en.addr)
 		if err == ErrAddTooFast {
 			mitFull2 = i
 			break
@@ -152,9 +152,9 @@ func TestMitFullBytes(t *testing.T) {
 }
 
 func testMitFull(cnt int, slow bool) int {
-	ix, _ := New(cnt)
+	pa, _ := New(cnt)
 
-	ix.scale()
+	pa.scale()
 	var ens []entryFields
 	if slow {
 		ens = generatesEntriesSlow(cnt, 12*1024) // 12KiB object with 4KiB object_header, filling 16KiB address alignment.
@@ -162,7 +162,7 @@ func testMitFull(cnt int, slow bool) int {
 		ens = generatesEntriesFast(cnt)
 	}
 	for i, en := range ens {
-		err := ix.Add(en.digest, en.otype, en.grains, en.addr)
+		err := pa.Add(en.digest, en.otype, en.grains, en.addr)
 		if err == ErrAddTooFast {
 			return i
 		}
