@@ -220,8 +220,8 @@ const waitExpCoeff = -0.003
 //
 // coeff = e^(waitExpCoeff * waiting_time)
 func calcWaitCoeff(pts, now int64) float64 {
-	delta := (now - pts) / int64(time.Microsecond) // Using microsecond as unit.
-	return math.Pow(math.E, waitExpCoeff*float64(delta))
+	delta := float64(now-pts) / float64(int64(time.Microsecond)) // Using microsecond as unit.
+	return math.Pow(math.E, waitExpCoeff*delta)
 }
 
 const pageSize = 4 * 1024
