@@ -11,12 +11,9 @@ type Header struct {
     // writableHistory records the writable segment changing history.
     // The history length is 32.
     // NexIdx indicates the next slot to put new writable segment.
+    //
     // writableHistoryTS records the timestamp of changing.
-    // If the idx catch up the head and the head's timestamp is bigger than Extenter.lastPhyAddrSnapshotTS
-    // which means the phy_addr snapshot flushing is too slow, we shouldn't make writable segment until the
-    // new snapshot created. If this happens, there must be something wrong make a monitor event and make this
-    // extent broken.
-    WritableHistory        binary // 32 * 1B = 32B
-    WritableHistoryTS      []int64 // 32 * 8B = 256B
-    WritableHistoryNextIdx uint8
+    WritableHistory        binary
+    WritableHistoryTS      []int64
+    WritableHistoryNextIdx int64
 }

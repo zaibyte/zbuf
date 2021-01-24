@@ -56,16 +56,13 @@ type Header struct {
 	// writableHistory records the writable segment changing history.
 	// The history length is 32.
 	// NexIdx indicates the next slot to put new writable segment.
+
 	// writableHistoryTS records the timestamp of changing.
-	// If the idx catch up the head and the head's timestamp is bigger than Extenter.lastPhyAddrSnapshotTS
-	// which means the phy_addr snapshot flushing is too slow, we shouldn't make writable segment until the
-	// new snapshot created. If this happens, there must be something wrong make a monitor event and make this
-	// extent broken.
 	WritableHistory []byte
 
 	WritableHistoryTS []int64
 
-	WritableHistoryNextIdx uint8
+	WritableHistoryNextIdx int64
 }
 
 // MarshalTo encodes o as Colfer into buf and returns the number of bytes written.
@@ -188,10 +185,21 @@ func (o *Header) MarshalTo(buf []byte) int {
 		}
 	}
 
-	if x := o.WritableHistoryNextIdx; x != 0 {
-		buf[i] = 7
+	if v := o.WritableHistoryNextIdx; v != 0 {
+		x := uint64(v)
+		if v >= 0 {
+			buf[i] = 7
+		} else {
+			x = ^x + 1
+			buf[i] = 7 | 0x80
+		}
 		i++
-		buf[i] = x
+		for n := 0; x >= 0x80 && n < 8; n++ {
+			buf[i] = byte(x | 0x80)
+			x >>= 7
+			i++
+		}
+		buf[i] = byte(x)
 		i++
 	}
 
@@ -285,8 +293,16 @@ func (o *Header) MarshalLen() (int, error) {
 		}
 	}
 
-	if x := o.WritableHistoryNextIdx; x != 0 {
+	if v := o.WritableHistoryNextIdx; v != 0 {
 		l += 2
+		x := uint64(v)
+		if v < 0 {
+			x = ^x + 1
+		}
+		for n := 0; x >= 0x80 && n < 8; n++ {
+			x >>= 7
+			l++
+		}
 	}
 
 	if l > ColferSizeMax {
@@ -635,12 +651,59 @@ func (o *Header) Unmarshal(data []byte) (int, error) {
 	}
 
 	if header == 7 {
-		start := i
-		i++
-		if i >= len(data) {
+		if i+1 >= len(data) {
+			i++
 			goto eof
 		}
-		o.WritableHistoryNextIdx = data[start]
+		x := uint64(data[i])
+		i++
+
+		if x >= 0x80 {
+			x &= 0x7f
+			for shift := uint(7); ; shift += 7 {
+				b := uint64(data[i])
+				i++
+				if i >= len(data) {
+					goto eof
+				}
+
+				if b < 0x80 || shift == 56 {
+					x |= b << shift
+					break
+				}
+				x |= (b & 0x7f) << shift
+			}
+		}
+		o.WritableHistoryNextIdx = int64(x)
+
+		header = data[i]
+		i++
+	} else if header == 7|0x80 {
+		if i+1 >= len(data) {
+			i++
+			goto eof
+		}
+		x := uint64(data[i])
+		i++
+
+		if x >= 0x80 {
+			x &= 0x7f
+			for shift := uint(7); ; shift += 7 {
+				b := uint64(data[i])
+				i++
+				if i >= len(data) {
+					goto eof
+				}
+
+				if b < 0x80 || shift == 56 {
+					x |= b << shift
+					break
+				}
+				x |= (b & 0x7f) << shift
+			}
+		}
+		o.WritableHistoryNextIdx = int64(^x + 1)
+
 		header = data[i]
 		i++
 	}
