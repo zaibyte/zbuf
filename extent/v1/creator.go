@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"sync"
 
+	"g.tesamc.com/IT/zbuf/vdisk"
+
 	"g.tesamc.com/IT/zbuf/extent/v1/phyaddr"
 
 	"g.tesamc.com/IT/zbuf/extent"
@@ -31,7 +33,8 @@ func cleanFailedCreate(fs vfs.FS, extDir string) {
 	_ = fs.RemoveAll(extDir)
 }
 
-func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, instanceID, diskID, extID uint32, extDir string) (ext extent.Extenter, err error) {
+func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
+	instanceID, diskID, extID uint32, extDir string, diskInfo *vdisk.Info) (ext extent.Extenter, err error) {
 
 	defer func() {
 		if err != nil {
@@ -60,10 +63,11 @@ func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, ins
 	phyAddr, _ := phyaddr.New(phyaddr.MinCap)
 
 	ext = &Extenter{
-		cfg:     c.cfg,
-		fs:      fs,
-		rwMutex: new(sync.RWMutex),
-		header:  h,
+		cfg:      c.cfg,
+		fs:       fs,
+		diskInfo: diskInfo,
+		rwMutex:  new(sync.RWMutex),
+		header:   h,
 		info: &extent.Info{PbExt: &metapb.Extent{
 			State:      metapb.ExtentState(h.coHeader.State),
 			Id:         extID,
@@ -89,7 +93,8 @@ func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, ins
 }
 
 // TODO if extent is broken or terminated, don't open it.
-func (c *Creator) Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, instanceID, diskID, extID uint32, extDir string) (ext extent.Extenter, err error) {
+func (c *Creator) Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
+	instanceID, diskID, extID uint32, extDir string, diskInfo *vdisk.Info) (ext extent.Extenter, err error) {
 
 	h, err := LoadHeader(c.iosched, fs, extDir)
 	if err != nil {
@@ -108,10 +113,11 @@ func (c *Creator) Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, insta
 	phyAddr, _ := phyaddr.New(phyaddr.MinCap)
 
 	ext = &Extenter{
-		cfg:     c.cfg,
-		rwMutex: new(sync.RWMutex),
-		fs:      fs,
-		header:  h,
+		cfg:      c.cfg,
+		rwMutex:  new(sync.RWMutex),
+		fs:       fs,
+		diskInfo: diskInfo,
+		header:   h,
 		info: &extent.Info{PbExt: &metapb.Extent{
 			State: metapb.ExtentState(h.coHeader.State),
 			Id:    extID,

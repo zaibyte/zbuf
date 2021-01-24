@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync"
 
+	"g.tesamc.com/IT/zbuf/vdisk"
+
 	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
@@ -40,9 +42,11 @@ var AvailVersions = []uint16{Version1, VersionTest}
 type Creator interface {
 	// Create creates Extenter which not existed.
 	// dir is extent dir.
-	Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, instanceID, diskID, extID uint32, dir string) (Extenter, error)
+	Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
+		instanceID, diskID, extID uint32, dir string, diskInfo *vdisk.Info) (Extenter, error)
 	// Open opens an existed Extenter.
-	Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, instanceID, diskID, extID uint32, dir string) (Extenter, error)
+	Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
+		instanceID, diskID, extID uint32, dir string, diskInfo *vdisk.Info) (Extenter, error)
 	// GetSize gets the space size will be taken by the extent which will be created.
 	GetSize() uint64
 }

@@ -21,6 +21,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"g.tesamc.com/IT/zbuf/vdisk"
+
 	"g.tesamc.com/IT/zbuf/extent/v1/colf"
 	"github.com/templexxx/tsc"
 
@@ -45,6 +47,8 @@ type Extenter struct {
 	rwMutex *sync.RWMutex
 
 	fs vfs.FS
+
+	diskInfo *vdisk.Info
 
 	info   *extent.Info
 	header *Header
