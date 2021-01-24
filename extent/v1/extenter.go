@@ -49,19 +49,21 @@ type Extenter struct {
 	info   *extent.Info
 	header *Header
 
-	// lastPhyAddrSnapshotTS stores last time the phy_addr snapshot flushed to disk.
+	dirtyUpdates        int64 // dirtyUpdates is the count of phy_addr changes haven't flushed to disk.
+	isMakingPhyAddrSnap int64 // 1 is true.
+	// lastPhyAddrSnap is the last Phy_Addr snapshot.
+	lastPhyAddrSnap *colf.PhyAddrSnap
+	// lastPhyAddrSnapshotTS stores the timestamp of the last synced phy_addr snapshot created time.
 	lastPhyAddrSnapshotTS int64
-	dirtyUpdates          uint32 // dirtyUpdates is the count of phy_addr changes haven't flushed to disk.
 
 	iosched xio.Scheduler
 	segFile vfs.File
 	phyAddr *phyaddr.PhyAddr
-	// lastPhyAddrSnap is the last Phy_Addr snapshot.
-	lastPhyAddrSnap *colf.PhyAddrSnap
 
 	// TODO write-back cache
 
-	putChan chan<- *putResult
+	putChan  chan<- *putRequest
+	metaChan chan<- *metaRequest
 
 	ctx    context.Context
 	stopWg *sync.WaitGroup
@@ -102,6 +104,7 @@ func (e *Extenter) MakePhyAddrSnapshot() {
 
 	snap.CreatTS = tsc.UnixNano()
 
+	// TODO after init snap, make a new goroutine to do snap
 	pa := e.phyAddr
 
 	t0 := phyaddr.GetTbl(pa, 0)
@@ -128,4 +131,12 @@ func (e *Extenter) MakePhyAddrSnapshot() {
 		}
 	}
 
+	atomic.StoreInt64(&e.isMakingPhyAddrSnap, 0)
+	// TODO after flushing, clean old snapshot
+}
+
+// cleanDirtyUpdates set dirtyUpdates 0 directly.
+// It's better to use it after locked.
+func (e *Extenter) cleanDirtyUpdates() {
+	atomic.StoreInt64(&e.dirtyUpdates, 0)
 }

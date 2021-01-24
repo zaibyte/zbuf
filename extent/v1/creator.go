@@ -69,6 +69,7 @@ func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, ins
 			Id:         extID,
 			Size_:      uint64(c.cfg.SegmentSize * uint32(segmentCnt)),
 			Used:       0,
+			Avail:      (segmentCnt - uint64(c.cfg.ReservedSeg)) * uint64(c.cfg.SegmentSize),
 			Version:    uint32(extent.Version1),
 			DiskId:     diskID,
 			InstanceId: instanceID,
@@ -77,7 +78,8 @@ func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, ins
 		segFile: segFile,
 		phyAddr: phyAddr,
 
-		putChan: make(chan *putResult, c.cfg.PutPending),
+		putChan:  make(chan *putRequest, c.cfg.PutPending),
+		metaChan: make(chan *metaRequest, c.cfg.PutPending), // Shares same config.
 
 		ctx:    ctx,
 		stopWg: wg,
@@ -86,6 +88,7 @@ func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, ins
 	return ext, err
 }
 
+// TODO if extent is broken or terminated, don't open it.
 func (c *Creator) Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, instanceID, diskID, extID uint32, extDir string) (ext extent.Extenter, err error) {
 
 	h, err := LoadHeader(c.iosched, fs, extDir)
@@ -100,6 +103,8 @@ func (c *Creator) Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, insta
 	}
 
 	// TODO open phyAddr by snapshot & traverse writable segments
+	// TODO traverse gc seg first for release slot in phy_addr, then writable seg
+	// TODO if seg is gc_src, skip writable replay(in writable history too)
 	phyAddr, _ := phyaddr.New(phyaddr.MinCap)
 
 	ext = &Extenter{
@@ -108,10 +113,12 @@ func (c *Creator) Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, insta
 		fs:      fs,
 		header:  h,
 		info: &extent.Info{PbExt: &metapb.Extent{
-			State:      metapb.ExtentState(h.coHeader.State),
-			Id:         extID,
-			Size_:      uint64(c.cfg.SegmentSize * uint32(segmentCnt)),
+			State: metapb.ExtentState(h.coHeader.State),
+			Id:    extID,
+			Size_: uint64(c.cfg.SegmentSize * uint32(segmentCnt)),
+			// TODO traverse ready & writable segs
 			Used:       0,
+			Avail:      (segmentCnt - uint64(c.cfg.ReservedSeg)) * uint64(c.cfg.SegmentSize),
 			Version:    uint32(extent.Version1),
 			DiskId:     diskID,
 			InstanceId: instanceID,
@@ -120,12 +127,14 @@ func (c *Creator) Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, insta
 		segFile: segFile,
 		phyAddr: phyAddr,
 
-		putChan: make(chan *putResult, c.cfg.PutPending),
+		putChan:  make(chan *putRequest, c.cfg.PutPending),
+		metaChan: make(chan *metaRequest, c.cfg.PutPending), // Shares same config.
 
 		ctx:    ctx,
 		stopWg: wg,
 	}
 
+	// TODO after open, write down happen and phy_addr snapshot
 	return ext, err
 	// TODO start clone job in a goroutine before return
 }
