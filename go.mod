@@ -3,7 +3,7 @@ module g.tesamc.com/IT/zbuf
 go 1.15
 
 require (
-	g.tesamc.com/IT/zaipkg v0.0.0-20210120045128-ec1b43842a75
+	g.tesamc.com/IT/zaipkg v0.0.0-20210124012827-c1d080568ae1
 	g.tesamc.com/IT/zproto v0.0.0-20210122211359-f61643216a51
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/gogo/protobuf v1.3.1 // indirect
