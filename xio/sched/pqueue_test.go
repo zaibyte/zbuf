@@ -3,15 +3,18 @@ package sched
 import (
 	"sort"
 	"testing"
+
+	"g.tesamc.com/IT/zbuf/xio"
 )
 
 func TestPriorityQueues_Sort(t *testing.T) {
 
 	n := 1024
 	pqs := PriorityQueues(make([]*PriorityQueue, n))
-	for i := 0; i < 1024; i++ {
+	for i := 0; i < n; i++ {
 		pqs[i] = &PriorityQueue{
 			totalCost: float64(n - i),
+			reqQueue:  &ReqQueue{queue: make(chan *xio.AsyncRequest, 1)},
 		}
 	}
 

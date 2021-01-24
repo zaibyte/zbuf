@@ -2,17 +2,23 @@ package v1
 
 import (
 	"encoding/binary"
+	"runtime"
 	"time"
+
+	"g.tesamc.com/IT/zbuf/extent/v1/phyaddr"
 
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/xbytes"
+	"g.tesamc.com/IT/zbuf/xio"
 	"github.com/zaibyte/zbuf/xio"
 )
 
 // TODO io update could support no data just index updates for (GC will write data by its own, but index should follow
 //  the origin step)
 
-type putRequest struct {
+type writeDataRequest struct {
+	reqType uint64
+
 	oid     uint64
 	objData xbytes.Buffer
 
@@ -22,14 +28,10 @@ type putRequest struct {
 }
 
 // Including deletion & GC.
-type metaRequest struct {
+type metaUpdatesRequest struct {
 	oid      uint64
 	isRemove bool   // Remove request, otherwise is GC.
 	newAddr  uint32 // GC will move object to a new address.
-}
-
-type deleteResult struct {
-	oids []uint64
 
 	canceled uint32
 	done     chan struct{}
@@ -43,41 +45,54 @@ func (e *Extenter) updatesLoop() {
 	defer e.stopWg.Done()
 
 	sizePerWrite := e.cfg.WriteBufferSize
+	writeBuf := make([]byte, sizePerWrite)
 
 	t := time.NewTimer(e.cfg.FlushDelay.Duration)
 	var flushChan <-chan time.Time
 
-	var seg, nextSeg uint16 = 0, 1 // TODO tmp solution, when start from disk, it'll be replaced
-	var written int64 = 0          // Dirty written in cache.
-	var offset int64 = 0           // Segment offset.
+	var dirty int64 = 0  // Dirty written in cache.
+	var offset int64 = 0 // Segment offset.
+
+	// maxUnflushed is the max count of unflushed objects which have been written into cache.
+	maxUnflushed := sizePerWrite / phyaddr.AddressAlignment
 	unflushedCnt := 0
-	unflushedPut := make([]*putRequest, 0, sizePerWrite/grainSize)
-	unflushedIndex := make([]uint64, 0, sizePerWrite/grainSize)
+	unflushedPut := make([]*writeDataRequest, 0, maxUnflushed)
+	unflushedIndex := make([]uint64, 0, maxUnflushed)
 	for {
-		var pr *putRequest
+		var pr *writeDataRequest
+		var mr *metaUpdatesRequest
 
 		select {
-		case pr = <-e.putChan:
+		case pr = <-e.writeDataChan:
 		default:
+			// Give the last chance for ready goroutines filling chan.
+			runtime.Gosched()
+
 			select {
-			case pr = <-e.putChan:
-			case <-e.stopChan:
-				return
+			case pr = <-e.writeDataChan:
 			case <-flushChan:
-				fj, err2 := e.flushPut(seg, offset, written)
+				// flushWrite flush dirty data in writeBuf, it won't be large, using xio.ReqObjWrite.
+				err := e.flushWrite(xio.ReqObjWrite, offset, writeBuf[:dirty])
+				if err != nil {
+
+				}
 				e.updateIndex(unflushedCnt, unflushedPut, unflushedIndex, err2)
 				unflushedCnt = 0
 				unflushedPut = unflushedPut[:0]
 				unflushedIndex = unflushedIndex[:0]
 
-				offset += written // TODO if err2 is not nil, what's the next?
-				written = 0
+				offset += dirty // TODO if err2 is not nil, what's the next?
+				dirty = 0
 
 				if fj != nil {
 					xio.ReleaseFlushJob(fj)
 				}
 				flushChan = nil
 				continue
+			case mr = <-e.metaUpdateChan:
+
+			case <-e.ctx.Done():
+				return
 			}
 		}
 
@@ -100,7 +115,7 @@ func (e *Extenter) updatesLoop() {
 
 		if wseg == sealedFlag {
 
-			fj, err2 := e.flushPut(seg, offset, written) // Flush any.
+			fj, err2 := e.flushWrite(seg, offset, dirty) // Flush any.
 			e.updateIndex(unflushedCnt, unflushedPut, unflushedIndex, err2)
 
 			unflushedCnt = 0
@@ -111,7 +126,7 @@ func (e *Extenter) updatesLoop() {
 			close(pr.done)
 
 			offset = 0
-			written = 0
+			dirty = 0
 
 			if fj != nil {
 				xio.ReleaseFlushJob(fj)
@@ -121,14 +136,14 @@ func (e *Extenter) updatesLoop() {
 
 		// Written to cache succeed.
 		if wseg != seg { // Means seg is full, written to next seg, flush the last seg first.
-			fj, err2 := e.flushPut(seg, offset, written)
+			fj, err2 := e.flushWrite(seg, offset, dirty)
 			e.updateIndex(unflushedCnt, unflushedPut, unflushedIndex, err2)
 			unflushedCnt = 0
 			unflushedPut = unflushedPut[:0]
 			unflushedIndex = unflushedIndex[:0]
 
 			offset = 0
-			written = 0
+			dirty = 0
 			seg = wseg
 			nextSeg = wseg + 1                                    // TODO should be chosen by extent logic.
 			if nextSeg >= uint16(segmentCnt-defaultReservedSeg) { // TODO tmp solution.
@@ -145,21 +160,51 @@ func (e *Extenter) updatesLoop() {
 		unflushedCnt++
 		unflushedPut = append(unflushedPut, pr)
 		unflushedIndex = append(unflushedIndex, index)
-		written += size
+		dirty += size
 
-		if written >= sizePerWrite {
-			fj, err2 := e.flushPut(seg, offset, written)
+		if dirty >= sizePerWrite {
+			fj, err2 := e.flushWrite(seg, offset, dirty)
 			e.updateIndex(unflushedCnt, unflushedPut, unflushedIndex, err2)
 			unflushedCnt = 0
 			unflushedPut = unflushedPut[:0]
 			unflushedIndex = unflushedIndex[:0]
 
-			offset += written
-			written = 0
+			offset += dirty
+			dirty = 0
 
 			if fj != nil {
 				xio.ReleaseFlushJob(fj)
 			}
 		}
 	}
+}
+
+func (e *Extenter) updateIndex(cnt int, unflushedPut []*putResult, unflushedIndex []uint64, flushErr error) {
+	if flushErr == nil {
+		for i := 0; i < cnt; i++ {
+			index := unflushedIndex[i]
+			err := e.index.insert(uint32(index), uint32(index>>32))
+			if err != nil {
+				unflushedPut[i].err = err
+			}
+			if unflushedPut[i].done != nil {
+				close(unflushedPut[i].done)
+			}
+		}
+	} else {
+		for i := 0; i < cnt; i++ {
+			if unflushedPut[i].done != nil {
+				close(unflushedPut[i].done)
+			}
+		}
+	}
+}
+
+func (e *Extenter) flushWrite(reqType uint64, offset int64, data []byte) error {
+
+	if len(data) == 0 {
+		return nil
+	}
+
+	return e.iosched.DoTimeout(reqType, e.segsFile, offset, data, 0)
 }

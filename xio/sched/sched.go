@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"g.tesamc.com/IT/zaipkg/config"
-	"g.tesamc.com/IT/zaipkg/orpc"
-	"g.tesamc.com/IT/zaipkg/typeutil"
 	"g.tesamc.com/IT/zaipkg/xlog"
 	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zbuf/xio"
@@ -31,9 +29,8 @@ const (
 type Config struct {
 	// The maximum number of concurrent read/write.
 	// Default is DefaultIODepth.
-	IODepth        int               `toml:"io_depth"`
-	QueueConfig    *QueueConfig      `toml:"queue_config"`
-	RequestTimeout typeutil.Duration `toml:"request_timeout"`
+	IODepth     int          `toml:"io_depth"`
+	QueueConfig *QueueConfig `toml:"queue_config"`
 }
 
 // Scheduler is disk I/O scheduler provides fair scheduling with priority classes.
@@ -53,33 +50,17 @@ func (s *Scheduler) DoAsync(reqType uint64, f vfs.File, offset int64, d []byte) 
 	return s.queue.Add(reqType, f, offset, d)
 }
 
-func (s *Scheduler) DoTimeout(reqType uint64, f vfs.File, offset int64, d []byte, timeout time.Duration) (err error) {
-
-	if timeout == 0 {
-		timeout = s.cfg.RequestTimeout.Duration
-	}
+func (s *Scheduler) DoTimeout(reqType uint64, f vfs.File, offset int64, d []byte) (err error) {
 
 	var ar *xio.AsyncRequest
 	if ar, err = s.DoAsync(reqType, f, offset, d); err != nil {
 		return err
 	}
 
-	t := acquireTimer(timeout)
+	<-ar.Done
+	err = ar.Err
+	xio.ReleaseAsyncRequest(ar)
 
-	select {
-	case <-ar.Done:
-		err = ar.Err
-		xio.ReleaseAsyncRequest(ar)
-	case <-t.C:
-		// Cancel will be captured in I/O preparation, AsyncResult will be released there.
-		// Or it has been sent, just waiting for the response.
-		//
-		// If write broken, ar may not be put back to the pool.
-		ar.Cancel()
-		err = orpc.ErrTimeout
-	}
-
-	releaseTimer(t)
 	return
 }
 
@@ -102,7 +83,6 @@ func New(ctx context.Context, stopWg *sync.WaitGroup, cfg *Config) *Scheduler {
 
 func (c *Config) adjust() {
 	config.Adjust(&c.IODepth, DefaultIODepth)
-	config.Adjust(&c.RequestTimeout, xio.DefaultTimeout)
 }
 
 // That balancing is expected to happen over a specific time window,
@@ -146,18 +126,6 @@ func (s *Scheduler) FindRunnableLoop() {
 		}
 
 		if ar == nil {
-			continue
-		}
-
-		if ar.IsCanceled() {
-
-			if ar.Done != nil {
-				ar.Err = orpc.ErrCanceled
-				close(ar.Done)
-			} else {
-				xio.ReleaseAsyncRequest(ar)
-			}
-
 			continue
 		}
 
