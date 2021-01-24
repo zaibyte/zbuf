@@ -5,6 +5,9 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"g.tesamc.com/IT/zaipkg/systimemon"
+	"github.com/templexxx/tsc"
+
 	"g.tesamc.com/IT/zbuf/vdisk"
 
 	v1 "g.tesamc.com/IT/zbuf/extent/v1"
@@ -80,6 +83,11 @@ func (s *Server) addHandlers() {
 
 // TODO should start tsc.Calibrate()
 func (s *Server) Run() error {
+
+	go systimemon.StartMonitor(s.ctx, tsc.UnixNano, func() {
+		xlog.Error("system time jumps backward")
+		timeJumpBackCounter.Inc()
+	})
 
 	err := s.objSvr.Start()
 	if err != nil {

@@ -1,6 +1,4 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
-g.tesamc.com/IT/zaipkg v0.0.0-20210120045128-ec1b43842a75 h1:qOylhaO/Hrdlbt3ZQRUXUKHv3QMCi1xD0QQcMHMBDU0=
-g.tesamc.com/IT/zaipkg v0.0.0-20210120045128-ec1b43842a75/go.mod h1:+FAB5LPTjccJdT9SK/4n0uFewM84P5vlPDJgwiTQ2bU=
 g.tesamc.com/IT/zaipkg v0.0.0-20210124012827-c1d080568ae1 h1:su6hPyU/rg728P2UlIz/a2JHRgSPab7jJBIyDJth1WU=
 g.tesamc.com/IT/zaipkg v0.0.0-20210124012827-c1d080568ae1/go.mod h1:+FAB5LPTjccJdT9SK/4n0uFewM84P5vlPDJgwiTQ2bU=
 g.tesamc.com/IT/zproto v0.0.0-20210114071438-1018be4c55d3 h1:T9uNHqRS9Bf0KtAOmVEKHDjlRW9vOjskccyyU1BsW8s=
@@ -10,6 +8,8 @@ g.tesamc.com/IT/zproto v0.0.0-20210122211359-f61643216a51/go.mod h1:unN6cXdfgSoM
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
+github.com/VictoriaMetrics/metrics v1.12.3 h1:Fe6JHC6MSEKa+BtLhPN8WIvS+HKPzMc2evEpNeCGy7I=
+github.com/VictoriaMetrics/metrics v1.12.3/go.mod h1:Z1tSfPfngDn12bTfZSCqArT3OPY3u88J12hSoOhuiRE=
 github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
@@ -138,6 +138,10 @@ github.com/templexxx/xhex v0.0.0-20200614015412-aed53437177b h1:XeDLE6c9mzHpdv3W
 github.com/templexxx/xhex v0.0.0-20200614015412-aed53437177b/go.mod h1:7rwmCH0wC2fQvNEvPZ3sKXukhyCTyiaZ5VTZMQYpZKQ=
 github.com/urfave/negroni/v2 v2.0.2 h1:27gJcVxYJ2a/ytEoCHoJ7ybvyhymV4cAhGuMxkyCsrU=
 github.com/urfave/negroni/v2 v2.0.2/go.mod h1:SjdApKzYrObukpN/NnlejbQiZWIUjfDFzQltScGYigI=
+github.com/valyala/fastrand v1.0.0 h1:LUKT9aKer2dVQNUi3waewTbKV+7H17kvWFNKs2ObdkI=
+github.com/valyala/fastrand v1.0.0/go.mod h1:HWqCzkrkg6QXT8V2EXWvXCoow7vLwOFN002oeRzjapQ=
+github.com/valyala/histogram v1.1.2 h1:vOk5VrGjMBIoPR5k6wA8vBaC8toeJ8XO0yfRjFEc1h8=
+github.com/valyala/histogram v1.1.2/go.mod h1:CZAr6gK9dbD7hYx2s8WSPh0p5x5wETjC+2b3PJVtEdg=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/zaibyte/nanozap v0.0.3 h1:opOIFFHu63sXu2FqiCcPFptNL68z8x/scHCunYR4vnE=
 github.com/zaibyte/nanozap v0.0.3/go.mod h1:sObsuIlWGRGkBrAyHMtJR1DzUGPKU9asgvwbYWa3nwQ=
