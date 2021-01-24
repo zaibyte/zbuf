@@ -16,6 +16,8 @@ import (
 // if it's checksum mismatched -> extent broken.
 // if it's disk/filesystem error -> disk broken.
 // TODO is it slow?
+// TODO checksum error enough for extent
+// TODO it's better to deal with this error in extent
 func (s *Server) handleIOError(err error, extID, diskID uint32) {
 	if errors.Is(err, orpc.ErrChecksumMismatch) {
 		v, ok := s.extenters.Load(extID)

@@ -43,6 +43,7 @@ func getExtDirParent(extDir string) string {
 // createExtent creates new extent.
 func (s *Server) createExtent(version uint16, extID, diskID uint32) (err error) {
 
+	// TODO create failed should clean up all dir & files but not search the extinfo
 	defer func() {
 		if err != nil {
 			s.handleIOError(err, extID, diskID)
