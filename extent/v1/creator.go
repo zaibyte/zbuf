@@ -74,12 +74,12 @@ func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, ins
 			DiskId:     diskID,
 			InstanceId: instanceID,
 		}},
-		iosched: c.iosched,
-		segFile: segFile,
-		phyAddr: phyAddr,
+		iosched:  c.iosched,
+		segsFile: segFile,
+		phyAddr:  phyAddr,
 
-		putChan:  make(chan *putRequest, c.cfg.PutPending),
-		metaChan: make(chan *metaRequest, c.cfg.PutPending), // Shares same config.
+		writeDataChan:  make(chan *writeDataRequest, c.cfg.PutPending),
+		metaUpdateChan: make(chan *metaUpdatesRequest, c.cfg.PutPending), // Shares same config.
 
 		ctx:    ctx,
 		stopWg: wg,
@@ -123,12 +123,12 @@ func (c *Creator) Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, insta
 			DiskId:     diskID,
 			InstanceId: instanceID,
 		}},
-		iosched: c.iosched,
-		segFile: segFile,
-		phyAddr: phyAddr,
+		iosched:  c.iosched,
+		segsFile: segFile,
+		phyAddr:  phyAddr,
 
-		putChan:  make(chan *putRequest, c.cfg.PutPending),
-		metaChan: make(chan *metaRequest, c.cfg.PutPending), // Shares same config.
+		writeDataChan:  make(chan *writeDataRequest, c.cfg.PutPending),
+		metaUpdateChan: make(chan *metaUpdatesRequest, c.cfg.PutPending), // Shares same config.
 
 		ctx:    ctx,
 		stopWg: wg,

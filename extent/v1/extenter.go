@@ -49,6 +49,10 @@ type Extenter struct {
 	info   *extent.Info
 	header *Header
 
+	// TODO init it if there is existed extent and a snap
+	writableSeg    int64
+	writableCursor int64
+
 	dirtyUpdates        int64 // dirtyUpdates is the count of phy_addr changes haven't flushed to disk.
 	isMakingPhyAddrSnap int64 // 1 is true.
 	// lastPhyAddrSnap is the last Phy_Addr snapshot.
@@ -56,14 +60,14 @@ type Extenter struct {
 	// lastPhyAddrSnapshotTS stores the timestamp of the last synced phy_addr snapshot created time.
 	lastPhyAddrSnapshotTS int64
 
-	iosched xio.Scheduler
-	segFile vfs.File
-	phyAddr *phyaddr.PhyAddr
+	iosched  xio.Scheduler
+	segsFile vfs.File
+	phyAddr  *phyaddr.PhyAddr
 
 	// TODO write-back cache
 
-	putChan  chan<- *putRequest
-	metaChan chan<- *metaRequest
+	writeDataChan  chan *writeDataRequest
+	metaUpdateChan chan *metaUpdatesRequest
 
 	ctx    context.Context
 	stopWg *sync.WaitGroup
