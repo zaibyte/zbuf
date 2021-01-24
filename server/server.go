@@ -2,8 +2,12 @@ package server
 
 import (
 	"context"
+	"net/http"
 	"sync"
 	"sync/atomic"
+
+	"github.com/VictoriaMetrics/metrics"
+	"github.com/julienschmidt/httprouter"
 
 	"g.tesamc.com/IT/zaipkg/systimemon"
 	"github.com/templexxx/tsc"
@@ -79,6 +83,11 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 
 func (s *Server) addHandlers() {
 	s.addOpHandlers()
+
+	// Add prometheus metrics handler.
+	s.opSvr.AddHandler(http.MethodGet, "/v1/metrics", func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
+		metrics.WritePrometheus(w, true)
+	})
 }
 
 // TODO should start tsc.Calibrate()
