@@ -47,6 +47,11 @@ const (
 	MaxCap = 1 << 25 // In case collision.
 )
 
+const (
+	// AddressAlignment is the PhyAddr address alignment size.
+	AddressAlignment = 16 * 1024 // 16 KiB
+)
+
 // PhyAddr is extent/v1 digest:address mapping.
 // Providing Lock-free Write & Wait-free Read.
 type PhyAddr struct {
