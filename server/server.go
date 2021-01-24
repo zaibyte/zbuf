@@ -86,7 +86,7 @@ func (s *Server) addHandlers() {
 
 	// Add prometheus metrics handler.
 	s.opSvr.AddHandler(http.MethodGet, "/v1/metrics", func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
-		metrics.WritePrometheus(w, true)
+		metrics.WritePrometheus(w, s.cfg.ExposeProcessMetrics)
 	})
 }
 
