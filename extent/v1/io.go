@@ -300,6 +300,7 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 			coHeader.WritableHistoryNextIdx++
 			err := e.header.Store(e.info.GetState())
 			if err != nil {
+				coHeader.WritableHistoryNextIdx-- // Backwards for avoiding inconsistency.
 				return -1, xerrors.WithMessage(err, "store header failed")
 			}
 			return int64(next), nil
