@@ -2,8 +2,14 @@ package v1
 
 import (
 	"encoding/binary"
+	"errors"
 	"runtime"
 	"time"
+
+	"g.tesamc.com/IT/zproto/pkg/metapb"
+
+	"g.tesamc.com/IT/zaipkg/diskutil"
+	"g.tesamc.com/IT/zaipkg/xerrors"
 
 	"g.tesamc.com/IT/zbuf/extent/v1/phyaddr"
 
@@ -41,7 +47,7 @@ type metaUpdatesRequest struct {
 func (e *Extenter) updatesLoop() {
 	defer e.stopWg.Done()
 
-	sizePerWrite := e.cfg.WriteBufferSize
+	sizePerWrite := e.cfg.SizePerWrite
 	writeBuf := make([]byte, sizePerWrite)
 
 	t := time.NewTimer(e.cfg.FlushDelay.Duration)
@@ -52,8 +58,8 @@ func (e *Extenter) updatesLoop() {
 	// maxUnflushed is the max count of unflushed objects which have been written into cache.
 	maxUnflushed := sizePerWrite / phyaddr.AddressAlignment
 	unflushedCnt := 0
-	unflushedPut := make([]*writeDataRequest, 0, maxUnflushed)
-	unflushedIndex := make([]uint64, 0, maxUnflushed)
+	unflushedWrite := make([]*writeDataRequest, 0, maxUnflushed)
+	unflushedWritePhyAddr := make([]uint64, 0, maxUnflushed)
 	for {
 		var pr *writeDataRequest
 		var mr *metaUpdatesRequest
@@ -71,20 +77,22 @@ func (e *Extenter) updatesLoop() {
 				offset := e.writableSeg*int64(e.cfg.SegmentSize) + e.writableCursor // TODO how to deal with seg changing.
 				err := e.flushWrite(xio.ReqObjWrite, offset, writeBuf[:dirty])
 				if err != nil {
-
+					for i := 0; i < unflushedCnt; i++ {
+						if unflushedWrite[i].done != nil {
+							unflushedWrite[i].err = err
+							close(unflushedWrite[i].done)
+						}
+					}
 				} else {
-					e.updateIndex(unflushedCnt, unflushedPut, unflushedIndex)
+					e.updateIndex(unflushedCnt, unflushedWrite, unflushedWritePhyAddr)
 				}
 				unflushedCnt = 0
-				unflushedPut = unflushedPut[:0]
-				unflushedIndex = unflushedIndex[:0]
+				unflushedWrite = unflushedWrite[:0]
+				unflushedWritePhyAddr = unflushedWritePhyAddr[:0]
 
 				offset += dirty // TODO if err2 is not nil, what's the next?
 				dirty = 0
 
-				if fj != nil {
-					xio.ReleaseFlushJob(fj)
-				}
 				flushChan = nil
 				continue
 			case mr = <-e.metaUpdateChan:
@@ -114,11 +122,11 @@ func (e *Extenter) updatesLoop() {
 		if wseg == sealedFlag {
 
 			fj, err2 := e.flushWrite(seg, offset, dirty) // Flush any.
-			e.updateIndex(unflushedCnt, unflushedPut, unflushedIndex, err2)
+			e.updateIndex(unflushedCnt, unflushedWrite, unflushedWritePhyAddr, err2)
 
 			unflushedCnt = 0
-			unflushedPut = unflushedPut[:0]
-			unflushedIndex = unflushedIndex[:0]
+			unflushedWrite = unflushedWrite[:0]
+			unflushedWritePhyAddr = unflushedWritePhyAddr[:0]
 
 			pr.err = orpc.ErrExtentFull
 			close(pr.done)
@@ -135,10 +143,10 @@ func (e *Extenter) updatesLoop() {
 		// Written to cache succeed.
 		if wseg != seg { // Means seg is full, written to next seg, flush the last seg first.
 			fj, err2 := e.flushWrite(seg, offset, dirty)
-			e.updateIndex(unflushedCnt, unflushedPut, unflushedIndex, err2)
+			e.updateIndex(unflushedCnt, unflushedWrite, unflushedWritePhyAddr, err2)
 			unflushedCnt = 0
-			unflushedPut = unflushedPut[:0]
-			unflushedIndex = unflushedIndex[:0]
+			unflushedWrite = unflushedWrite[:0]
+			unflushedWritePhyAddr = unflushedWritePhyAddr[:0]
 
 			offset = 0
 			dirty = 0
@@ -156,16 +164,16 @@ func (e *Extenter) updatesLoop() {
 		addr := (uint32(wseg)*uint32(e.cfg.SegmentSize) + uint32(off)) / grainSize
 		index := uint64(addr)<<32 | uint64(digest)
 		unflushedCnt++
-		unflushedPut = append(unflushedPut, pr)
-		unflushedIndex = append(unflushedIndex, index)
+		unflushedWrite = append(unflushedWrite, pr)
+		unflushedWritePhyAddr = append(unflushedWritePhyAddr, index)
 		dirty += size
 
 		if dirty >= sizePerWrite {
 			fj, err2 := e.flushWrite(seg, offset, dirty)
-			e.updateIndex(unflushedCnt, unflushedPut, unflushedIndex, err2)
+			e.updateIndex(unflushedCnt, unflushedWrite, unflushedWritePhyAddr, err2)
 			unflushedCnt = 0
-			unflushedPut = unflushedPut[:0]
-			unflushedIndex = unflushedIndex[:0]
+			unflushedWrite = unflushedWrite[:0]
+			unflushedWritePhyAddr = unflushedWritePhyAddr[:0]
 
 			offset += dirty
 			dirty = 0
@@ -204,7 +212,21 @@ func (e *Extenter) flushWrite(reqType uint64, offset int64, data []byte) error {
 		return nil
 	}
 
-	return e.iosched.DoTimeout(reqType, e.segsFile, offset, data)
+	err := e.iosched.DoSync(reqType, e.segsFile, offset, data)
+	if err != nil {
+		if !errors.Is(err, orpc.ErrRequestQueueOverflow) { // Except overflow, it must be extent/disk broken.
+			if diskutil.IsBroken(err) {
+				e.diskInfo.SetState(metapb.DiskState_Disk_Broken, false)
+			}
+			// It must be extent broken.
+			e.info.SetState(metapb.ExtentState_Extent_Broken, false)
+			_ = e.Close()
+			err = xerrors.WithMessage(orpc.ErrDiskBroken, err.Error())
+			e.cleanUpdates(err)
+		}
+		return err
+	}
+	return nil
 }
 
 // cleanUpdates cleans updates channels.
