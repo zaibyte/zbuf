@@ -28,7 +28,7 @@ func TestHeader_MaxMarshalLen(t *testing.T) {
 	for i := range h.WritableHistoryTS {
 		h.WritableHistoryTS[i] = math.MaxInt64
 	}
-	h.WritableHistoryNextIdx = 31
+	h.WritableHistoryNextIdx = math.MaxInt64
 
 	n, err := h.MarshalLen()
 	if err != nil {
