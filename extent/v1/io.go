@@ -50,8 +50,7 @@ func (e *Extenter) updatesLoop() {
 	t := time.NewTimer(e.cfg.FlushDelay.Duration)
 	var flushChan <-chan time.Time
 
-	var dirty int64 = 0  // Dirty written in cache.
-	var offset int64 = 0 // Segment offset.
+	var dirty int64 = 0 // Dirty written in cache.
 
 	// maxUnflushed is the max count of unflushed objects which have been written into cache.
 	maxUnflushed := sizePerWrite / phyaddr.AddressAlignment
@@ -72,11 +71,13 @@ func (e *Extenter) updatesLoop() {
 			case pr = <-e.writeDataChan:
 			case <-flushChan:
 				// flushWrite flush dirty data in writeBuf, it won't be large, using xio.ReqObjWrite.
+				offset := e.writableSeg*int64(e.cfg.SegmentSize) + e.writableCursor // TODO how to deal with seg changing.
 				err := e.flushWrite(xio.ReqObjWrite, offset, writeBuf[:dirty])
 				if err != nil {
 
+				} else {
+					e.updateIndex(unflushedCnt, unflushedPut, unflushedIndex)
 				}
-				e.updateIndex(unflushedCnt, unflushedPut, unflushedIndex, err2)
 				unflushedCnt = 0
 				unflushedPut = unflushedPut[:0]
 				unflushedIndex = unflushedIndex[:0]
@@ -206,5 +207,5 @@ func (e *Extenter) flushWrite(reqType uint64, offset int64, data []byte) error {
 		return nil
 	}
 
-	return e.iosched.DoTimeout(reqType, e.segsFile, offset, data, 0)
+	return e.iosched.DoTimeout(reqType, e.segsFile, offset, data)
 }
