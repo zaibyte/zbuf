@@ -3,7 +3,6 @@ package v1
 import (
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"runtime"
 
 	"github.com/templexxx/tsc"
@@ -57,6 +56,10 @@ func (e *Extenter) updatesLoop() {
 	writeBuf := directio.AlignedBlock(4*1024*1024 + 4*1024*1024)
 	segSize := int64(e.cfg.SegmentSize)
 	for {
+		if e.info.GetState() == metapb.ExtentState_Extent_Broken {
+			return
+		}
+
 		var pr *writeDataRequest
 		var mr *metaUpdatesRequest
 
@@ -76,11 +79,18 @@ func (e *Extenter) updatesLoop() {
 		}
 
 		if pr != nil {
-			// get seg cursor
-			cursor := e.writableCursor
-			if cursor+int64(len(pr.objData.Bytes()))+oidSizeInSeg > segSize {
-
+			if e.writableCursor+int64(len(pr.objData.Bytes()))+oidSizeInSeg > segSize {
+				nextSeg, err := e.getNextWritableSeg(e.writableSeg)
+				if err != nil {
+					_ = e.handleError(err)
+					continue
+				}
+				e.writableSeg = nextSeg
+				e.writableCursor = 0
 			}
+			wseg := e.writableSeg
+			cursor := e.writableCursor
+
 			// if not enough, next seg, cursor = 0
 			// write to, cursor += written size
 			// TODO how to deal with oid 4K?
@@ -197,19 +207,24 @@ func (e *Extenter) flushWrite(reqType uint64, offset int64, data []byte) error {
 
 	err := e.iosched.DoSync(reqType, e.segsFile, offset, data)
 	if err != nil {
-		if !errors.Is(err, orpc.ErrRequestQueueOverflow) { // Except overflow, it must be extent/disk broken.
-			if diskutil.IsBroken(err) {
-				e.diskInfo.SetState(metapb.DiskState_Disk_Broken, false)
-			}
-			// It must be extent broken.
-			e.info.SetState(metapb.ExtentState_Extent_Broken, false)
-			_ = e.Close()
-			err = xerrors.WithMessage(orpc.ErrDiskBroken, err.Error())
-			e.cleanUpdates(err)
-		}
+		err = e.handleError(err)
 		return err
 	}
 	return nil
+}
+
+func (e *Extenter) handleError(err error) error {
+	if !errors.Is(err, orpc.ErrRequestQueueOverflow) { // Except overflow, it must be extent/disk broken.
+		if diskutil.IsBroken(err) {
+			e.diskInfo.SetState(metapb.DiskState_Disk_Broken, false)
+		}
+		// It must be extent broken.
+		e.info.SetState(metapb.ExtentState_Extent_Broken, false)
+		_ = e.Close()
+		err = xerrors.WithMessage(orpc.ErrDiskBroken, err.Error())
+		e.cleanUpdates(err)
+	}
+	return err
 }
 
 // cleanUpdates cleans updates channels.
@@ -221,21 +236,28 @@ func (e *Extenter) flushWrite(reqType uint64, offset int64, data []byte) error {
 // 1. set extent broken
 // 2. call it inside updatesLoop(only consumer), this will help the unconsumed message count is correct.
 func (e *Extenter) cleanUpdates(err error) {
-	n := len(e.writeDataChan)
-	for i := 0; i < n; i++ {
-		r := <-e.writeDataChan
-		if r.done != nil {
-			r.err = err
-			close(r.done)
+
+	if e.writeDataChan != nil {
+		n := len(e.writeDataChan)
+		for i := 0; i < n; i++ {
+			r := <-e.writeDataChan
+			if r.done != nil {
+				r.err = err
+				// There maybe some new requests, leaving them to GC.
+				// Closing here may cause panic, because there maybe goroutines want to send message to this chan.
+				// close(r.done)
+			}
 		}
 	}
 
-	n = len(e.metaUpdateChan)
-	for i := 0; i < n; i++ {
-		r := <-e.metaUpdateChan
-		if r.done != nil {
-			r.err = err
-			close(r.done)
+	if e.metaUpdateChan != nil {
+		n := len(e.metaUpdateChan)
+		for i := 0; i < n; i++ {
+			r := <-e.metaUpdateChan
+			if r.done != nil {
+				r.err = err
+				// close(r.done)
+			}
 		}
 	}
 }
@@ -273,7 +295,7 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 			coHeader.WritableHistoryNextIdx++
 			err := e.header.Store(e.info.GetState())
 			if err != nil {
-				return -1, xerrors.WithMessage(orpc.ErrExtentBroken, fmt.Sprintf("store header failed: %s", err.Error()))
+				return -1, xerrors.WithMessage(err, "store header failed")
 			}
 			return int64(next), nil
 		}
