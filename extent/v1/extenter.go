@@ -61,8 +61,8 @@ type Extenter struct {
 	isMakingPhyAddrSnap int64 // 1 is true.
 	// lastPhyAddrSnap is the last Phy_Addr snapshot.
 	lastPhyAddrSnap *colf.PhyAddrSnap
-	// lastPhyAddrSnapshotTS stores the timestamp of the last synced phy_addr snapshot created time.
-	lastPhyAddrSnapshotTS int64
+	// lastPhyAddrSnapSyncTS stores the timestamp of the last synced phy_addr snapshot created time.
+	lastPhyAddrSnapSyncTS int64
 
 	iosched  xio.Scheduler
 	segsFile vfs.File

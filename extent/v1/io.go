@@ -4,14 +4,15 @@ import (
 	"encoding/binary"
 	"errors"
 	"runtime"
-	"time"
+
+	"github.com/templexxx/tsc"
+
+	"g.tesamc.com/IT/zaipkg/directio"
 
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 
 	"g.tesamc.com/IT/zaipkg/diskutil"
 	"g.tesamc.com/IT/zaipkg/xerrors"
-
-	"g.tesamc.com/IT/zbuf/extent/v1/phyaddr"
 
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/xbytes"
@@ -47,19 +48,13 @@ type metaUpdatesRequest struct {
 func (e *Extenter) updatesLoop() {
 	defer e.stopWg.Done()
 
-	sizePerWrite := e.cfg.SizePerWrite
-	writeBuf := make([]byte, sizePerWrite)
+	// TODO in present, we won't split write. See https://g.tesamc.com/IT/zbuf/issues/104 for details.
+	// sizePerWrite := e.cfg.SizePerWrite
 
-	t := time.NewTimer(e.cfg.FlushDelay.Duration)
-	var flushChan <-chan time.Time
-
-	var dirty int64 = 0 // Dirty written in cache.
-
-	// maxUnflushed is the max count of unflushed objects which have been written into cache.
-	maxUnflushed := sizePerWrite / phyaddr.AddressAlignment
-	unflushedCnt := 0
-	unflushedWrite := make([]*writeDataRequest, 0, maxUnflushed)
-	unflushedWritePhyAddr := make([]uint64, 0, maxUnflushed)
+	// writeBuf is 4MB + 4KB, 4KB for oid.
+	// It's the max space of an object could take.
+	writeBuf := directio.AlignedBlock(4*1024*1024 + 4*1024*1024)
+	segSize := int64(e.cfg.SegmentSize)
 	for {
 		var pr *writeDataRequest
 		var mr *metaUpdatesRequest
@@ -72,29 +67,6 @@ func (e *Extenter) updatesLoop() {
 
 			select {
 			case pr = <-e.writeDataChan:
-			case <-flushChan:
-				// flushWrite flush dirty data in writeBuf, it won't be large, using xio.ReqObjWrite.
-				offset := e.writableSeg*int64(e.cfg.SegmentSize) + e.writableCursor // TODO how to deal with seg changing.
-				err := e.flushWrite(xio.ReqObjWrite, offset, writeBuf[:dirty])
-				if err != nil {
-					for i := 0; i < unflushedCnt; i++ {
-						if unflushedWrite[i].done != nil {
-							unflushedWrite[i].err = err
-							close(unflushedWrite[i].done)
-						}
-					}
-				} else {
-					e.updateIndex(unflushedCnt, unflushedWrite, unflushedWritePhyAddr)
-				}
-				unflushedCnt = 0
-				unflushedWrite = unflushedWrite[:0]
-				unflushedWritePhyAddr = unflushedWritePhyAddr[:0]
-
-				offset += dirty // TODO if err2 is not nil, what's the next?
-				dirty = 0
-
-				flushChan = nil
-				continue
 			case mr = <-e.metaUpdateChan:
 
 			case <-e.ctx.Done():
@@ -102,9 +74,19 @@ func (e *Extenter) updatesLoop() {
 			}
 		}
 
-		if flushChan == nil {
-			flushChan = getFlushChan(t, e.flushDelay)
+		if pr != nil {
+			// get seg cursor
+			cursor := e.writableCursor
+			if cursor+int64(len(pr.objData.Bytes()))+oidSizeInSeg > segSize {
+
+			}
+			// if not enough, next seg, cursor = 0
+			// write to, cursor += written size
+			// TODO how to deal with oid 4K?
+			continue
 		}
+
+		// mr must not be nil
 
 		if pr.done == nil {
 			releasePutResult(pr)
@@ -253,6 +235,37 @@ func (e *Extenter) cleanUpdates(err error) {
 		if r.done != nil {
 			r.err = err
 			close(r.done)
+		}
+	}
+}
+
+// isPhyAddrSnapBehind checks phy_addr snapshot is too far behind new writable segment.
+func (e *Extenter) isPhyAddrSnapBehind() bool {
+
+	snapIdx := e.lastPhyAddrSnap.WritableHistoryIdx
+	coHeader := e.header.coHeader
+
+	if coHeader.WritableHistoryNextIdx-32 >= snapIdx {
+		return false
+	}
+	return true
+}
+
+// getNextWritableSeg gets the next writable segment for writing,
+// return -1 if could not find.
+// Sync if there is new changes.
+func (e *Extenter) getNextWritableSeg(last int64) int64 {
+
+	coHeader := e.header.coHeader
+	for i, state := range coHeader.SegStates {
+		if state == segReady {
+			next := i
+			coHeader.SegStates[i] = segWritable
+			coHeader.SegStates[last] = segSealed
+			coHeader.SealedTS[last] = tsc.UnixNano()
+			coHeader.WritableHistory[coHeader.WritableHistoryNextIdx] = byte(next)
+			coHeader.WritableHistoryTS[coHeader.WritableHistoryNextIdx] = tsc.UnixNano()
+			coHeader.WritableHistoryNextIdx++
 		}
 	}
 }
