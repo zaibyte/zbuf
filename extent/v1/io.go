@@ -10,7 +10,6 @@ import (
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zbuf/xio"
-	"github.com/zaibyte/zbuf/xio"
 )
 
 // TODO io update could support no data just index updates for (GC will write data by its own, but index should follow
@@ -22,9 +21,8 @@ type writeDataRequest struct {
 	oid     uint64
 	objData xbytes.Buffer
 
-	canceled uint32
-	done     chan struct{}
-	err      error
+	done chan struct{}
+	err  error
 }
 
 // Including deletion & GC.
@@ -33,9 +31,8 @@ type metaUpdatesRequest struct {
 	isRemove bool   // Remove request, otherwise is GC.
 	newAddr  uint32 // GC will move object to a new address.
 
-	canceled uint32
-	done     chan struct{}
-	err      error
+	done chan struct{}
+	err  error
 }
 
 // TODO any updates methods will have a parm indicates force to do,
@@ -208,4 +205,32 @@ func (e *Extenter) flushWrite(reqType uint64, offset int64, data []byte) error {
 	}
 
 	return e.iosched.DoTimeout(reqType, e.segsFile, offset, data)
+}
+
+// cleanUpdates cleans updates channels.
+// When extenter is broken, we should forbidden any updates,
+// but there maybe already requests sent into channel are waiting for the GC,
+// we could call cleanUpdates to cancel them all, the user-facing thread will
+// get response faster.
+// Usage:
+// 1. set extent broken
+// 2. call it inside updatesLoop(only consumer), this will help the unconsumed message count is correct.
+func (e *Extenter) cleanUpdates(err error) {
+	n := len(e.writeDataChan)
+	for i := 0; i < n; i++ {
+		r := <-e.writeDataChan
+		if r.done != nil {
+			r.err = err
+			close(r.done)
+		}
+	}
+
+	n = len(e.metaUpdateChan)
+	for i := 0; i < n; i++ {
+		r := <-e.metaUpdateChan
+		if r.done != nil {
+			r.err = err
+			close(r.done)
+		}
+	}
 }
