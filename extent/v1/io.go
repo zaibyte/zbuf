@@ -79,11 +79,18 @@ func (e *Extenter) updatesLoop() {
 		}
 
 		if wr != nil {
+			if e.info.GetState() == metapb.ExtentState_Extent_Full {
+				wr.err = orpc.ErrExtentFull
+				close(wr.done)
+				continue
+			}
+
 			if e.writableCursor+int64(len(wr.objData.Bytes()))+oidSizeInSeg > segSize {
 				nextSeg, err := e.getNextWritableSeg(e.writableSeg)
 				if err != nil {
 					_ = e.handleError(err)
-					releasePutResult(wr)
+					wr.err = err
+					close(wr.done)
 					continue
 				}
 				e.writableSeg = nextSeg
@@ -98,7 +105,8 @@ func (e *Extenter) updatesLoop() {
 			err := e.flushWrite(wr.reqType, offset, writeBuf[:oidSizeInSeg+len(objData)])
 			if err != nil {
 				_ = e.handleError(err)
-				releasePutResult(wr)
+				wr.err = err
+				close(wr.done)
 				continue
 			}
 
@@ -236,14 +244,19 @@ func (e *Extenter) handleError(err error) error {
 			xlog.Error(fmt.Sprintf("disk: %d is broken: %s", e.diskInfo.PbDisk.Id, err.Error()))
 			e.diskInfo.SetState(metapb.DiskState_Disk_Broken, false)
 		}
-		// It must be extent broken.
-		xlog.Error(fmt.Sprintf("extent: %d is broken: %s", e.info.PbExt.Id, err.Error()))
-		changed := e.info.SetState(metapb.ExtentState_Extent_Broken, false)
-		_ = e.Close()
-		err = xerrors.WithMessage(orpc.ErrDiskBroken, err.Error())
+
+		state := metapb.ExtentState_Extent_Broken
+		if errors.Is(err, orpc.ErrExtentFull) {
+			state = metapb.ExtentState_Extent_Full
+		}
+		xlog.Error(fmt.Sprintf("extent: %d is %s: %s", e.info.PbExt.Id, state.String(), err.Error()))
+		changed := e.info.SetState(state, false)
+		if state == metapb.ExtentState_Extent_Broken {
+			_ = e.Close()
+		}
 		e.cleanUpdates(err)
 		if changed {
-			_ = e.header.Store(metapb.ExtentState_Extent_Broken)
+			_ = e.header.Store(state)
 		}
 	}
 	return err
@@ -302,7 +315,8 @@ func (e *Extenter) isPhyAddrSnapBehind() bool {
 func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 
 	if e.isPhyAddrSnapBehind() {
-		return -1, xerrors.WithMessage(orpc.ErrExtentBroken, "phy_addr snapshot flushing too slow")
+		err := xerrors.WithMessage(orpc.ErrExtentBroken, "phy_addr snapshot flushing too slow")
+		return -1, err
 	}
 
 	coHeader := e.header.coHeader
@@ -318,12 +332,14 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 			err := e.header.Store(e.info.GetState())
 			if err != nil {
 				coHeader.WritableHistoryNextIdx-- // Backwards for avoiding inconsistency.
-				return -1, xerrors.WithMessage(err, "store header failed")
+				err = xerrors.WithMessage(err, "store header failed")
+				return -1, err
 			}
 			return int64(next), nil
 		}
 	}
-	return -1, orpc.ErrExtentFull
+	err := orpc.ErrExtentFull
+	return -1, err
 }
 
 var writeDataRequestPool sync.Pool
