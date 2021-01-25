@@ -50,7 +50,7 @@ func (s *Scheduler) DoAsync(reqType uint64, f vfs.File, offset int64, d []byte) 
 	return s.queue.Add(reqType, f, offset, d)
 }
 
-func (s *Scheduler) DoTimeout(reqType uint64, f vfs.File, offset int64, d []byte) (err error) {
+func (s *Scheduler) DoSync(reqType uint64, f vfs.File, offset int64, d []byte) (err error) {
 
 	var ar *xio.AsyncRequest
 	if ar, err = s.DoAsync(reqType, f, offset, d); err != nil {
@@ -150,6 +150,8 @@ func (s *Scheduler) FindRunnableLoop() {
 				if err == nil {
 					// I don't want update ctime, utime etc. at the same time.
 					// The file size is pre-allocated, data sync is enough.
+					// (data sync will allocate space too, even we've already used pre-allocate,
+					// some file system are using lazy allocation)
 					err = vfs.Fdatasync(ar.File)
 				}
 			}
