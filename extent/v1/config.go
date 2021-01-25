@@ -2,17 +2,16 @@ package v1
 
 import (
 	"g.tesamc.com/IT/zaipkg/config"
-	"g.tesamc.com/IT/zaipkg/typeutil"
 )
 
 // There are default configs for eva.
 const (
-	defaultFlushDelay = -1  // Flush immediately. Rely on disk latency.
 	defaultPutPending = 512 // Each extent has 512 pending put, same as default Scheduler pending.
 	// 128KB is enough for NVMe device read/write sequentially.
-	defaultWriteBufferSize = 128 * 1024
-	defaultReadBufferSize  = 128 * 1024
-	defaultSegmentSize     = 1024 * 1024 * 1024 // 1GiB.
+	// Too big value may block other requests too long.
+	defaultSizePerWrite = 128 * 1024
+	defaultSizePerRead  = 128 * 1024
+	defaultSegmentSize  = 1024 * 1024 * 1024 // 1GiB.
 	// Each extent has the same segment count: 256.
 	// Warn:
 	// Don't change it, because in present there are some hard codes are using 256 directly.
@@ -50,20 +49,11 @@ type Config struct {
 
 	// PutPending is put request queue size.
 	PutPending int `toml:"put_pending"`
-	// Delay between request flushes.
-	//
-	// Negative values lead to immediate requests' sending to the filesystem
-	// without their buffering. This minimizes latency at the cost
-	// of higher CPU and disk usage.
-	//
-	// Default value is defaultFlushDelay.
-	FlushDelay typeutil.Duration `toml:"flush_delay"`
-	// Size of write buffer per writes in bytes.
-	// Default value is defaultWriteBufferSize.
-	WriteBufferSize int `toml:"write_buffer_size"`
+
+	// Size of per writes in bytes.
+	SizePerWrite int `toml:"size_per_write"`
 	// Size of write buffer per reads in bytes.
-	// Default value is defaultReadBufferSize.
-	ReadBufferSize int `toml:"read_buffer_size"`
+	SizePerRead int `toml:"size_per_read"`
 
 	// MaxDirtyCount is the maximum dirty updates in phy_addr(memory) which we could tolerate,
 	// if the dirty_count > MaxDirtyCount we should trigger a snapshot making event.
@@ -74,8 +64,7 @@ func (cfg *Config) adjust() {
 	config.Adjust(&cfg.SegmentSize, defaultSegmentSize)
 	config.Adjust(&cfg.ReservedSeg, defaultReservedSeg)
 	config.Adjust(&cfg.PutPending, defaultPutPending)
-	config.Adjust(&cfg.FlushDelay, defaultFlushDelay)
-	config.Adjust(&cfg.WriteBufferSize, defaultWriteBufferSize)
-	config.Adjust(&cfg.ReadBufferSize, defaultReadBufferSize)
+	config.Adjust(&cfg.SizePerWrite, defaultSizePerWrite)
+	config.Adjust(&cfg.SizePerRead, defaultSizePerRead)
 	config.Adjust(&cfg.MaxDirtyCount, defaultMaxDirtyCount)
 }
