@@ -1,5 +1,18 @@
 package v1
 
+// Segments layout on local file system:
+//
+// Address   4KB
+// | oid(8B)  |  object_data |
+//
+// Address is aligned to 16KB.
+// oid takes 4KB
+// object_data is started at Address + 4KB.
+
+const (
+	oidSizeInSeg = 4 * 1024
+)
+
 // Segment states.
 const (
 	// At the beginning, segment is ready or reserved.
@@ -23,4 +36,9 @@ const SegmentsFileName = "segments"
 // addrToSeg gets what is the segment address belongs to.
 func addrToSeg(addr uint32, segSize int64) int {
 	return 0
+}
+
+// segCursorToOffset calculates offset in segments file by seg_id & its cursor.
+func segCursorToOffset(seg, cursor, segSize int64) int64 {
+	return seg*segSize + cursor
 }
