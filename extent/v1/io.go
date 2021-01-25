@@ -93,6 +93,10 @@ func (e *Extenter) updatesLoop() {
 			}
 			wseg := e.writableSeg
 			cursor := e.writableCursor
+			objData := pr.objData.Bytes()
+			binary.LittleEndian.PutUint64(writeBuf[:8], pr.oid)
+			copy(writeBuf[oidSizeInSeg:], objData)
+			e.flushWrite(pr.reqType, segCursorToOffset(wseg, cursor, segSize), writeBuf[:oidSizeInSeg+len(objData)])
 
 			// if not enough, next seg, cursor = 0
 			// write to, cursor += written size
