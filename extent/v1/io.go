@@ -3,7 +3,10 @@ package v1
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"runtime"
+
+	"g.tesamc.com/IT/zaipkg/xlog"
 
 	"github.com/templexxx/tsc"
 
@@ -216,9 +219,11 @@ func (e *Extenter) flushWrite(reqType uint64, offset int64, data []byte) error {
 func (e *Extenter) handleError(err error) error {
 	if !errors.Is(err, orpc.ErrRequestQueueOverflow) { // Except overflow, it must be extent/disk broken.
 		if diskutil.IsBroken(err) {
+			xlog.Error(fmt.Sprintf("disk: %d is broken: %s", e.diskInfo.PbDisk.Id, err.Error()))
 			e.diskInfo.SetState(metapb.DiskState_Disk_Broken, false)
 		}
 		// It must be extent broken.
+		xlog.Error(fmt.Sprintf("extent: %d is broken: %s", e.info.PbExt.Id, err.Error()))
 		e.info.SetState(metapb.ExtentState_Extent_Broken, false)
 		_ = e.Close()
 		err = xerrors.WithMessage(orpc.ErrDiskBroken, err.Error())
