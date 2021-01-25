@@ -3,6 +3,7 @@ package v1
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"runtime"
 
 	"github.com/templexxx/tsc"
@@ -246,15 +247,19 @@ func (e *Extenter) isPhyAddrSnapBehind() bool {
 	coHeader := e.header.coHeader
 
 	if coHeader.WritableHistoryNextIdx-32 >= snapIdx {
-		return false
+		return true
 	}
-	return true
+	return false
 }
 
 // getNextWritableSeg gets the next writable segment for writing,
 // return -1 if could not find.
 // Sync if there is new changes.
-func (e *Extenter) getNextWritableSeg(last int64) int64 {
+func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
+
+	if e.isPhyAddrSnapBehind() {
+		return -1, xerrors.WithMessage(orpc.ErrExtentBroken, "phy_addr snapshot flushing too slow")
+	}
 
 	coHeader := e.header.coHeader
 	for i, state := range coHeader.SegStates {
@@ -266,6 +271,12 @@ func (e *Extenter) getNextWritableSeg(last int64) int64 {
 			coHeader.WritableHistory[coHeader.WritableHistoryNextIdx] = byte(next)
 			coHeader.WritableHistoryTS[coHeader.WritableHistoryNextIdx] = tsc.UnixNano()
 			coHeader.WritableHistoryNextIdx++
+			err := e.header.Store(e.info.GetState())
+			if err != nil {
+				return -1, xerrors.WithMessage(orpc.ErrExtentBroken, fmt.Sprintf("store header failed: %s", err.Error()))
+			}
+			return int64(next), nil
 		}
 	}
+	return -1, orpc.ErrExtentFull
 }
