@@ -14,17 +14,23 @@ func (p *Info) GetState() metapb.ExtentState {
 	return metapb.ExtentState(atomic.LoadInt32((*int32)(&p.PbExt.State)))
 }
 
-func (p *Info) SetState(state metapb.ExtentState, isKeeper bool) {
+// SetState sets new state, return true if state changed.
+func (p *Info) SetState(state metapb.ExtentState, isKeeper bool) bool {
 	oldSate := atomic.LoadInt32((*int32)(&p.PbExt.State))
+	if metapb.ExtentState(oldSate) == state {
+		return false
+	}
+
 	if !isKeeper {
 		if metapb.ExtentState(oldSate) == metapb.ExtentState_Extent_Offline ||
 			metapb.ExtentState(oldSate) == metapb.ExtentState_Extent_Tombstone ||
 			metapb.ExtentState(oldSate) == metapb.ExtentState_Extent_Broken {
-			return
+			return false
 		}
 	}
 
 	atomic.StoreInt32((*int32)(&p.PbExt.State), int32(state))
+	return true
 }
 
 // AddUsed adds delta to used. delta could be negative means delta space have been freed.

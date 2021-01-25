@@ -6,20 +6,16 @@ import (
 	"fmt"
 	"runtime"
 
-	"g.tesamc.com/IT/zaipkg/xlog"
-
-	"github.com/templexxx/tsc"
-
 	"g.tesamc.com/IT/zaipkg/directio"
-
-	"g.tesamc.com/IT/zproto/pkg/metapb"
-
 	"g.tesamc.com/IT/zaipkg/diskutil"
-	"g.tesamc.com/IT/zaipkg/xerrors"
-
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/xbytes"
+	"g.tesamc.com/IT/zaipkg/xerrors"
+	"g.tesamc.com/IT/zaipkg/xlog"
 	"g.tesamc.com/IT/zbuf/xio"
+	"g.tesamc.com/IT/zproto/pkg/metapb"
+
+	"github.com/templexxx/tsc"
 )
 
 // TODO io update could support no data just index updates for (GC will write data by its own, but index should follow
@@ -220,6 +216,10 @@ func (e *Extenter) flushWrite(reqType uint64, offset int64, data []byte) error {
 	return nil
 }
 
+// handleError handles I/O error,
+// set disk broken, if it's disk broken.
+// set extent broken, if it's extent broken.
+// Return new error after handling.
 func (e *Extenter) handleError(err error) error {
 	if !errors.Is(err, orpc.ErrRequestQueueOverflow) { // Except overflow, it must be extent/disk broken.
 		if diskutil.IsBroken(err) {
@@ -228,10 +228,13 @@ func (e *Extenter) handleError(err error) error {
 		}
 		// It must be extent broken.
 		xlog.Error(fmt.Sprintf("extent: %d is broken: %s", e.info.PbExt.Id, err.Error()))
-		e.info.SetState(metapb.ExtentState_Extent_Broken, false)
+		changed := e.info.SetState(metapb.ExtentState_Extent_Broken, false)
 		_ = e.Close()
 		err = xerrors.WithMessage(orpc.ErrDiskBroken, err.Error())
 		e.cleanUpdates(err)
+		if changed {
+			_ = e.header.Store(metapb.ExtentState_Extent_Broken)
+		}
 	}
 	return err
 }
