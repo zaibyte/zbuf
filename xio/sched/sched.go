@@ -17,12 +17,13 @@ import (
 const (
 	// DefaultIODepth is the single disk concurrent readers/writers.
 	// ZBuf has internal cache, these threads are used for accessing disk.
-	// Beyond 64, we may get higher IOPS, but much higher latency.
+	// Beyond 32, we may get higher IOPS, but much higher latency.
 	//
-	// In an enterprise-class TLC/QLC NVMe driver, 32-64 would be a good choice.
+	// In an enterprise-class TLC/QLC NVMe driver, 16-64 would be a good choice.
+	// For large I/O, 16 is a better choice.
 	//
-	// This value is the result of combination of Intel manual & my experience.
-	DefaultIODepth = 64
+	// This value is the result of combination of Intel manual & my experience & testing results.
+	DefaultIODepth = 32
 )
 
 // Config is Scheduler's config.
