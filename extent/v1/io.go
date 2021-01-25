@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"sync"
 
 	"g.tesamc.com/IT/zaipkg/directio"
 	"g.tesamc.com/IT/zaipkg/diskutil"
@@ -59,17 +60,17 @@ func (e *Extenter) updatesLoop() {
 			return
 		}
 
-		var pr *writeDataRequest
+		var wr *writeDataRequest
 		var mr *metaUpdatesRequest
 
 		select {
-		case pr = <-e.writeDataChan:
+		case wr = <-e.writeDataChan:
 		default:
 			// Give the last chance for ready goroutines filling chan.
 			runtime.Gosched()
 
 			select {
-			case pr = <-e.writeDataChan:
+			case wr = <-e.writeDataChan:
 			case mr = <-e.metaUpdateChan:
 
 			case <-e.ctx.Done():
@@ -77,11 +78,12 @@ func (e *Extenter) updatesLoop() {
 			}
 		}
 
-		if pr != nil {
-			if e.writableCursor+int64(len(pr.objData.Bytes()))+oidSizeInSeg > segSize {
+		if wr != nil {
+			if e.writableCursor+int64(len(wr.objData.Bytes()))+oidSizeInSeg > segSize {
 				nextSeg, err := e.getNextWritableSeg(e.writableSeg)
 				if err != nil {
 					_ = e.handleError(err)
+					releasePutResult(wr)
 					continue
 				}
 				e.writableSeg = nextSeg
@@ -89,10 +91,18 @@ func (e *Extenter) updatesLoop() {
 			}
 			wseg := e.writableSeg
 			cursor := e.writableCursor
-			objData := pr.objData.Bytes()
-			binary.LittleEndian.PutUint64(writeBuf[:8], pr.oid)
+			objData := wr.objData.Bytes()
+			binary.LittleEndian.PutUint64(writeBuf[:8], wr.oid)
 			copy(writeBuf[oidSizeInSeg:], objData)
-			e.flushWrite(pr.reqType, segCursorToOffset(wseg, cursor, segSize), writeBuf[:oidSizeInSeg+len(objData)])
+			offset := segCursorToOffset(wseg, cursor, segSize)
+			err := e.flushWrite(wr.reqType, offset, writeBuf[:oidSizeInSeg+len(objData)])
+			if err != nil {
+				_ = e.handleError(err)
+				releasePutResult(wr)
+				continue
+			}
+
+			e.phyAddr.Add()
 
 			// if not enough, next seg, cursor = 0
 			// write to, cursor += written size
@@ -102,18 +112,18 @@ func (e *Extenter) updatesLoop() {
 
 		// mr must not be nil
 
-		if pr.done == nil {
-			releasePutResult(pr)
+		if wr.done == nil {
+			releasePutResult(wr)
 			continue
 		}
 
 		if seg >= uint16(segmentCnt-defaultReservedSeg) { // TODO tmp solution.
-			pr.err = orpc.ErrExtentFull
-			close(pr.done)
+			wr.err = orpc.ErrExtentFull
+			close(wr.done)
 			continue // TODO deal with it better?
 		}
 
-		wseg, off, size := e.cache.write(nextSeg, pr.oid, pr.objData.Bytes())
+		wseg, off, size := e.cache.write(nextSeg, wr.oid, wr.objData.Bytes())
 
 		if wseg == sealedFlag {
 
@@ -124,8 +134,8 @@ func (e *Extenter) updatesLoop() {
 			unflushedWrite = unflushedWrite[:0]
 			unflushedWritePhyAddr = unflushedWritePhyAddr[:0]
 
-			pr.err = orpc.ErrExtentFull
-			close(pr.done)
+			wr.err = orpc.ErrExtentFull
+			close(wr.done)
 
 			offset = 0
 			dirty = 0
@@ -156,11 +166,11 @@ func (e *Extenter) updatesLoop() {
 			}
 		}
 
-		digest := binary.LittleEndian.Uint32(pr.oid[8:12])
+		digest := binary.LittleEndian.Uint32(wr.oid[8:12])
 		addr := (uint32(wseg)*uint32(e.cfg.SegmentSize) + uint32(off)) / grainSize
 		index := uint64(addr)<<32 | uint64(digest)
 		unflushedCnt++
-		unflushedWrite = append(unflushedWrite, pr)
+		unflushedWrite = append(unflushedWrite, wr)
 		unflushedWritePhyAddr = append(unflushedWritePhyAddr, index)
 		dirty += size
 
@@ -314,4 +324,25 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 		}
 	}
 	return -1, orpc.ErrExtentFull
+}
+
+var writeDataRequestPool sync.Pool
+
+func acquireWriteDataRequest() *writeDataRequest {
+	v := writeDataRequestPool.Get()
+	if v == nil {
+		return &writeDataRequest{}
+	}
+	return v.(*writeDataRequest)
+}
+
+func releasePutResult(wr *writeDataRequest) {
+	wr.reqType = 0
+	wr.oid = 0
+	wr.objData = nil
+
+	wr.done = nil
+	wr.err = nil
+
+	writeDataRequestPool.Put(wr)
 }
