@@ -11,9 +11,11 @@ type Header struct {
     // writableHistory records the writable segment changing history.
     // The history length is 32.
     // NexIdx indicates the next slot to put new writable segment.
-    //
-    // writableHistoryTS records the timestamp of changing.
     WritableHistory        binary
-    WritableHistoryTS      []int64
     WritableHistoryNextIdx int64
+
+    // Removed records segments removed count of phyaddr.AddressAlignment.
+    // Helping GC greedy algorithm working.
+    // Using uint16 here for saving memory, if it's 65535 already, no more -1 will happen.
+    Removed  []uint16    // 256 * 2B = 512B
 }
