@@ -22,13 +22,13 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"g.tesamc.com/IT/zbuf/vdisk"
-
-	"g.tesamc.com/IT/zbuf/extent/v1/colf"
 	"github.com/templexxx/tsc"
+
+	"g.tesamc.com/IT/zbuf/vdisk"
 
 	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zbuf/extent"
+	"g.tesamc.com/IT/zbuf/extent/v1/colf"
 	"g.tesamc.com/IT/zbuf/extent/v1/phyaddr"
 	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zbuf/xio"
@@ -115,9 +115,31 @@ func (e *Extenter) getLastPhyAddrSnap() *colf.PhyAddrSnap {
 // Extenter should be locked already.
 func (e *Extenter) MakePhyAddrSnapshot() {
 
-	snap := new(colf.PhyAddrSnap)
+	if atomic.LoadInt64(&e.isMakingPhyAddrSnap) == 1 {
+		return
+	}
+	if !atomic.CompareAndSwapInt64(&e.isMakingPhyAddrSnap, 0, 1) {
+		return
+	}
 
+	last := e.getLastPhyAddrSnap()
+
+	acceptable := false
+	if last == nil {
+		acceptable = true
+	} else {
+		acceptable = isSnapCostAcceptable(last.TablesSize, last.CreatTS)
+	}
+
+	if !acceptable {
+		return
+	}
+
+	snap := new(colf.PhyAddrSnap)
 	snap.CreatTS = tsc.UnixNano()
+	snap.WritableHistoryIdx = e.header.coHeader.WritableHistoryNextIdx - 1
+	snap.WritableSeg = e.writableSeg
+	snap.WritableCursor = e.writableCursor
 
 	// TODO after init snap, make a new goroutine to do snap
 	pa := e.phyAddr
