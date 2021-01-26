@@ -7,6 +7,10 @@ import (
 	"github.com/templexxx/tsc"
 )
 
+func alignSize(n int64, align int64) int64 {
+	return (n + align - 1) &^ (align - 1)
+}
+
 const snapCostThreshold = 2.0
 
 // isSnapCostAcceptable returns true if it's a good choice to make snapshot now.

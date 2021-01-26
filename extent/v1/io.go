@@ -7,6 +7,10 @@ import (
 	"runtime"
 	"sync"
 
+	"g.tesamc.com/IT/zbuf/extent/v1/phyaddr"
+
+	"g.tesamc.com/IT/zaipkg/uid"
+
 	"g.tesamc.com/IT/zaipkg/directio"
 	"g.tesamc.com/IT/zaipkg/diskutil"
 	"g.tesamc.com/IT/zaipkg/orpc"
@@ -88,7 +92,7 @@ func (e *Extenter) updatesLoop() {
 			if e.writableCursor+int64(len(wr.objData.Bytes()))+oidSizeInSeg > segSize {
 				nextSeg, err := e.getNextWritableSeg(e.writableSeg)
 				if err != nil {
-					_ = e.handleError(err)
+					e.handleError(err)
 					wr.err = err
 					close(wr.done)
 					continue
@@ -102,19 +106,29 @@ func (e *Extenter) updatesLoop() {
 			binary.LittleEndian.PutUint64(writeBuf[:8], wr.oid)
 			copy(writeBuf[oidSizeInSeg:], objData)
 			offset := segCursorToOffset(wseg, cursor, segSize)
-			err := e.flushWrite(wr.reqType, offset, writeBuf[:oidSizeInSeg+len(objData)])
+			written := oidSizeInSeg + len(objData)
+			err := e.flushWrite(wr.reqType, offset, writeBuf[:written])
 			if err != nil {
-				_ = e.handleError(err)
+				e.handleError(err)
 				wr.err = err
 				close(wr.done)
 				continue
 			}
 
-			e.phyAddr.Add()
+			_, _, grains, digest, otype, _ := uid.ParseOID(wr.oid) // ignore err here, because the oid have been checked.
 
-			// if not enough, next seg, cursor = 0
-			// write to, cursor += written size
-			// TODO how to deal with oid 4K?
+			err = e.phyAddr.Add(digest, uint32(otype), grains, offsetToAddr(offset))
+			if err != nil {
+				if err == phyaddr.ErrIsFull || err == phyaddr.ErrIsSealed {
+					err = xerrors.WithMessage(orpc.ErrExtentFull, err.Error())
+					e.handleError(err)
+				}
+				wr.err = err
+				close(wr.done)
+				continue
+			}
+
+			e.writableCursor += alignSize(int64(written), phyaddr.AddressAlignment)
 			continue
 		}
 
@@ -228,7 +242,6 @@ func (e *Extenter) flushWrite(reqType uint64, offset int64, data []byte) error {
 
 	err := e.iosched.DoSync(reqType, e.segsFile, offset, data)
 	if err != nil {
-		err = e.handleError(err)
 		return err
 	}
 	return nil
@@ -339,6 +352,11 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 	}
 	err := orpc.ErrExtentFull
 	return -1, err
+}
+
+// offsetToAddr transfers offset in segments file to address in phy_addr.
+func offsetToAddr(offset int64) uint32 {
+	return uint32(offset / phyaddr.AddressAlignment)
 }
 
 var writeDataRequestPool sync.Pool
