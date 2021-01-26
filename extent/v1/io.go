@@ -8,16 +8,14 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"g.tesamc.com/IT/zbuf/extent/v1/phyaddr"
-
-	"g.tesamc.com/IT/zaipkg/uid"
-
 	"g.tesamc.com/IT/zaipkg/directio"
 	"g.tesamc.com/IT/zaipkg/diskutil"
 	"g.tesamc.com/IT/zaipkg/orpc"
+	"g.tesamc.com/IT/zaipkg/uid"
 	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zaipkg/xerrors"
 	"g.tesamc.com/IT/zaipkg/xlog"
+	"g.tesamc.com/IT/zbuf/extent/v1/phyaddr"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 
 	"github.com/templexxx/tsc"
@@ -140,7 +138,22 @@ func (e *Extenter) updatesLoop() {
 		}
 
 		// mr must not be nil
-
+		_, _, grains, digest, otype, _ := uid.ParseOID(mr.oid)
+		if mr.isRemove {
+			e.phyAddr.Remove(digest)
+			mr.err = nil
+			close(mr.done)
+			atomic.AddInt64(&e.dirtyUpdates, 1)
+			continue
+		} else {
+			err := e.phyAddr.Add(digest, uint32(otype), grains, mr.newAddr, true)
+			if err == nil {
+				atomic.AddInt64(&e.dirtyUpdates, 1)
+			}
+			mr.err = err
+			close(mr.done)
+			continue
+		}
 	}
 }
 
