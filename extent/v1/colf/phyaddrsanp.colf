@@ -5,6 +5,8 @@ type PhyAddrSnap struct {
     // CreatTS is the snapshot starting creating timestamp.
     CreatTS    int64
 
+    TablesSize int64    // TablesSize is the total size of phy_addr tables on disk.
+
     WritableHistoryIdx  int64 // Indicates the snapshot's history.
     WritableSeg int64 // When -1, means no writable seg.
     WritableCursor int64

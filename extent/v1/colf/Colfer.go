@@ -736,6 +736,8 @@ type PhyAddrSnap struct {
 	// CreatTS is the snapshot starting creating timestamp.
 	CreatTS int64
 
+	TablesSize int64
+
 	WritableHistoryIdx int64
 
 	WritableSeg int64
@@ -789,7 +791,7 @@ func (o *PhyAddrSnap) MarshalTo(buf []byte) int {
 		i++
 	}
 
-	if v := o.WritableHistoryIdx; v != 0 {
+	if v := o.TablesSize; v != 0 {
 		x := uint64(v)
 		if v >= 0 {
 			buf[i] = 1
@@ -807,7 +809,7 @@ func (o *PhyAddrSnap) MarshalTo(buf []byte) int {
 		i++
 	}
 
-	if v := o.WritableSeg; v != 0 {
+	if v := o.WritableHistoryIdx; v != 0 {
 		x := uint64(v)
 		if v >= 0 {
 			buf[i] = 2
@@ -825,7 +827,7 @@ func (o *PhyAddrSnap) MarshalTo(buf []byte) int {
 		i++
 	}
 
-	if v := o.WritableCursor; v != 0 {
+	if v := o.WritableSeg; v != 0 {
 		x := uint64(v)
 		if v >= 0 {
 			buf[i] = 3
@@ -843,7 +845,7 @@ func (o *PhyAddrSnap) MarshalTo(buf []byte) int {
 		i++
 	}
 
-	if v := o.GcSrcSeg; v != 0 {
+	if v := o.WritableCursor; v != 0 {
 		x := uint64(v)
 		if v >= 0 {
 			buf[i] = 4
@@ -861,7 +863,7 @@ func (o *PhyAddrSnap) MarshalTo(buf []byte) int {
 		i++
 	}
 
-	if v := o.GcDstSeg; v != 0 {
+	if v := o.GcSrcSeg; v != 0 {
 		x := uint64(v)
 		if v >= 0 {
 			buf[i] = 5
@@ -879,14 +881,16 @@ func (o *PhyAddrSnap) MarshalTo(buf []byte) int {
 		i++
 	}
 
-	if x := o.GcSrcCursor; x >= 1<<21 {
-		buf[i] = 6 | 0x80
-		intconv.PutUint32(buf[i+1:], x)
-		i += 5
-	} else if x != 0 {
-		buf[i] = 6
+	if v := o.GcDstSeg; v != 0 {
+		x := uint64(v)
+		if v >= 0 {
+			buf[i] = 6
+		} else {
+			x = ^x + 1
+			buf[i] = 6 | 0x80
+		}
 		i++
-		for x >= 0x80 {
+		for n := 0; x >= 0x80 && n < 8; n++ {
 			buf[i] = byte(x | 0x80)
 			x >>= 7
 			i++
@@ -895,7 +899,7 @@ func (o *PhyAddrSnap) MarshalTo(buf []byte) int {
 		i++
 	}
 
-	if x := o.GcDstCursor; x >= 1<<21 {
+	if x := o.GcSrcCursor; x >= 1<<21 {
 		buf[i] = 7 | 0x80
 		intconv.PutUint32(buf[i+1:], x)
 		i += 5
@@ -911,13 +915,29 @@ func (o *PhyAddrSnap) MarshalTo(buf []byte) int {
 		i++
 	}
 
+	if x := o.GcDstCursor; x >= 1<<21 {
+		buf[i] = 8 | 0x80
+		intconv.PutUint32(buf[i+1:], x)
+		i += 5
+	} else if x != 0 {
+		buf[i] = 8
+		i++
+		for x >= 0x80 {
+			buf[i] = byte(x | 0x80)
+			x >>= 7
+			i++
+		}
+		buf[i] = byte(x)
+		i++
+	}
+
 	if v := o.CloneJobState; v != 0 {
 		x := uint32(v)
 		if v >= 0 {
-			buf[i] = 8
+			buf[i] = 9
 		} else {
 			x = ^x + 1
-			buf[i] = 8 | 0x80
+			buf[i] = 9 | 0x80
 		}
 		i++
 		for x >= 0x80 {
@@ -930,25 +950,9 @@ func (o *PhyAddrSnap) MarshalTo(buf []byte) int {
 	}
 
 	if x := o.CloneJobParentId; x >= 1<<49 {
-		buf[i] = 9 | 0x80
+		buf[i] = 10 | 0x80
 		intconv.PutUint64(buf[i+1:], x)
 		i += 9
-	} else if x != 0 {
-		buf[i] = 9
-		i++
-		for x >= 0x80 {
-			buf[i] = byte(x | 0x80)
-			x >>= 7
-			i++
-		}
-		buf[i] = byte(x)
-		i++
-	}
-
-	if x := o.CloneJobSourceExtId; x >= 1<<21 {
-		buf[i] = 10 | 0x80
-		intconv.PutUint32(buf[i+1:], x)
-		i += 5
 	} else if x != 0 {
 		buf[i] = 10
 		i++
@@ -961,25 +965,41 @@ func (o *PhyAddrSnap) MarshalTo(buf []byte) int {
 		i++
 	}
 
-	if v := o.CloneJobProgress; v != 0 {
+	if x := o.CloneJobSourceExtId; x >= 1<<21 {
+		buf[i] = 11 | 0x80
+		intconv.PutUint32(buf[i+1:], x)
+		i += 5
+	} else if x != 0 {
 		buf[i] = 11
+		i++
+		for x >= 0x80 {
+			buf[i] = byte(x | 0x80)
+			x >>= 7
+			i++
+		}
+		buf[i] = byte(x)
+		i++
+	}
+
+	if v := o.CloneJobProgress; v != 0 {
+		buf[i] = 12
 		intconv.PutUint64(buf[i+1:], math.Float64bits(v))
 		i += 9
 	}
 
 	if x := o.CloneJobPhyAddrTable; x != 0 {
-		buf[i] = 12
+		buf[i] = 13
 		i++
 		buf[i] = x
 		i++
 	}
 
 	if x := o.CloneJobPhyAddrCursor; x >= 1<<21 {
-		buf[i] = 13 | 0x80
+		buf[i] = 14 | 0x80
 		intconv.PutUint32(buf[i+1:], x)
 		i += 5
 	} else if x != 0 {
-		buf[i] = 13
+		buf[i] = 14
 		i++
 		for x >= 0x80 {
 			buf[i] = byte(x | 0x80)
@@ -1001,6 +1021,18 @@ func (o *PhyAddrSnap) MarshalLen() (int, error) {
 	l := 1
 
 	if v := o.CreatTS; v != 0 {
+		l += 2
+		x := uint64(v)
+		if v < 0 {
+			x = ^x + 1
+		}
+		for n := 0; x >= 0x80 && n < 8; n++ {
+			x >>= 7
+			l++
+		}
+	}
+
+	if v := o.TablesSize; v != 0 {
 		l += 2
 		x := uint64(v)
 		if v < 0 {
@@ -1239,7 +1271,7 @@ func (o *PhyAddrSnap) Unmarshal(data []byte) (int, error) {
 				x |= (b & 0x7f) << shift
 			}
 		}
-		o.WritableHistoryIdx = int64(x)
+		o.TablesSize = int64(x)
 
 		header = data[i]
 		i++
@@ -1267,7 +1299,7 @@ func (o *PhyAddrSnap) Unmarshal(data []byte) (int, error) {
 				x |= (b & 0x7f) << shift
 			}
 		}
-		o.WritableHistoryIdx = int64(^x + 1)
+		o.TablesSize = int64(^x + 1)
 
 		header = data[i]
 		i++
@@ -1297,7 +1329,7 @@ func (o *PhyAddrSnap) Unmarshal(data []byte) (int, error) {
 				x |= (b & 0x7f) << shift
 			}
 		}
-		o.WritableSeg = int64(x)
+		o.WritableHistoryIdx = int64(x)
 
 		header = data[i]
 		i++
@@ -1325,7 +1357,7 @@ func (o *PhyAddrSnap) Unmarshal(data []byte) (int, error) {
 				x |= (b & 0x7f) << shift
 			}
 		}
-		o.WritableSeg = int64(^x + 1)
+		o.WritableHistoryIdx = int64(^x + 1)
 
 		header = data[i]
 		i++
@@ -1355,7 +1387,7 @@ func (o *PhyAddrSnap) Unmarshal(data []byte) (int, error) {
 				x |= (b & 0x7f) << shift
 			}
 		}
-		o.WritableCursor = int64(x)
+		o.WritableSeg = int64(x)
 
 		header = data[i]
 		i++
@@ -1383,7 +1415,7 @@ func (o *PhyAddrSnap) Unmarshal(data []byte) (int, error) {
 				x |= (b & 0x7f) << shift
 			}
 		}
-		o.WritableCursor = int64(^x + 1)
+		o.WritableSeg = int64(^x + 1)
 
 		header = data[i]
 		i++
@@ -1413,7 +1445,7 @@ func (o *PhyAddrSnap) Unmarshal(data []byte) (int, error) {
 				x |= (b & 0x7f) << shift
 			}
 		}
-		o.GcSrcSeg = int64(x)
+		o.WritableCursor = int64(x)
 
 		header = data[i]
 		i++
@@ -1441,7 +1473,7 @@ func (o *PhyAddrSnap) Unmarshal(data []byte) (int, error) {
 				x |= (b & 0x7f) << shift
 			}
 		}
-		o.GcSrcSeg = int64(^x + 1)
+		o.WritableCursor = int64(^x + 1)
 
 		header = data[i]
 		i++
@@ -1471,11 +1503,69 @@ func (o *PhyAddrSnap) Unmarshal(data []byte) (int, error) {
 				x |= (b & 0x7f) << shift
 			}
 		}
-		o.GcDstSeg = int64(x)
+		o.GcSrcSeg = int64(x)
 
 		header = data[i]
 		i++
 	} else if header == 5|0x80 {
+		if i+1 >= len(data) {
+			i++
+			goto eof
+		}
+		x := uint64(data[i])
+		i++
+
+		if x >= 0x80 {
+			x &= 0x7f
+			for shift := uint(7); ; shift += 7 {
+				b := uint64(data[i])
+				i++
+				if i >= len(data) {
+					goto eof
+				}
+
+				if b < 0x80 || shift == 56 {
+					x |= b << shift
+					break
+				}
+				x |= (b & 0x7f) << shift
+			}
+		}
+		o.GcSrcSeg = int64(^x + 1)
+
+		header = data[i]
+		i++
+	}
+
+	if header == 6 {
+		if i+1 >= len(data) {
+			i++
+			goto eof
+		}
+		x := uint64(data[i])
+		i++
+
+		if x >= 0x80 {
+			x &= 0x7f
+			for shift := uint(7); ; shift += 7 {
+				b := uint64(data[i])
+				i++
+				if i >= len(data) {
+					goto eof
+				}
+
+				if b < 0x80 || shift == 56 {
+					x |= b << shift
+					break
+				}
+				x |= (b & 0x7f) << shift
+			}
+		}
+		o.GcDstSeg = int64(x)
+
+		header = data[i]
+		i++
+	} else if header == 6|0x80 {
 		if i+1 >= len(data) {
 			i++
 			goto eof
@@ -1505,7 +1595,7 @@ func (o *PhyAddrSnap) Unmarshal(data []byte) (int, error) {
 		i++
 	}
 
-	if header == 6 {
+	if header == 7 {
 		start := i
 		i++
 		if i >= len(data) {
@@ -1533,7 +1623,7 @@ func (o *PhyAddrSnap) Unmarshal(data []byte) (int, error) {
 
 		header = data[i]
 		i++
-	} else if header == 6|0x80 {
+	} else if header == 7|0x80 {
 		start := i
 		i += 4
 		if i >= len(data) {
@@ -1544,7 +1634,7 @@ func (o *PhyAddrSnap) Unmarshal(data []byte) (int, error) {
 		i++
 	}
 
-	if header == 7 {
+	if header == 8 {
 		start := i
 		i++
 		if i >= len(data) {
@@ -1572,7 +1662,7 @@ func (o *PhyAddrSnap) Unmarshal(data []byte) (int, error) {
 
 		header = data[i]
 		i++
-	} else if header == 7|0x80 {
+	} else if header == 8|0x80 {
 		start := i
 		i += 4
 		if i >= len(data) {
@@ -1583,7 +1673,7 @@ func (o *PhyAddrSnap) Unmarshal(data []byte) (int, error) {
 		i++
 	}
 
-	if header == 8 {
+	if header == 9 {
 		if i+1 >= len(data) {
 			i++
 			goto eof
@@ -1611,7 +1701,7 @@ func (o *PhyAddrSnap) Unmarshal(data []byte) (int, error) {
 
 		header = data[i]
 		i++
-	} else if header == 8|0x80 {
+	} else if header == 9|0x80 {
 		if i+1 >= len(data) {
 			i++
 			goto eof
@@ -1641,7 +1731,7 @@ func (o *PhyAddrSnap) Unmarshal(data []byte) (int, error) {
 		i++
 	}
 
-	if header == 9 {
+	if header == 10 {
 		start := i
 		i++
 		if i >= len(data) {
@@ -1669,7 +1759,7 @@ func (o *PhyAddrSnap) Unmarshal(data []byte) (int, error) {
 
 		header = data[i]
 		i++
-	} else if header == 9|0x80 {
+	} else if header == 10|0x80 {
 		start := i
 		i += 8
 		if i >= len(data) {
@@ -1680,7 +1770,7 @@ func (o *PhyAddrSnap) Unmarshal(data []byte) (int, error) {
 		i++
 	}
 
-	if header == 10 {
+	if header == 11 {
 		start := i
 		i++
 		if i >= len(data) {
@@ -1708,7 +1798,7 @@ func (o *PhyAddrSnap) Unmarshal(data []byte) (int, error) {
 
 		header = data[i]
 		i++
-	} else if header == 10|0x80 {
+	} else if header == 11|0x80 {
 		start := i
 		i += 4
 		if i >= len(data) {
@@ -1719,7 +1809,7 @@ func (o *PhyAddrSnap) Unmarshal(data []byte) (int, error) {
 		i++
 	}
 
-	if header == 11 {
+	if header == 12 {
 		start := i
 		i += 8
 		if i >= len(data) {
@@ -1730,7 +1820,7 @@ func (o *PhyAddrSnap) Unmarshal(data []byte) (int, error) {
 		i++
 	}
 
-	if header == 12 {
+	if header == 13 {
 		start := i
 		i++
 		if i >= len(data) {
@@ -1741,7 +1831,7 @@ func (o *PhyAddrSnap) Unmarshal(data []byte) (int, error) {
 		i++
 	}
 
-	if header == 13 {
+	if header == 14 {
 		start := i
 		i++
 		if i >= len(data) {
@@ -1769,7 +1859,7 @@ func (o *PhyAddrSnap) Unmarshal(data []byte) (int, error) {
 
 		header = data[i]
 		i++
-	} else if header == 13|0x80 {
+	} else if header == 14|0x80 {
 		start := i
 		i += 4
 		if i >= len(data) {
