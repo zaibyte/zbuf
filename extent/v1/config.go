@@ -57,7 +57,7 @@ type Config struct {
 
 	// MaxDirtyCount is the maximum dirty updates in phy_addr(memory) which we could tolerate,
 	// if the dirty_count > MaxDirtyCount we should trigger a snapshot making event.
-	MaxDirtyCount int `toml:"max_dirty_count"`
+	MaxDirtyCount int64 `toml:"max_dirty_count"`
 }
 
 func (cfg *Config) adjust() {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
+	"sync/atomic"
 
 	"g.tesamc.com/IT/zbuf/extent/v1/phyaddr"
 
@@ -63,6 +64,10 @@ func (e *Extenter) updatesLoop() {
 	for {
 		if e.info.GetState() == metapb.ExtentState_Extent_Broken {
 			return
+		}
+
+		if atomic.LoadInt64(&e.dirtyUpdates) > e.cfg.MaxDirtyCount {
+			e.MakePhyAddrSnapshot()
 		}
 
 		var wr *writeDataRequest
@@ -130,6 +135,7 @@ func (e *Extenter) updatesLoop() {
 			}
 
 			e.writableCursor += alignSize(int64(written), phyaddr.AddressAlignment)
+			atomic.AddInt64(&e.dirtyUpdates, 1)
 			continue
 		}
 
