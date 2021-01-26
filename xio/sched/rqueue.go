@@ -1,7 +1,6 @@
 package sched
 
 import (
-	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zbuf/xio"
 	"github.com/templexxx/tsc"
@@ -23,33 +22,6 @@ func (p *ReqQueue) add(reqType uint64, f vfs.File, offset int64, d []byte) (ar *
 	ar.Done = make(chan struct{})
 	ar.PTS = tsc.UnixNano()
 
-	select {
-	case p.queue <- ar:
-		return ar, nil
-	default:
-		// Try substituting the oldest async request by the new one
-		// on requests' queue overflow.
-		// This increases the chances for new request to succeed
-		// without timeout.
-		select {
-		case r2 := <-p.queue:
-			if r2.Done != nil {
-				r2.Err = orpc.ErrRequestQueueOverflow
-				close(r2.Done)
-			} else {
-				xio.ReleaseAsyncRequest(r2)
-			}
-		default:
-		}
-
-		// After pop, try to put again.
-		select {
-		case p.queue <- ar:
-			return ar, nil
-		default:
-			// Can't put, release it since it wasn't exposed to the caller yet.
-			xio.ReleaseAsyncRequest(ar)
-			return nil, orpc.ErrRequestQueueOverflow
-		}
-	}
+	p.queue <- ar // Block until send succeed.
+	return ar, err
 }
