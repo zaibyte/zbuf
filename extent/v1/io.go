@@ -21,33 +21,6 @@ import (
 	"github.com/templexxx/tsc"
 )
 
-// TODO io update could support no data just index updates for (GC will write data by its own, but index should follow
-//  the origin step)
-
-type writeDataRequest struct {
-	reqType uint64
-
-	forceUpdate bool // Indicates if oid existed, updating or not.
-
-	oid     uint64
-	objData xbytes.Buffer
-
-	done chan struct{}
-	err  error
-}
-
-// Including deletion & GC.
-type metaUpdatesRequest struct {
-	oid      uint64
-	isRemove bool   // Remove request, otherwise is GC.
-	newAddr  uint32 // GC will move object to a new address.
-
-	done chan struct{}
-	err  error
-}
-
-// TODO any updates methods will have a parm indicates force to do,
-// e.g. for an offline extent, no modification could be done, but clone job can make it.
 // updatesLoop keeps trying to get new updates request and handle it.
 func (e *Extenter) updatesLoop() {
 	defer e.stopWg.Done()
@@ -87,6 +60,8 @@ func (e *Extenter) updatesLoop() {
 		}
 
 		if wr != nil {
+			// Although we will reject new data request if extent is full,
+			// we may still have some request already put into request chan.
 			if e.info.GetState() == metapb.ExtentState_Extent_Full {
 				wr.err = orpc.ErrExtentFull
 				close(wr.done)
@@ -280,6 +255,28 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 // offsetToAddr transfers offset in segments file to address in phy_addr.
 func offsetToAddr(offset int64) uint32 {
 	return uint32(offset / phyaddr.AddressAlignment)
+}
+
+type writeDataRequest struct {
+	reqType uint64
+
+	forceUpdate bool // Indicates if oid existed, updating or not.
+
+	oid     uint64
+	objData xbytes.Buffer
+
+	done chan struct{}
+	err  error
+}
+
+// Including deletion & GC.
+type metaUpdatesRequest struct {
+	oid      uint64
+	isRemove bool   // Remove request, otherwise is GC.
+	newAddr  uint32 // GC will move object to a new address.
+
+	done chan struct{}
+	err  error
 }
 
 var writeDataRequestPool sync.Pool
