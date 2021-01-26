@@ -2,16 +2,17 @@ package v1
 
 import (
 	"g.tesamc.com/IT/zaipkg/config"
+	"g.tesamc.com/IT/zaipkg/typeutil"
 )
 
 // There are default configs for eva.
 const (
-	defaultPutPending = 512 // Each extent has 512 pending put, same as default Scheduler pending.
+	defaultUpdatesPending = 512 // Each extent has 512 pending put, same as default Scheduler pending.
 	// 128KB is enough for NVMe device read/write sequentially.
 	// Too big value may block other requests too long.
-	defaultSizePerWrite = 128 * 1024
-	defaultSizePerRead  = 128 * 1024
-	defaultSegmentSize  = 1024 * 1024 * 1024 // 1GiB.
+	defaultSizePerWrite = typeutil.ByteSize(128 * 1024)
+	defaultSizePerRead  = typeutil.ByteSize(128 * 1024)
+	defaultSegmentSize  = typeutil.ByteSize(1024 * 1024 * 1024) // 1GiB.
 	// Each extent has the same segment count: 256.
 	// Warn:
 	// Don't change it, because in present there are some hard codes are using 256 directly.
@@ -43,17 +44,17 @@ const (
 
 // Config is the configs of v1 extent.
 type Config struct {
-	SegmentSize uint32 `toml:"segment_size"`
+	SegmentSize typeutil.ByteSize `toml:"segment_size"`
 	// ReservedSeg are the count of segments reserved for GC.
 	ReservedSeg float64 `toml:"reserved_seg"`
 
-	// PutPending is put request queue size.
-	PutPending int `toml:"put_pending"`
+	// UpdatesPending is updates request queue size.
+	UpdatesPending int `toml:"put_pending"`
 
 	// Size of per writes in bytes.
-	SizePerWrite int `toml:"size_per_write"`
+	SizePerWrite typeutil.ByteSize `toml:"size_per_write"`
 	// Size of write buffer per reads in bytes.
-	SizePerRead int `toml:"size_per_read"`
+	SizePerRead typeutil.ByteSize `toml:"size_per_read"`
 
 	// MaxDirtyCount is the maximum dirty updates in phy_addr(memory) which we could tolerate,
 	// if the dirty_count > MaxDirtyCount we should trigger a snapshot making event.
@@ -63,7 +64,7 @@ type Config struct {
 func (cfg *Config) adjust() {
 	config.Adjust(&cfg.SegmentSize, defaultSegmentSize)
 	config.Adjust(&cfg.ReservedSeg, defaultReservedSeg)
-	config.Adjust(&cfg.PutPending, defaultPutPending)
+	config.Adjust(&cfg.UpdatesPending, defaultUpdatesPending)
 	config.Adjust(&cfg.SizePerWrite, defaultSizePerWrite)
 	config.Adjust(&cfg.SizePerRead, defaultSizePerRead)
 	config.Adjust(&cfg.MaxDirtyCount, defaultMaxDirtyCount)

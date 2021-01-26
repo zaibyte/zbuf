@@ -66,7 +66,7 @@ func New(cfg *v1.Config, extID uint32, flushJobChan chan<- *xio.FlushJob, getJob
 		cache:      newHotCache(cfg.SegmentSize, 0), // TODO it should start by extent assigning.
 		flushDelay: cfg.flushDelay,
 
-		putChan:      make(chan *putResult, cfg.PutPending),
+		putChan:      make(chan *putResult, cfg.UpdatesPending),
 		flushJobChan: flushJobChan,
 
 		//getChan:    make(chan *getResult, cfg.GetPending),

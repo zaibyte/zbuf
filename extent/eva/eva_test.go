@@ -49,11 +49,11 @@ func TestExtentPutGet(t *testing.T) {
 	defer os.RemoveAll(dataRoot)
 
 	cfg := &v1.Config{
-		Path:        dataRoot,
-		SegmentSize: 1024 * 1024,
-		flushDelay:  time.Microsecond * 128,
-		PutPending:  2048,
-		InsertOnly:  false,
+		Path:           dataRoot,
+		SegmentSize:    1024 * 1024,
+		flushDelay:     time.Microsecond * 128,
+		UpdatesPending: 2048,
+		InsertOnly:     false,
 	}
 
 	x := startXIOer(false)
@@ -174,11 +174,11 @@ func TestExtentGetPerf(t *testing.T) {
 	defer os.RemoveAll(dataRoot)
 
 	cfg := &v1.Config{
-		Path:        dataRoot,
-		SegmentSize: 1024 * 1024,
-		FlushDelay:  typeutil.NewDuration(time.Microsecond * 128),
-		PutPending:  256,
-		InsertOnly:  false,
+		Path:           dataRoot,
+		SegmentSize:    1024 * 1024,
+		FlushDelay:     typeutil.NewDuration(time.Microsecond * 128),
+		UpdatesPending: 256,
+		InsertOnly:     false,
 	}
 
 	x := startXIOer(false)
