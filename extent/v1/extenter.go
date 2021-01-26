@@ -20,6 +20,7 @@ import (
 	"context"
 	"sync"
 	"sync/atomic"
+	"unsafe"
 
 	"g.tesamc.com/IT/zbuf/vdisk"
 
@@ -60,9 +61,7 @@ type Extenter struct {
 	dirtyUpdates        int64 // dirtyUpdates is the count of phy_addr changes haven't flushed to disk.
 	isMakingPhyAddrSnap int64 // 1 is true.
 	// lastPhyAddrSnap is the last Phy_Addr snapshot.
-	lastPhyAddrSnap *colf.PhyAddrSnap
-	// lastPhyAddrSnapSyncTS stores the timestamp of the last synced phy_addr snapshot created time.
-	lastPhyAddrSnapSyncTS int64
+	lastPhyAddrSnap unsafe.Pointer
 
 	iosched  xio.Scheduler
 	segsFile vfs.File
@@ -100,6 +99,14 @@ func (e *Extenter) Close() error {
 
 func (e *Extenter) LoadPhyAddr() {
 
+}
+
+func (e *Extenter) getLastPhyAddrSnap() *colf.PhyAddrSnap {
+	p := atomic.LoadPointer(&e.lastPhyAddrSnap)
+	if p == nil {
+		return nil
+	}
+	return (*colf.PhyAddrSnap)(p)
 }
 
 // MakePhyAddrSnapshot makes phy_addr snapshot.

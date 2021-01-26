@@ -210,10 +210,20 @@ func (e *Extenter) cleanUpdates(err error) {
 // isPhyAddrSnapBehind checks phy_addr snapshot is too far behind new writable segment.
 func (e *Extenter) isPhyAddrSnapBehind() bool {
 
-	snapIdx := e.lastPhyAddrSnap.WritableHistoryIdx
+	lastSnap := e.getLastPhyAddrSnap()
+
 	coHeader := e.header.coHeader
 
-	if coHeader.WritableHistoryNextIdx-32 >= snapIdx {
+	if lastSnap == nil { // None snapshot has been made.
+		if coHeader.WritableHistoryNextIdx >= historyCnt {
+			return false // No free place to put new writable seg.
+		}
+		return true
+	}
+
+	snapIdx := lastSnap.WritableHistoryIdx
+
+	if coHeader.WritableHistoryNextIdx-historyCnt >= snapIdx {
 		return true
 	}
 	return false
