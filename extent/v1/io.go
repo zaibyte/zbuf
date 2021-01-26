@@ -17,7 +17,6 @@ import (
 	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zaipkg/xerrors"
 	"g.tesamc.com/IT/zaipkg/xlog"
-	"g.tesamc.com/IT/zbuf/xio"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 
 	"github.com/templexxx/tsc"
@@ -119,7 +118,7 @@ func (e *Extenter) updatesLoop() {
 
 			_, _, grains, digest, otype, _ := uid.ParseOID(wr.oid) // ignore err here, because the oid have been checked.
 
-			err = e.phyAddr.Add(digest, uint32(otype), grains, offsetToAddr(offset))
+			err = e.phyAddr.Add(digest, uint32(otype), grains, offsetToAddr(offset), wr.forceUpdate)
 			if err != nil {
 				if err == phyaddr.ErrIsFull || err == phyaddr.ErrIsSealed {
 					err = xerrors.WithMessage(orpc.ErrExtentFull, err.Error())
@@ -136,103 +135,6 @@ func (e *Extenter) updatesLoop() {
 
 		// mr must not be nil
 
-		if wr.done == nil {
-			releaseWriteDataRequest(wr)
-			continue
-		}
-
-		if seg >= uint16(segmentCnt-defaultReservedSeg) { // TODO tmp solution.
-			wr.err = orpc.ErrExtentFull
-			close(wr.done)
-			continue // TODO deal with it better?
-		}
-
-		wseg, off, size := e.cache.write(nextSeg, wr.oid, wr.objData.Bytes())
-
-		if wseg == sealedFlag {
-
-			fj, err2 := e.flushWrite(seg, offset, dirty) // Flush any.
-			e.updateIndex(unflushedCnt, unflushedWrite, unflushedWritePhyAddr, err2)
-
-			unflushedCnt = 0
-			unflushedWrite = unflushedWrite[:0]
-			unflushedWritePhyAddr = unflushedWritePhyAddr[:0]
-
-			wr.err = orpc.ErrExtentFull
-			close(wr.done)
-
-			offset = 0
-			dirty = 0
-
-			if fj != nil {
-				xio.ReleaseFlushJob(fj)
-			}
-			continue
-		}
-
-		// Written to cache succeed.
-		if wseg != seg { // Means seg is full, written to next seg, flush the last seg first.
-			fj, err2 := e.flushWrite(seg, offset, dirty)
-			e.updateIndex(unflushedCnt, unflushedWrite, unflushedWritePhyAddr, err2)
-			unflushedCnt = 0
-			unflushedWrite = unflushedWrite[:0]
-			unflushedWritePhyAddr = unflushedWritePhyAddr[:0]
-
-			offset = 0
-			dirty = 0
-			seg = wseg
-			nextSeg = wseg + 1                                    // TODO should be chosen by extent logic.
-			if nextSeg >= uint16(segmentCnt-defaultReservedSeg) { // TODO tmp solution.
-				nextSeg = sealedFlag
-			}
-			if fj != nil {
-				xio.ReleaseFlushJob(fj)
-			}
-		}
-
-		digest := binary.LittleEndian.Uint32(wr.oid[8:12])
-		addr := (uint32(wseg)*uint32(e.cfg.SegmentSize) + uint32(off)) / grainSize
-		index := uint64(addr)<<32 | uint64(digest)
-		unflushedCnt++
-		unflushedWrite = append(unflushedWrite, wr)
-		unflushedWritePhyAddr = append(unflushedWritePhyAddr, index)
-		dirty += size
-
-		if dirty >= sizePerWrite {
-			fj, err2 := e.flushWrite(seg, offset, dirty)
-			e.updateIndex(unflushedCnt, unflushedWrite, unflushedWritePhyAddr, err2)
-			unflushedCnt = 0
-			unflushedWrite = unflushedWrite[:0]
-			unflushedWritePhyAddr = unflushedWritePhyAddr[:0]
-
-			offset += dirty
-			dirty = 0
-
-			if fj != nil {
-				xio.ReleaseFlushJob(fj)
-			}
-		}
-	}
-}
-
-func (e *Extenter) updateIndex(cnt int, unflushedPut []*putResult, unflushedIndex []uint64, flushErr error) {
-	if flushErr == nil {
-		for i := 0; i < cnt; i++ {
-			index := unflushedIndex[i]
-			err := e.index.insert(uint32(index), uint32(index>>32))
-			if err != nil {
-				unflushedPut[i].err = err
-			}
-			if unflushedPut[i].done != nil {
-				close(unflushedPut[i].done)
-			}
-		}
-	} else {
-		for i := 0; i < cnt; i++ {
-			if unflushedPut[i].done != nil {
-				close(unflushedPut[i].done)
-			}
-		}
 	}
 }
 
