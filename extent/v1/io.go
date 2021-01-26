@@ -29,6 +29,8 @@ import (
 type writeDataRequest struct {
 	reqType uint64
 
+	forceUpdate bool // Indicates if oid existed, updating or not.
+
 	oid     uint64
 	objData xbytes.Buffer
 
@@ -135,7 +137,7 @@ func (e *Extenter) updatesLoop() {
 		// mr must not be nil
 
 		if wr.done == nil {
-			releasePutResult(wr)
+			releaseWriteDataRequest(wr)
 			continue
 		}
 
@@ -369,8 +371,9 @@ func acquireWriteDataRequest() *writeDataRequest {
 	return v.(*writeDataRequest)
 }
 
-func releasePutResult(wr *writeDataRequest) {
+func releaseWriteDataRequest(wr *writeDataRequest) {
 	wr.reqType = 0
+	wr.forceUpdate = false
 	wr.oid = 0
 	wr.objData = nil
 
