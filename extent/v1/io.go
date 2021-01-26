@@ -290,3 +290,24 @@ func releaseWriteDataRequest(wr *writeDataRequest) {
 
 	writeDataRequestPool.Put(wr)
 }
+
+var metaUpdatesRequestPool sync.Pool
+
+func acquireMetaUpdatesRequest() *metaUpdatesRequest {
+	v := metaUpdatesRequestPool.Get()
+	if v == nil {
+		return &metaUpdatesRequest{}
+	}
+	return v.(*metaUpdatesRequest)
+}
+
+func releaseMetaUpdatesRequest(mr *metaUpdatesRequest) {
+	mr.oid = 0
+	mr.isRemove = false
+	mr.newAddr = 0
+
+	mr.done = nil
+	mr.err = nil
+
+	metaUpdatesRequestPool.Put(mr)
+}
