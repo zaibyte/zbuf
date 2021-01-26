@@ -94,7 +94,7 @@ func LoadHeader(sched xio.Scheduler, fs vfs.FS, extDir string) (*Header, error) 
 	h.f = f
 
 	b := directio.AlignedBlock(uid.GrainSize)
-	err = h.iosched.DoSync(xio.ReqMetaRead, f, 0, b, 0)
+	err = h.iosched.DoSync(xio.ReqMetaRead, f, 0, b)
 	if err != nil {
 		_ = f.Close()
 		return nil, err
@@ -141,7 +141,7 @@ func (h *Header) Store(state metapb.ExtentState) error {
 	checksum := xdigest.Sum32(b[:uid.GrainSize-4])
 	binary.LittleEndian.PutUint32(b[uid.GrainSize-4:], checksum)
 
-	return h.iosched.DoSync(xio.ReqMetaWrite, h.f, 0, b, 0)
+	return h.iosched.DoSync(xio.ReqMetaWrite, h.f, 0, b)
 }
 
 // Close releases the resource.
