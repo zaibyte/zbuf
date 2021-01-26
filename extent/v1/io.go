@@ -237,29 +237,28 @@ func (e *Extenter) flushWrite(reqType uint64, offset int64, data []byte) error {
 // handleError handles I/O error,
 // set disk broken, if it's disk broken.
 // set extent broken, if it's extent broken.
-// Return new error after handling.
-func (e *Extenter) handleError(err error) error {
-	if !errors.Is(err, orpc.ErrRequestQueueOverflow) { // Except overflow, it must be extent/disk broken.
-		if diskutil.IsBroken(err) {
-			xlog.Error(fmt.Sprintf("disk: %d is broken: %s", e.diskInfo.PbDisk.Id, err.Error()))
-			e.diskInfo.SetState(metapb.DiskState_Disk_Broken, false)
-		}
+func (e *Extenter) handleError(err error) {
 
-		state := metapb.ExtentState_Extent_Broken
-		if errors.Is(err, orpc.ErrExtentFull) {
-			state = metapb.ExtentState_Extent_Full
-		}
-		xlog.Error(fmt.Sprintf("extent: %d is %s: %s", e.info.PbExt.Id, state.String(), err.Error()))
-		changed := e.info.SetState(state, false)
-		if state == metapb.ExtentState_Extent_Broken {
-			_ = e.Close()
-		}
-		e.cleanUpdates(err)
-		if changed {
-			_ = e.header.Store(state)
-		}
+	broken := false
+	if diskutil.IsBroken(err) {
+		broken = true
+		xlog.Error(fmt.Sprintf("disk: %d is broken: %s", e.diskInfo.PbDisk.Id, err.Error()))
+		e.diskInfo.SetState(metapb.DiskState_Disk_Broken, false)
 	}
-	return err
+
+	state := metapb.ExtentState_Extent_Broken
+	if !broken && errors.Is(err, orpc.ErrExtentFull) { // We regards all I/O error is extent_broken, except full.
+		state = metapb.ExtentState_Extent_Full
+	}
+	xlog.Error(fmt.Sprintf("extent: %d is %s: %s", e.info.PbExt.Id, state.String(), err.Error()))
+	changed := e.info.SetState(state, false)
+	if state == metapb.ExtentState_Extent_Broken {
+		_ = e.Close()
+	}
+	e.cleanUpdates(err)
+	if changed {
+		_ = e.header.Store(state)
+	}
 }
 
 // cleanUpdates cleans updates channels.
