@@ -29,6 +29,8 @@ import (
 	"runtime"
 	"sync/atomic"
 	"unsafe"
+
+	"github.com/templexxx/cpu"
 )
 
 // neighbour is the hopscotch hash neighbourhood size.
@@ -56,7 +58,9 @@ const (
 // Providing Lock-free Write & Wait-free Read.
 type PhyAddr struct {
 	// status is a set of flags of PhyAddr, see status.go for more details.
-	status uint64
+	_padding0 [cpu.X86FalseSharingRange]byte
+	status    uint64
+	_padding1 [cpu.X86FalseSharingRange]byte
 	// cycle is the container of tables,
 	// it's made of two uint64 slices.
 	// only the one could be inserted at a certain time.
@@ -115,11 +119,13 @@ func (pa *PhyAddr) Add(digest, otype, grains, addr uint32, forceUpdate bool) err
 		return ErrIsClosed
 	}
 
-	err := pa.tryAdd(digest, otype, grains, addr, false, forceUpdate)
+	update, err := pa.tryAdd(digest, otype, grains, addr, false, forceUpdate)
 	switch err {
 
 	case nil:
-		pa.addCnt()
+		if !update {
+			pa.addCnt()
+		}
 		pa.unlock()
 		return nil
 
@@ -146,9 +152,11 @@ func (pa *PhyAddr) Add(digest, otype, grains, addr uint32, forceUpdate bool) err
 		newTbl := make([]uint64, calcSlotCnt(oc*2))
 		atomic.StorePointer(&pa.cycle[next], unsafe.Pointer(&newTbl))
 		pa.setWritable(next)
-		_ = pa.tryAdd(digest, otype, grains, addr, true, false) // First insert must be succeed.
+		update, _ = pa.tryAdd(digest, otype, grains, addr, true, forceUpdate) // First insert must be succeed.
 		go pa.expand(int(idx))
-		pa.addCnt()
+		if !update {
+			pa.addCnt()
+		}
 		pa.unlock()
 		return nil
 
@@ -264,7 +272,7 @@ func (pa *PhyAddr) expand(ri int) {
 			tag, neighOff, otype, grains, addr := ParseEntry(e)
 			digest := backToDigest(tag, uint32(n), uint32(i), neighOff)
 
-			err := pa.tryAdd(digest, otype, grains, addr, true, false)
+			_, err := pa.tryAdd(digest, otype, grains, addr, true, false)
 			if err == ErrIsFull {
 				pa.seal()
 				pa.unlock()
@@ -304,12 +312,15 @@ restart:
 			n = slotCnt - slot
 		}
 
-		for i := 0; i < n; i++ {
-			e := atomic.LoadUint64(&tbl[slot+i])
+		for j := 0; j < n; j++ {
+			e := atomic.LoadUint64(&tbl[slot+j])
+			if e == 0 {
+				continue
+			}
 			tag, neighOff, otype, _, addr := ParseEntry(e)
-			if digest == backToDigest(tag, uint32(slotCnt), uint32(slot+i), neighOff) {
+			if digest == backToDigest(tag, uint32(slotCnt), uint32(slot+j), neighOff) {
 				newEn := MakeEntry(digest, neighOff, otype, 0, addr)
-				atomic.StoreUint64(&tbl[slot+i], newEn)
+				atomic.StoreUint64(&tbl[slot+j], newEn)
 				break
 			}
 		}
@@ -319,7 +330,7 @@ restart:
 	return
 }
 
-func (pa *PhyAddr) tryAdd(digest, otype, grains, addr uint32, isLocked, forceUpdate bool) (err error) {
+func (pa *PhyAddr) tryAdd(digest, otype, grains, addr uint32, isLocked, forceUpdate bool) (update bool, err error) {
 
 restart:
 
@@ -331,13 +342,13 @@ restart:
 	}
 
 	if pa.isSealed() {
-		return ErrIsSealed
+		return false, ErrIsSealed
 	}
 
 	idx := pa.getWritableIdx()
 	tbl := GetTbl(pa, int(idx))
 	if tbl == nil {
-		return ErrUnknown
+		return false, ErrUnknown
 	}
 
 	// 1. Ensure digest is unique in writable table. And try to find free slot within neighbourhood.
@@ -360,17 +371,19 @@ restart:
 		tag, neighOff, _, _, _ := ParseEntry(e)
 		if digest == backToDigest(tag, uint32(slotCnt), uint32(slot+i), neighOff) {
 			if !forceUpdate {
-				return ErrExisted
+				return false, ErrExisted
 			}
 			// Force updates.
 			entry := MakeEntry(digest, neighOff, otype, grains, addr)
 			atomic.StoreUint64(&tbl[slot+i], entry)
-			return nil
+			return true, nil
 		}
 	}
 
+	existed := false
+
 	// 2. Ensure digest is unique in other table.
-	if !isLocked && !forceUpdate {
+	if !isLocked { // When isLocked must be expand.
 		// After make new table, first Adding and the scaling will set this true, both of them is safe.
 		// For scaling, it's checking the source itself, so meaningless.
 		// For first adding, which means the digest have passed the unique checking when the last trying of Adding,
@@ -391,7 +404,11 @@ restart:
 
 				tag, neighOff, _, _, _ := ParseEntry(e)
 				if digest == backToDigest(tag, uint32(oslotCnt), uint32(oslot+i), neighOff) {
-					return ErrExisted
+					if !forceUpdate {
+						return false, ErrExisted
+					}
+					existed = true
+					break
 				}
 			}
 		}
@@ -401,7 +418,7 @@ restart:
 	if slotOff < neighbour {
 		entry := MakeEntry(digest, uint32(slotOff), otype, grains, addr)
 		atomic.StoreUint64(&tbl[slot+slotOff], entry)
-		return nil
+		return existed, nil
 	}
 
 	// 4. Linear probe to find an empty slot and swap.
@@ -409,13 +426,13 @@ restart:
 	for { // Closer and closer.
 		free, status := pa.swap(j, len(tbl), tbl)
 		if status == swapFull {
-			return ErrIsFull
+			return false, ErrIsFull
 		}
 
 		if free-slot < neighbour {
 			entry := MakeEntry(digest, uint32(free-slot), otype, grains, addr)
 			atomic.StoreUint64(&tbl[free], entry)
-			return nil
+			return existed, nil
 		}
 		j = free
 	}

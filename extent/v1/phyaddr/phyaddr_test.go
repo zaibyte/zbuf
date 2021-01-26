@@ -143,6 +143,67 @@ func TestIndex_UpdateConcurrent(t *testing.T) {
 	}
 }
 
+func TestIndex_ForceUpdateConcurrent(t *testing.T) {
+
+	n := MinCap
+	pa, _ := New(n)
+	ens := generatesEntriesFast(n * 2)
+	for i := range ens[:n] {
+		err := pa.Add(ens[i].digest, ens[i].otype, ens[i].grains, ens[i].addr, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	wg := new(sync.WaitGroup)
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		newAddEns := ens[:1024]
+		for i := range newAddEns {
+			err := pa.Add(newAddEns[i].digest, newAddEns[i].otype, newAddEns[i].grains, newAddEns[i].addr+1, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		rens := ens[1024:n]
+		for i := range rens {
+			pa.Remove(rens[i].digest)
+		}
+	}()
+	wg.Wait()
+
+	_, usage := pa.GetUsage()
+	if usage != n {
+		t.Fatal("usage mismatched", usage, n)
+	}
+
+	for i := range ens[:n] {
+		e, has := pa.Search(ens[i].digest)
+		if !has {
+			t.Fatal("should have")
+		}
+
+		exp := ens[i]
+
+		if i >= 1024 {
+			exp.grains = 0
+			if !IsRemoved(e) {
+				t.Fatal("should be removed")
+			}
+		} else {
+			exp.addr++
+			if IsRemoved(e) {
+				t.Fatal("should not be removed")
+			}
+		}
+		checkSearchResult(t, e, exp)
+	}
+}
+
 type entryFields struct {
 	digest uint32
 	otype  uint32
@@ -187,7 +248,7 @@ func generatesEntries(cnt int, digestFunc func(buf []byte, n int) uint32, digest
 			otype = 1
 		}
 		ens[i].otype = otype
-		grains := uint32(rand.Intn(maxGrains + 1))
+		grains := uint32(rand.Intn(maxGrains)) // Force updates testing will add grains by 1, for avoiding overflow, using maxGrains.
 		if grains == 0 {
 			grains = 1
 		}
