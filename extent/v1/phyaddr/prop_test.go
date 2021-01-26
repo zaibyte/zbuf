@@ -41,7 +41,7 @@ func TestLZ4Compress(t *testing.T) {
 
 	for i := 1024 * 16; i <= cnt/2; i *= 2 {
 		for _, en := range ens[:i] {
-			err := pa.Add(en.digest, en.otype, en.grains, en.addr)
+			err := pa.Add(en.digest, en.otype, en.grains, en.addr, false)
 			if err == ErrExisted {
 				continue
 			}
@@ -83,7 +83,7 @@ func TestIndexExpand(t *testing.T) {
 
 	mitFull := 0
 	for i, en := range ens[:cnt] {
-		err := pa.Add(en.digest, en.otype, en.grains, en.addr)
+		err := pa.Add(en.digest, en.otype, en.grains, en.addr, false)
 		if err == ErrAddTooFast {
 			mitFull = i
 			break
@@ -95,7 +95,7 @@ func TestIndexExpand(t *testing.T) {
 
 	mitFull2 := 0
 	for i, en := range ens {
-		err := pa2.Add(en.digest, en.otype, en.grains, en.addr)
+		err := pa2.Add(en.digest, en.otype, en.grains, en.addr, false)
 		if err == ErrAddTooFast {
 			mitFull2 = i
 			break
@@ -162,7 +162,7 @@ func testMitFull(cnt int, slow bool) int {
 		ens = generatesEntriesFast(cnt)
 	}
 	for i, en := range ens {
-		err := pa.Add(en.digest, en.otype, en.grains, en.addr)
+		err := pa.Add(en.digest, en.otype, en.grains, en.addr, false)
 		if err == ErrAddTooFast {
 			return i
 		}

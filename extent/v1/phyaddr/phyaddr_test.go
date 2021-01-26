@@ -27,7 +27,7 @@ func TestIndex_Search(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for i, en := range ens {
-				err := pa.Add(en.digest, en.otype, en.grains, en.addr)
+				err := pa.Add(en.digest, en.otype, en.grains, en.addr, false)
 				if err != nil {
 					t.Fatal(err, i, n)
 				}
@@ -65,7 +65,7 @@ func TestIndex_Remove(t *testing.T) {
 		ens := generatesEntriesFast(n / 2)
 		pa, _ := New(n)
 		for _, en := range ens {
-			err := pa.Add(en.digest, en.otype, en.grains, en.addr)
+			err := pa.Add(en.digest, en.otype, en.grains, en.addr, false)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -101,7 +101,7 @@ func TestIndex_UpdateConcurrent(t *testing.T) {
 	pa, _ := New(n)
 	ens := generatesEntriesFast(n * 2)
 	for i := range ens[:n] {
-		err := pa.Add(ens[i].digest, ens[i].otype, ens[i].grains, ens[i].addr)
+		err := pa.Add(ens[i].digest, ens[i].otype, ens[i].grains, ens[i].addr, false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -113,7 +113,7 @@ func TestIndex_UpdateConcurrent(t *testing.T) {
 		defer wg.Done()
 		newAddEns := ens[n : n+1024]
 		for i := range newAddEns {
-			err := pa.Add(newAddEns[i].digest, newAddEns[i].otype, newAddEns[i].grains, newAddEns[i].addr)
+			err := pa.Add(newAddEns[i].digest, newAddEns[i].otype, newAddEns[i].grains, newAddEns[i].addr, false)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -220,18 +220,18 @@ func TestIndex_Existed(t *testing.T) {
 	n := MinCap
 	pa, _ := New(n)
 	ens := generatesEntriesFast(n)
-	err := pa.Add(ens[0].digest, ens[0].otype, ens[0].grains, ens[0].addr)
+	err := pa.Add(ens[0].digest, ens[0].otype, ens[0].grains, ens[0].addr, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = pa.Add(ens[0].digest, ens[0].otype, ens[0].grains, ens[0].addr)
+	err = pa.Add(ens[0].digest, ens[0].otype, ens[0].grains, ens[0].addr, false)
 	assert.EqualError(t, err, ErrExisted.Error())
 
 	pa.scale()
 
 	ok := 0
 	for i := 1; i < len(ens); i++ {
-		err2 := pa.Add(ens[i].digest, ens[i].otype, ens[i].grains, ens[i].addr)
+		err2 := pa.Add(ens[i].digest, ens[i].otype, ens[i].grains, ens[i].addr, false)
 		if err2 == ErrAddTooFast {
 			ok = i
 			break // Now pa is full, any new entry will trigger scaling.
@@ -244,17 +244,17 @@ func TestIndex_Existed(t *testing.T) {
 	pa.unScale()
 	widx := pa.getWritableIdx()
 	// Cannot expand because the digest is existed.
-	err = pa.Add(ens[0].digest, ens[0].otype, ens[0].grains, ens[0].addr)
+	err = pa.Add(ens[0].digest, ens[0].otype, ens[0].grains, ens[0].addr, false)
 	assert.EqualError(t, err, ErrExisted.Error())
 	nwidx := pa.getWritableIdx()
 	assert.Equal(t, widx, nwidx)
 
 	// Trigger expand.
-	err = pa.Add(ens[ok].digest, ens[ok].otype, ens[ok].grains, ens[ok].addr)
+	err = pa.Add(ens[ok].digest, ens[ok].otype, ens[ok].grains, ens[ok].addr, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Try to add existed key must be in last writable table.
-	err = pa.Add(ens[ok-1].digest, ens[ok-1].otype, ens[ok-1].grains, ens[ok-1].addr)
+	err = pa.Add(ens[ok-1].digest, ens[ok-1].otype, ens[ok-1].grains, ens[ok-1].addr, false)
 	assert.EqualError(t, err, ErrExisted.Error())
 }

@@ -109,13 +109,13 @@ var (
 // P.S.:
 // It's better to use only one goroutine to Add at the same time,
 // it'll be more friendly for optimistic lock used by PhyAddr.
-func (pa *PhyAddr) Add(digest, otype, grains, addr uint32) error {
+func (pa *PhyAddr) Add(digest, otype, grains, addr uint32, forceUpdate bool) error {
 
 	if !pa.IsRunning() {
 		return ErrIsClosed
 	}
 
-	err := pa.tryAdd(digest, otype, grains, addr, false)
+	err := pa.tryAdd(digest, otype, grains, addr, false, forceUpdate)
 	switch err {
 
 	case nil:
@@ -146,7 +146,7 @@ func (pa *PhyAddr) Add(digest, otype, grains, addr uint32) error {
 		newTbl := make([]uint64, calcSlotCnt(oc*2))
 		atomic.StorePointer(&pa.cycle[next], unsafe.Pointer(&newTbl))
 		pa.setWritable(next)
-		_ = pa.tryAdd(digest, otype, grains, addr, true) // First insert must be succeed.
+		_ = pa.tryAdd(digest, otype, grains, addr, true, false) // First insert must be succeed.
 		go pa.expand(int(idx))
 		pa.addCnt()
 		pa.unlock()
@@ -264,7 +264,7 @@ func (pa *PhyAddr) expand(ri int) {
 			tag, neighOff, otype, grains, addr := ParseEntry(e)
 			digest := backToDigest(tag, uint32(n), uint32(i), neighOff)
 
-			err := pa.tryAdd(digest, otype, grains, addr, true)
+			err := pa.tryAdd(digest, otype, grains, addr, true, false)
 			if err == ErrIsFull {
 				pa.seal()
 				pa.unlock()
@@ -319,7 +319,7 @@ restart:
 	return
 }
 
-func (pa *PhyAddr) tryAdd(digest, otype, grains, addr uint32, isLocked bool) (err error) {
+func (pa *PhyAddr) tryAdd(digest, otype, grains, addr uint32, isLocked, forceUpdate bool) (err error) {
 
 restart:
 
@@ -359,12 +359,18 @@ restart:
 
 		tag, neighOff, _, _, _ := ParseEntry(e)
 		if digest == backToDigest(tag, uint32(slotCnt), uint32(slot+i), neighOff) {
-			return ErrExisted
+			if !forceUpdate {
+				return ErrExisted
+			}
+			// Force updates.
+			entry := MakeEntry(digest, neighOff, otype, grains, addr)
+			atomic.StoreUint64(&tbl[slot+i], entry)
+			return nil
 		}
 	}
 
 	// 2. Ensure digest is unique in other table.
-	if !isLocked {
+	if !isLocked && !forceUpdate {
 		// After make new table, first Adding and the scaling will set this true, both of them is safe.
 		// For scaling, it's checking the source itself, so meaningless.
 		// For first adding, which means the digest have passed the unique checking when the last trying of Adding,
