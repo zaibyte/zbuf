@@ -40,7 +40,7 @@ func (e *Extenter) TryGC(ratio float64) {
 	// TODO after GC will check is full or not, if it was full, and there is ready seg after GC, change the full state
 }
 
-func (e *Extenter) getGCCandidates() {
+func (e *Extenter) getGCCandidates(ratio float64) {
 
 }
 

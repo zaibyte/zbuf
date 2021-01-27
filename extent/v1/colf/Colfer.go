@@ -7,7 +7,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"math"
 )
 
 var intconv = binary.BigEndian
@@ -64,15 +63,7 @@ type PhyAddrSnap struct {
 
 	GcDstCursor uint32
 
-	CloneJobState int32
-
-	CloneJobParentId uint64
-
-	CloneJobSourceExtId uint32
-
-	CloneJobProgress float64
-
-	CloneJobPhyAddrTable uint8
+	CloneJobPhyAddrTable int64
 
 	CloneJobPhyAddrCursor uint32
 }
@@ -240,8 +231,8 @@ func (o *PhyAddrSnap) MarshalTo(buf []byte) int {
 		i++
 	}
 
-	if v := o.CloneJobState; v != 0 {
-		x := uint32(v)
+	if v := o.CloneJobPhyAddrTable; v != 0 {
+		x := uint64(v)
 		if v >= 0 {
 			buf[i] = 9
 		} else {
@@ -249,66 +240,21 @@ func (o *PhyAddrSnap) MarshalTo(buf []byte) int {
 			buf[i] = 9 | 0x80
 		}
 		i++
-		for x >= 0x80 {
+		for n := 0; x >= 0x80 && n < 8; n++ {
 			buf[i] = byte(x | 0x80)
 			x >>= 7
 			i++
 		}
 		buf[i] = byte(x)
-		i++
-	}
-
-	if x := o.CloneJobParentId; x >= 1<<49 {
-		buf[i] = 10 | 0x80
-		intconv.PutUint64(buf[i+1:], x)
-		i += 9
-	} else if x != 0 {
-		buf[i] = 10
-		i++
-		for x >= 0x80 {
-			buf[i] = byte(x | 0x80)
-			x >>= 7
-			i++
-		}
-		buf[i] = byte(x)
-		i++
-	}
-
-	if x := o.CloneJobSourceExtId; x >= 1<<21 {
-		buf[i] = 11 | 0x80
-		intconv.PutUint32(buf[i+1:], x)
-		i += 5
-	} else if x != 0 {
-		buf[i] = 11
-		i++
-		for x >= 0x80 {
-			buf[i] = byte(x | 0x80)
-			x >>= 7
-			i++
-		}
-		buf[i] = byte(x)
-		i++
-	}
-
-	if v := o.CloneJobProgress; v != 0 {
-		buf[i] = 12
-		intconv.PutUint64(buf[i+1:], math.Float64bits(v))
-		i += 9
-	}
-
-	if x := o.CloneJobPhyAddrTable; x != 0 {
-		buf[i] = 13
-		i++
-		buf[i] = x
 		i++
 	}
 
 	if x := o.CloneJobPhyAddrCursor; x >= 1<<21 {
-		buf[i] = 14 | 0x80
+		buf[i] = 10 | 0x80
 		intconv.PutUint32(buf[i+1:], x)
 		i += 5
 	} else if x != 0 {
-		buf[i] = 14
+		buf[i] = 10
 		i++
 		for x >= 0x80 {
 			buf[i] = byte(x | 0x80)
@@ -429,38 +375,16 @@ func (o *PhyAddrSnap) MarshalLen() (int, error) {
 		}
 	}
 
-	if v := o.CloneJobState; v != 0 {
-		x := uint32(v)
+	if v := o.CloneJobPhyAddrTable; v != 0 {
+		l += 2
+		x := uint64(v)
 		if v < 0 {
 			x = ^x + 1
 		}
-		for l += 2; x >= 0x80; l++ {
+		for n := 0; x >= 0x80 && n < 8; n++ {
 			x >>= 7
+			l++
 		}
-	}
-
-	if x := o.CloneJobParentId; x >= 1<<49 {
-		l += 9
-	} else if x != 0 {
-		for l += 2; x >= 0x80; l++ {
-			x >>= 7
-		}
-	}
-
-	if x := o.CloneJobSourceExtId; x >= 1<<21 {
-		l += 5
-	} else if x != 0 {
-		for l += 2; x >= 0x80; l++ {
-			x >>= 7
-		}
-	}
-
-	if o.CloneJobProgress != 0 {
-		l += 9
-	}
-
-	if x := o.CloneJobPhyAddrTable; x != 0 {
-		l += 2
 	}
 
 	if x := o.CloneJobPhyAddrCursor; x >= 1<<21 {
@@ -987,66 +911,8 @@ func (o *PhyAddrSnap) Unmarshal(data []byte) (int, error) {
 			i++
 			goto eof
 		}
-		x := uint32(data[i])
+		x := uint64(data[i])
 		i++
-
-		if x >= 0x80 {
-			x &= 0x7f
-			for shift := uint(7); ; shift += 7 {
-				b := uint32(data[i])
-				i++
-				if i >= len(data) {
-					goto eof
-				}
-
-				if b < 0x80 {
-					x |= b << shift
-					break
-				}
-				x |= (b & 0x7f) << shift
-			}
-		}
-		o.CloneJobState = int32(x)
-
-		header = data[i]
-		i++
-	} else if header == 9|0x80 {
-		if i+1 >= len(data) {
-			i++
-			goto eof
-		}
-		x := uint32(data[i])
-		i++
-
-		if x >= 0x80 {
-			x &= 0x7f
-			for shift := uint(7); ; shift += 7 {
-				b := uint32(data[i])
-				i++
-				if i >= len(data) {
-					goto eof
-				}
-
-				if b < 0x80 {
-					x |= b << shift
-					break
-				}
-				x |= (b & 0x7f) << shift
-			}
-		}
-		o.CloneJobState = int32(^x + 1)
-
-		header = data[i]
-		i++
-	}
-
-	if header == 10 {
-		start := i
-		i++
-		if i >= len(data) {
-			goto eof
-		}
-		x := uint64(data[start])
 
 		if x >= 0x80 {
 			x &= 0x7f
@@ -1064,83 +930,41 @@ func (o *PhyAddrSnap) Unmarshal(data []byte) (int, error) {
 				x |= (b & 0x7f) << shift
 			}
 		}
-		o.CloneJobParentId = x
+		o.CloneJobPhyAddrTable = int64(x)
 
 		header = data[i]
 		i++
-	} else if header == 10|0x80 {
-		start := i
-		i += 8
-		if i >= len(data) {
+	} else if header == 9|0x80 {
+		if i+1 >= len(data) {
+			i++
 			goto eof
 		}
-		o.CloneJobParentId = intconv.Uint64(data[start:])
-		header = data[i]
+		x := uint64(data[i])
 		i++
-	}
-
-	if header == 11 {
-		start := i
-		i++
-		if i >= len(data) {
-			goto eof
-		}
-		x := uint32(data[start])
 
 		if x >= 0x80 {
 			x &= 0x7f
 			for shift := uint(7); ; shift += 7 {
-				b := uint32(data[i])
+				b := uint64(data[i])
 				i++
 				if i >= len(data) {
 					goto eof
 				}
 
-				if b < 0x80 {
+				if b < 0x80 || shift == 56 {
 					x |= b << shift
 					break
 				}
 				x |= (b & 0x7f) << shift
 			}
 		}
-		o.CloneJobSourceExtId = x
+		o.CloneJobPhyAddrTable = int64(^x + 1)
 
-		header = data[i]
-		i++
-	} else if header == 11|0x80 {
-		start := i
-		i += 4
-		if i >= len(data) {
-			goto eof
-		}
-		o.CloneJobSourceExtId = intconv.Uint32(data[start:])
 		header = data[i]
 		i++
 	}
 
-	if header == 12 {
-		start := i
-		i += 8
-		if i >= len(data) {
-			goto eof
-		}
-		o.CloneJobProgress = math.Float64frombits(intconv.Uint64(data[start:]))
-		header = data[i]
-		i++
-	}
-
-	if header == 13 {
-		start := i
-		i++
-		if i >= len(data) {
-			goto eof
-		}
-		o.CloneJobPhyAddrTable = data[start]
-		header = data[i]
-		i++
-	}
-
-	if header == 14 {
+	if header == 10 {
 		start := i
 		i++
 		if i >= len(data) {
@@ -1168,7 +992,7 @@ func (o *PhyAddrSnap) Unmarshal(data []byte) (int, error) {
 
 		header = data[i]
 		i++
-	} else if header == 14|0x80 {
+	} else if header == 10|0x80 {
 		start := i
 		i += 4
 		if i >= len(data) {

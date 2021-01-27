@@ -27,14 +27,10 @@ type Header struct {
 	f vfs.File // Header will open a file, and keeping it opening until close.
 
 	nvh *NVHeader
-
-	// This part will just keep in memory, because the changes of them are too frequently,
-	// and the fields could be reconstructed without persistence.
-	// segRemoved is the total size of removed objects in this segment.
-	segRemoved []uint32
 }
 
 // Non-Volatile Header is the part of Header will be synced to non-volatile device.
+// <= 4KB.
 type NVHeader struct {
 	State       int32
 	SegSize     uint32 // segSize * grain_size = bytes.
@@ -43,14 +39,18 @@ type NVHeader struct {
 	SealedTS    []int64 // 256 * 8B = 2048B
 
 	// writableHistory records the writable segment changing history.
-	// The history length is 32.
+	// The max history length is 256.
 	// NexIdx indicates the next slot to put new writable segment.
-	WritableHistory        []uint8
+	WritableHistory        []uint8 // 256B.
 	WritableHistoryNextIdx int64
 
 	// Removed records segments removed count of phyaddr.AddressAlignment.
 	// Helping GC greedy algorithm working.
 	Removed []uint32 // 256 * 4B = 1024B
+
+	CloneJobState       int32
+	CloneJobParentId    uint64
+	CloneJobSourceExtId uint32
 }
 
 // HeaderFileName is header filename in local file system.

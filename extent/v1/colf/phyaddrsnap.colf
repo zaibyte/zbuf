@@ -19,10 +19,7 @@ type PhyAddrSnap struct {
     GcDstSeg    int64   // When -1, means no gc dst in present.
     GcSrcCursor uint32 // GC source uid.GrainSize.
     GcDstCursor uint32 // GC destination uid.GrainSize.
-    CloneJobState        int32
-    CloneJobParentId             uint64
-    CloneJobSourceExtId          uint32
-    CloneJobProgress             float64
-    CloneJobPhyAddrTable         uint8
-    CloneJobPhyAddrCursor        uint32
+
+    CloneJobPhyAddrTable int64  // -1 means done.
+    CloneJobPhyAddrCursor uint32
 }
