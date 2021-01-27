@@ -64,11 +64,14 @@ func (e *Extenter) DoGC(ratio float64) {
 // TODO how to pick up paused job. checking the cursor every gc_src & dst pair.
 func (e *Extenter) TryGC(ratio float64) time.Duration {
 	// TODO after GC will check is full or not, if it was full, and there is ready seg after GC, change the full state
-	c := e.getGCCandidates(ratio)
-	if len(c) == 0 {
-		return
+	cs := e.getGCCandidates(ratio)
+	if len(cs) == 0 {
+		return e.cfg.GCScanInterval.Duration
 	}
 
+	for i, c := range cs {
+
+	}
 }
 
 type gcCandidate struct {
@@ -101,24 +104,36 @@ func (g gcCandidates) Swap(i, j int) {
 	g[i], g[j] = g[j], g[i]
 }
 
-// TODO set doing gc job full removed, 0 sealed ts, so it will become the first.
 func (e *Extenter) getGCCandidates(ratio float64) []gcCandidate {
 
 	e.rwMutex.RLock()
 	defer e.rwMutex.RUnlock()
 
 	// If removed >= threshold, means need to be GC.
-	threshold := uint32(float64(e.cfg.SegmentSize/phyaddr.AddressAlignment) * ratio)
+	threshold := uint32(float64(e.cfg.SegmentSize/phyaddr.Alignment) * ratio)
 
 	cnt := 0
-	c := make([]gcCandidate, 0, segmentCnt)
+	cs := make([]gcCandidate, 0, segmentCnt)
+
+	// At the beginning, the Extenter will load last unfinished GC job.
+	if e.gcSrcSeg != -1 { // There is one unfinished GC source segment.
+		cnt++
+		cs = append(cs, gcCandidate{
+			seg: uint8(e.gcSrcSeg),
+			// Set all removed, so the unfinished segment will come first.
+			removed: uint32(e.cfg.SegmentSize / phyaddr.Alignment),
+			// Set sealedTS 0, none candidate could compete with it.
+			sealedTS: 0,
+		})
+	}
+
 	nvh := e.header.nvh
 	for i, s := range nvh.SegStates {
 		if s == segSealed {
 			rm := nvh.Removed[i]
 			if rm >= threshold {
 				cnt++
-				c = append(c, gcCandidate{
+				cs = append(cs, gcCandidate{
 					seg:      uint8(i),
 					removed:  rm,
 					sealedTS: nvh.SealedTS[i],
@@ -127,11 +142,16 @@ func (e *Extenter) getGCCandidates(ratio float64) []gcCandidate {
 		}
 	}
 
-	return c
+	cs = cs[:cnt]
+	if cnt != 0 {
+		e.sortGCCandidates(cs)
+	}
+
+	return cs
 }
 
-func (e *Extenter) sortGCCandidates(c gcCandidates) {
-	sort.Sort(c)
+func (e *Extenter) sortGCCandidates(cs gcCandidates) {
+	sort.Sort(cs)
 }
 
 var closedTryGCChan = make(chan time.Time)

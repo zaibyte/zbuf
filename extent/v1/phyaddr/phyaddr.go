@@ -50,8 +50,8 @@ const (
 )
 
 const (
-	// AddressAlignment is the PhyAddr address alignment size.
-	AddressAlignment = 16 * 1024 // 16 KiB
+	// Alignment is the PhyAddr address alignment size.
+	Alignment = 16 * 1024 // 16 KiB
 )
 
 // PhyAddr is extent/v1 digest:address mapping.

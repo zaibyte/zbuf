@@ -17,9 +17,9 @@ type PhyAddrSnap struct {
     // because there are already persisted in physical address snapshot.
     GcSrcSeg    int64   // When -1, means no gc src in present.
     GcDstSeg    int64   // When -1, means no gc dst in present.
-    GcSrcCursor uint32 // GC source uid.GrainSize.
-    GcDstCursor uint32 // GC destination uid.GrainSize.
+    GcSrcCursor uint32 // GC source n*phyaddr.Alignment
+    GcDstCursor uint32 // GC destination n*phyaddr.Alignment
 
     CloneJobPhyAddrTable int64  // -1 means done.
-    CloneJobPhyAddrCursor uint32
+    CloneJobPhyAddrCursor uint32    //
 }

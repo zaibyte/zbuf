@@ -111,7 +111,7 @@ func (e *Extenter) updatesLoop() {
 				continue
 			}
 
-			e.writableCursor += alignSize(int64(written), phyaddr.AddressAlignment)
+			e.writableCursor += alignSize(int64(written), phyaddr.Alignment)
 			atomic.AddInt64(&e.dirtyUpdates, 1)
 			continue
 		}
@@ -268,7 +268,7 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 
 // offsetToAddr transfers offset in segments file to address in phy_addr.
 func offsetToAddr(offset int64) uint32 {
-	return uint32(offset / phyaddr.AddressAlignment)
+	return uint32(offset / phyaddr.Alignment)
 }
 
 type writeDataRequest struct {
