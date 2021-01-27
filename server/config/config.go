@@ -81,8 +81,9 @@ func (c *Config) adjust() {
 
 	config.Adjust(&c.DataRoot, DefaultDataRoot)
 
+	config.Adjust(&c.App.TimeCalibrateInterval, app.DefaultTimeCalibrateInterval)
+
 	config.Adjust(&c.App.GOMAXPROCS, DefaultGOMAXPROCS)
-	if c.App.GOMAXPROCS > runtime.NumCPU() {
-		runtime.GOMAXPROCS(c.App.GOMAXPROCS) // TODO maybe 512 if you got lots of cores and NVMe SSD
-	}
+	runtime.GOMAXPROCS(c.App.GOMAXPROCS) // TODO maybe 512 if you got lots of cores and NVMe SSD
+
 }
