@@ -71,7 +71,7 @@ const (
 	// So the block may finish before notice it, the GO Process will be wasted in this situation,
 	// That's why we need more process
 	// (I found this trick from this discussion: https://groups.google.com/forum/#!topic/golang-nuts/jPb_h3TvlKE/discussion)
-	DefaultGOMAXPROCS = 128
+	DefaultGOMAXPROCS = 256
 )
 
 func (c *Config) adjust() {
@@ -85,5 +85,4 @@ func (c *Config) adjust() {
 
 	config.Adjust(&c.App.GOMAXPROCS, DefaultGOMAXPROCS)
 	runtime.GOMAXPROCS(c.App.GOMAXPROCS) // TODO maybe 512 if you got lots of cores and NVMe SSD
-
 }
