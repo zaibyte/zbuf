@@ -1,17 +1,27 @@
 package v1
 
 import (
+	"context"
 	"sort"
+	"time"
 
 	"g.tesamc.com/IT/zbuf/extent/v1/phyaddr"
 )
 
 func (e *Extenter) GCLoop() {
 
+	defer e.stopWg.Done()
+
+	ctx, cancel := context.WithCancel(e.ctx)
+	defer cancel()
+
+	// TODO use a ticker here
 	for {
 		ratio := e.cfg.GCRatio
 		select {
 		case ratio = <-e.forceGC:
+		case <-ctx.Done():
+			return
 		default:
 
 		}
@@ -42,7 +52,8 @@ func (e *Extenter) DoGC(ratio float64) {
 	}
 }
 
-func (e *Extenter) TryGC(ratio float64) {
+// TODO how to pick up paused job. checking the cursor every gc_src & dst pair.
+func (e *Extenter) TryGC(ratio float64) time.Duration {
 	// TODO after GC will check is full or not, if it was full, and there is ready seg after GC, change the full state
 	c := e.getGCCandidates(ratio)
 	if len(c) == 0 {
@@ -81,6 +92,7 @@ func (g gcCandidates) Swap(i, j int) {
 	g[i], g[j] = g[j], g[i]
 }
 
+// TODO set doing gc job full removed, 0 sealed ts, so it will become the first.
 func (e *Extenter) getGCCandidates(ratio float64) []gcCandidate {
 
 	e.rwMutex.RLock()
