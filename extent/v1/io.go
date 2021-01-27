@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -24,6 +25,9 @@ import (
 // updatesLoop keeps trying to get new updates request and handle it.
 func (e *Extenter) updatesLoop() {
 	defer e.stopWg.Done()
+
+	ctx, cancel := context.WithCancel(e.ctx)
+	defer cancel()
 
 	// TODO in present, we won't split write. See https://g.tesamc.com/IT/zbuf/issues/104 for details.
 	// sizePerWrite := e.cfg.SizePerWrite
@@ -54,7 +58,7 @@ func (e *Extenter) updatesLoop() {
 			case wr = <-e.writeDataChan:
 			case mr = <-e.metaUpdateChan:
 
-			case <-e.ctx.Done():
+			case <-ctx.Done():
 				return
 			}
 		}
