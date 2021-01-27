@@ -72,6 +72,12 @@ type Extenter struct {
 	writeDataChan  chan *writeDataRequest
 	metaUpdateChan chan *metaUpdatesRequest
 
+	gcSrcSeg    int64
+	gcSrcCursor uint32
+	gcDstSeg    int64
+	gcDstCursor uint32
+	forceGC     chan float64
+
 	ctx    context.Context
 	stopWg *sync.WaitGroup
 }

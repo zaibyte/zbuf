@@ -51,13 +51,11 @@ type Creator interface {
 	GetSize() uint64
 }
 
-// GCer are methods collector of GC,
-// it's better to let upper layer but not extent to control the GC process,
-// helping to manage I/O cost.
+// GCer are methods collector of GC.
 type GCer interface {
-	// TryGC tries to trigger GC, if there is garbage and need to be collected,
-	// it'll block until GC finished.
-	TryGC()
+	// DoGC tries to trigger GC with a certain ratio,
+	// it's non-block, and you could call it anytime.
+	DoGC(ratio float64)
 }
 
 // Cloner is methods collector of Clone.
