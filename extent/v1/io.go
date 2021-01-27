@@ -212,7 +212,7 @@ func (e *Extenter) isPhyAddrSnapBehind() bool {
 
 	lastSnap := e.getLastPhyAddrSnap()
 
-	coHeader := e.header.coHeader
+	coHeader := e.header.nvh
 
 	if lastSnap == nil { // None snapshot has been made.
 		if coHeader.WritableHistoryNextIdx >= historyCnt {
@@ -239,7 +239,7 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 		return -1, err
 	}
 
-	coHeader := e.header.coHeader
+	coHeader := e.header.nvh
 	for i, state := range coHeader.SegStates {
 		if state == segReady {
 			next := i

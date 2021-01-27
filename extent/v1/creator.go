@@ -69,7 +69,7 @@ func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
 		rwMutex:  new(sync.RWMutex),
 		header:   h,
 		info: &extent.Info{PbExt: &metapb.Extent{
-			State:      metapb.ExtentState(h.coHeader.State),
+			State:      metapb.ExtentState(h.nvh.State),
 			Id:         extID,
 			Size_:      uint64(c.cfg.SegmentSize * uint32(segmentCnt)),
 			Used:       0,
@@ -119,7 +119,7 @@ func (c *Creator) Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
 		diskInfo: diskInfo,
 		header:   h,
 		info: &extent.Info{PbExt: &metapb.Extent{
-			State: metapb.ExtentState(h.coHeader.State),
+			State: metapb.ExtentState(h.nvh.State),
 			Id:    extID,
 			Size_: uint64(c.cfg.SegmentSize * uint32(segmentCnt)),
 			// TODO traverse ready & writable segs

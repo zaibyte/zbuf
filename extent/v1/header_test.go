@@ -35,24 +35,24 @@ func TestCreateLoadHeader(t *testing.T) {
 	defer lh.Close()
 
 	// Compare "empty" header.
-	assert.Equal(t, h.coHeader.State, lh.coHeader.State)
-	assert.Equal(t, h.coHeader.SegSize, lh.coHeader.SegSize)
-	assert.Equal(t, h.coHeader.WritableHistoryNextIdx, lh.coHeader.WritableHistoryNextIdx)
-	assert.Equal(t, h.coHeader.WritableHistory, lh.coHeader.WritableHistory)
-	assert.Equal(t, h.coHeader.WritableHistoryTS, lh.coHeader.WritableHistoryTS)
-	assert.Equal(t, h.coHeader.SegStates, lh.coHeader.SegStates)
-	assert.Equal(t, h.coHeader.SealedTS, lh.coHeader.SealedTS) // Because removed won't be sync to disk, so comparing empty is still meaningful.
-	assert.Equal(t, h.coHeader.ReservedSeg, lh.coHeader.ReservedSeg)
+	assert.Equal(t, h.nvh.State, lh.nvh.State)
+	assert.Equal(t, h.nvh.SegSize, lh.nvh.SegSize)
+	assert.Equal(t, h.nvh.WritableHistoryNextIdx, lh.nvh.WritableHistoryNextIdx)
+	assert.Equal(t, h.nvh.WritableHistory, lh.nvh.WritableHistory)
+	assert.Equal(t, h.nvh.WritableHistoryTS, lh.nvh.WritableHistoryTS)
+	assert.Equal(t, h.nvh.SegStates, lh.nvh.SegStates)
+	assert.Equal(t, h.nvh.SealedTS, lh.nvh.SealedTS) // Because removed won't be sync to disk, so comparing empty is still meaningful.
+	assert.Equal(t, h.nvh.ReservedSeg, lh.nvh.ReservedSeg)
 	assert.Equal(t, h.segRemoved, lh.segRemoved)
 
-	h.coHeader.State += 1
-	h.coHeader.SegSize = rand.Uint32()
-	h.coHeader.WritableHistoryNextIdx = 2
-	h.coHeader.WritableHistory[1] = 255
-	h.coHeader.WritableHistoryTS[1] = tsc.UnixNano()
-	h.coHeader.SegStates[255] = segSealed
-	h.coHeader.SealedTS[255] = tsc.UnixNano()
-	h.coHeader.ReservedSeg += 1
+	h.nvh.State += 1
+	h.nvh.SegSize = rand.Uint32()
+	h.nvh.WritableHistoryNextIdx = 2
+	h.nvh.WritableHistory[1] = 255
+	h.nvh.WritableHistoryTS[1] = tsc.UnixNano()
+	h.nvh.SegStates[255] = segSealed
+	h.nvh.SealedTS[255] = tsc.UnixNano()
+	h.nvh.ReservedSeg += 1
 
 	err = h.Store(metapb.ExtentState_Extent_Broken)
 	if err != nil {
@@ -66,13 +66,13 @@ func TestCreateLoadHeader(t *testing.T) {
 	defer lh.Close()
 
 	// Compare non-empty header with random data.
-	assert.Equal(t, h.coHeader.State, lh.coHeader.State)
-	assert.Equal(t, h.coHeader.SegSize, lh.coHeader.SegSize)
-	assert.Equal(t, h.coHeader.WritableHistoryNextIdx, lh.coHeader.WritableHistoryNextIdx)
-	assert.Equal(t, h.coHeader.WritableHistory, lh.coHeader.WritableHistory)
-	assert.Equal(t, h.coHeader.WritableHistoryTS, lh.coHeader.WritableHistoryTS)
-	assert.Equal(t, h.coHeader.SegStates, lh.coHeader.SegStates)
-	assert.Equal(t, h.coHeader.SealedTS, lh.coHeader.SealedTS)
-	assert.Equal(t, h.coHeader.ReservedSeg, lh.coHeader.ReservedSeg)
+	assert.Equal(t, h.nvh.State, lh.nvh.State)
+	assert.Equal(t, h.nvh.SegSize, lh.nvh.SegSize)
+	assert.Equal(t, h.nvh.WritableHistoryNextIdx, lh.nvh.WritableHistoryNextIdx)
+	assert.Equal(t, h.nvh.WritableHistory, lh.nvh.WritableHistory)
+	assert.Equal(t, h.nvh.WritableHistoryTS, lh.nvh.WritableHistoryTS)
+	assert.Equal(t, h.nvh.SegStates, lh.nvh.SegStates)
+	assert.Equal(t, h.nvh.SealedTS, lh.nvh.SealedTS)
+	assert.Equal(t, h.nvh.ReservedSeg, lh.nvh.ReservedSeg)
 	assert.Equal(t, h.segRemoved, lh.segRemoved)
 }

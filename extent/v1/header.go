@@ -26,12 +26,31 @@ type Header struct {
 
 	f vfs.File // Header will open a file, and keeping it opening until close.
 
-	coHeader *colf.Header
+	nvh *NVHeader
 
 	// This part will just keep in memory, because the changes of them are too frequently,
 	// and the fields could be reconstructed without persistence.
 	// segRemoved is the total size of removed objects in this segment.
 	segRemoved []uint32
+}
+
+// Non-Volatile Header is the part of Header will be synced to non-volatile device.
+type NVHeader struct {
+	State       int32
+	SegSize     uint32 // segSize * grain_size = bytes.
+	ReservedSeg uint8
+	SegStates   []uint8 // 256 * 1B = 256B
+	SealedTS    []int64 // 256 * 8B = 2048B
+
+	// writableHistory records the writable segment changing history.
+	// The history length is 32.
+	// NexIdx indicates the next slot to put new writable segment.
+	WritableHistory        []uint8
+	WritableHistoryNextIdx int64
+
+	// Removed records segments removed count of phyaddr.AddressAlignment.
+	// Helping GC greedy algorithm working.
+	Removed []uint32 // 256 * 4B = 1024B
 }
 
 // HeaderFileName is header filename in local file system.
@@ -51,25 +70,25 @@ func CreateHeader(sched xio.Scheduler, fs vfs.FS, extDir string, segSize uint32,
 
 	h.f = f
 
-	h.coHeader = new(colf.Header)
-	h.coHeader.State = int32(state)
-	h.coHeader.SegSize = segSize
-	h.coHeader.ReservedSeg = uint8(reservedSeg)
-	h.coHeader.SegStates = make([]byte, segmentCnt)
-	for i := range h.coHeader.SegStates {
+	h.nvh = new(colf.Header)
+	h.nvh.State = int32(state)
+	h.nvh.SegSize = segSize
+	h.nvh.ReservedSeg = uint8(reservedSeg)
+	h.nvh.SegStates = make([]byte, segmentCnt)
+	for i := range h.nvh.SegStates {
 		if i < segmentCnt-reservedSeg {
-			h.coHeader.SegStates[i] = segReady
+			h.nvh.SegStates[i] = segReady
 		} else {
-			h.coHeader.SegStates[i] = segReserved
+			h.nvh.SegStates[i] = segReserved
 		}
 	}
-	h.coHeader.SegStates[0] = segWritable // Set first seg writable.
-	h.coHeader.SealedTS = make([]int64, segmentCnt)
+	h.nvh.SegStates[0] = segWritable // Set first seg writable.
+	h.nvh.SealedTS = make([]int64, segmentCnt)
 
-	h.coHeader.WritableHistory = make([]byte, historyCnt)
-	h.coHeader.WritableHistoryTS = make([]int64, historyCnt)
-	h.coHeader.WritableHistoryTS[0] = tsc.UnixNano()
-	h.coHeader.WritableHistoryNextIdx = 1 // segment_0 is writable now.
+	h.nvh.WritableHistory = make([]byte, historyCnt)
+	h.nvh.WritableHistoryTS = make([]int64, historyCnt)
+	h.nvh.WritableHistoryTS[0] = tsc.UnixNano()
+	h.nvh.WritableHistoryNextIdx = 1 // segment_0 is writable now.
 
 	h.segRemoved = make([]uint32, segmentCnt)
 
@@ -114,7 +133,7 @@ func LoadHeader(sched xio.Scheduler, fs vfs.FS, extDir string) (*Header, error) 
 		_ = f.Close()
 		return nil, err
 	}
-	h.coHeader = coh
+	h.nvh = coh
 
 	h.segRemoved = make([]uint32, segmentCnt)
 
@@ -133,9 +152,9 @@ func (h *Header) Store(state metapb.ExtentState) error {
 
 	b := directio.AlignedBlock(uid.GrainSize)
 
-	h.coHeader.State = int32(state)
+	h.nvh.State = int32(state)
 
-	n := h.coHeader.MarshalTo(b[4:])
+	n := h.nvh.MarshalTo(b[4:])
 	binary.LittleEndian.PutUint32(b[:4], uint32(n))
 
 	checksum := xdigest.Sum32(b[:uid.GrainSize-4])

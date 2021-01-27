@@ -137,7 +137,7 @@ func (e *Extenter) MakePhyAddrSnapshot() {
 
 	snap := new(colf.PhyAddrSnap)
 	snap.CreatTS = tsc.UnixNano()
-	snap.WritableHistoryIdx = e.header.coHeader.WritableHistoryNextIdx - 1
+	snap.WritableHistoryIdx = e.header.nvh.WritableHistoryNextIdx - 1
 	snap.WritableSeg = e.writableSeg
 	snap.WritableCursor = e.writableCursor
 
