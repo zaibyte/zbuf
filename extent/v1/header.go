@@ -16,6 +16,9 @@ import (
 
 const (
 	historyCnt = 256
+	headerSize = 4096 // 4KiB.
+	// HeaderFileName is header filename in local file system.
+	HeaderFileName = "header"
 )
 
 // Header is extent.v1 header.
@@ -26,33 +29,6 @@ type Header struct {
 
 	nvh *NVHeader
 }
-
-// Non-Volatile Header is the part of Header will be synced to non-volatile device.
-// <= 4KB.
-type NVHeader struct {
-	State       int32
-	SegSize     uint32 // segSize * grain_size = bytes.
-	ReservedSeg uint8
-	SegStates   []uint8 // 256 * 1B = 256B
-	SealedTS    []int64 // 256 * 8B = 2048B
-
-	// writableHistory records the writable segment changing history.
-	// The max history length is 256.
-	// NexIdx indicates the next slot to put new writable segment.
-	WritableHistory        []uint8 // 256B.
-	WritableHistoryNextIdx int64
-
-	// Removed records segments removed count of phyaddr.AddressAlignment.
-	// Helping GC greedy algorithm working.
-	Removed []uint32 // 256 * 4B = 1024B
-
-	CloneJobState       int32
-	CloneJobParentId    uint64
-	CloneJobSourceExtId uint32
-}
-
-// HeaderFileName is header filename in local file system.
-const HeaderFileName = "header"
 
 // CreateHeader creates a new Header with a new writable segment(segment[0]),
 // and persist it on local file system.
@@ -65,7 +41,7 @@ func CreateHeader(sched xio.Scheduler, fs vfs.FS, extDir string, segSize uint32,
 	if err != nil {
 		return nil, err
 	}
-	err = vfs.FAlloc(f.Fd(), 4096)
+	err = vfs.FAlloc(f.Fd(), headerSize)
 	if err != nil {
 		_ = f.Close()
 		return nil, err
@@ -153,7 +129,7 @@ func LoadHeader(sched xio.Scheduler, fs vfs.FS, extDir string) (*Header, error) 
 // state is passed by caller.
 func (h *Header) Store(state metapb.ExtentState) error {
 
-	b := directio.AlignedBlock(uid.GrainSize)
+	b := directio.AlignedBlock(headerSize)
 
 	h.nvh.State = int32(state)
 
