@@ -142,5 +142,7 @@ func (s *Server) Close() {
 		_ = ext.Close()
 		return true
 	})
+
+	// TODO after stop make snapshot
 	xlog.Info("server is closed")
 }

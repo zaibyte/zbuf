@@ -2,8 +2,11 @@ package v1
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"time"
+
+	"g.tesamc.com/IT/zaipkg/xlog"
 
 	"g.tesamc.com/IT/zbuf/extent/v1/phyaddr"
 )
@@ -61,6 +64,10 @@ func (e *Extenter) DoGC(ratio float64) {
 	}
 }
 
+// When we want to set new GC src /dst but meet inconsistent between GC process & phy_addr snapshot,
+// wait for a while and check again.
+const checkSnapSyncGCInterval = 32 * time.Second
+
 // TODO how to pick up paused job. checking the cursor every gc_src & dst pair.
 func (e *Extenter) TryGC(ratio float64) time.Duration {
 	// TODO after GC will check is full or not, if it was full, and there is ready seg after GC, change the full state
@@ -70,8 +77,53 @@ func (e *Extenter) TryGC(ratio float64) time.Duration {
 	}
 
 	for i, c := range cs {
+		// TODO how to sync cursor
 
+		snap := e.getLastPhyAddrSnap()
+		var lastSrcInSnap int64 = -1
+		var lastSrcCursorInSnap uint32 = 0
+		if snap != nil {
+			lastSrcInSnap = snap.GcSrcSeg
+			lastSrcCursorInSnap = snap.GcSrcCursor
+		}
+		lastSrc := e.gcSrcSeg
+		lastSrcCursor := e.gcSrcCursor
+
+		e.rwMutex.Lock()
+		e.gcSrcSeg = int64(c.seg)
+		dst := e.gcDstSeg
+		if dst == -1 {
+			dst = e.findGCDst()
+			if dst == -1 {
+				e.rwMutex.Unlock()
+				return e.cfg.GCScanInterval.Duration
+			}
+			// Checking source is enough, because src&dst changes is a atomic txn.
+			if lastSrc != lastSrcInSnap || lastSrcCursor != lastSrcCursorInSnap {
+				return checkSnapSyncGCInterval
+			}
+			e.gcDstSeg = dst
+			e.gcDstCursor = 0 // After set new dst, should reset cursor.
+		}
+		srcCursor := e.gcSrcCursor
+		dstCursor := e.gcDstCursor
+		e.rwMutex.Unlock()
+
+		// TODO check count of reserved segments is enough or not after GC, if not, mark the new empty segment to reserved
+		// TODO before set src/dst to -1, check snapshot finish or not by cursor inside.
 	}
+}
+
+// findGCDst finds a GC dst segment from reserved segment.
+// It must have.
+func (e *Extenter) findGCDst() int64 {
+	for i, s := range e.header.nvh.SegStates {
+		if s == segReserved {
+			return int64(i)
+		}
+	}
+	xlog.Panic(fmt.Sprintf("could not find a reserved segment for GC dst, ext_id: %d", e.info.PbExt.Id))
+	return -1
 }
 
 type gcCandidate struct {

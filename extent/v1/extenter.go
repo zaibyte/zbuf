@@ -72,9 +72,11 @@ type Extenter struct {
 	writeDataChan  chan *writeDataRequest
 	metaUpdateChan chan *metaUpdatesRequest
 
-	gcSrcSeg    int64
+	// After GC done, must be set to -1.
+	gcSrcSeg int64
+	gcDstSeg int64
+	// After GC done, must be set to 0.
 	gcSrcCursor uint32
-	gcDstSeg    int64
 	gcDstCursor uint32
 	forceGC     chan float64
 

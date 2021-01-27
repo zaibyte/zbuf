@@ -22,6 +22,7 @@ import (
 	"github.com/templexxx/tsc"
 )
 
+// TODO add lock when change/read seg states
 // updatesLoop keeps trying to get new updates request and handle it.
 func (e *Extenter) updatesLoop() {
 	defer e.stopWg.Done()
