@@ -34,6 +34,8 @@ const (
 	// 2. The snapshot will be huge because the number of objects is big in a extent.
 	// I've implemented a algorithm to measure the opportunity of making snapshot.
 	defaultMaxDirtyCount = 128
+
+	defaultGCRatio = 0.5
 )
 
 // TODO may no need to create get queue
@@ -59,6 +61,9 @@ type Config struct {
 	// MaxDirtyCount is the maximum dirty updates in phy_addr(memory) which we could tolerate,
 	// if the dirty_count > MaxDirtyCount we should trigger a snapshot making event.
 	MaxDirtyCount int64 `toml:"max_dirty_count"`
+
+	// GCRatio is the ratio of garbage which if the segment's garbage is beyond it, the GC will start.
+	GCRatio float64 `toml:"gc_ratio"`
 }
 
 func (cfg *Config) adjust() {
@@ -68,4 +73,5 @@ func (cfg *Config) adjust() {
 	config.Adjust(&cfg.SizePerWrite, defaultSizePerWrite)
 	config.Adjust(&cfg.SizePerRead, defaultSizePerRead)
 	config.Adjust(&cfg.MaxDirtyCount, defaultMaxDirtyCount)
+	config.Adjust(&cfg.GCRatio, defaultGCRatio)
 }
