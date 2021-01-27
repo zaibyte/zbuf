@@ -6,9 +6,7 @@ import (
 
 	"g.tesamc.com/IT/zaipkg/directio"
 	"g.tesamc.com/IT/zaipkg/orpc"
-	"g.tesamc.com/IT/zaipkg/uid"
 	"g.tesamc.com/IT/zaipkg/xdigest"
-	"g.tesamc.com/IT/zbuf/extent/v1/colf"
 	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zbuf/xio"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
@@ -80,7 +78,7 @@ func CreateHeader(sched xio.Scheduler, fs vfs.FS, extDir string, segSize uint32,
 	return h, nil
 }
 
-// Load loads existed header from file system.
+// Load loads existed header from header file.
 func LoadHeader(sched xio.Scheduler, fs vfs.FS, extDir string) (*Header, error) {
 	h := new(Header)
 
@@ -91,30 +89,28 @@ func LoadHeader(sched xio.Scheduler, fs vfs.FS, extDir string) (*Header, error) 
 	}
 	h.f = f
 
-	b := directio.AlignedBlock(uid.GrainSize)
+	b := directio.AlignedBlock(headerSize)
 	err = h.iosched.DoSync(xio.ReqMetaRead, f, 0, b)
 	if err != nil {
 		_ = f.Close()
 		return nil, err
 	}
 
-	expChecksum := xdigest.Sum32(b[:uid.GrainSize-4])
-	actChecksum := binary.LittleEndian.Uint32(b[uid.GrainSize-4:])
+	expChecksum := xdigest.Sum32(b[:headerSize-4])
+	actChecksum := binary.LittleEndian.Uint32(b[headerSize-4:])
 	if expChecksum != actChecksum {
 		_ = f.Close()
 		return nil, orpc.ErrChecksumMismatch
 	}
 
-	coHeaderLen := binary.LittleEndian.Uint32(b[:4])
-	coh := new(colf.Header)
-	_, err = coh.Unmarshal(b[4 : 4+coHeaderLen])
+	nvHLen := binary.LittleEndian.Uint32(b[:4])
+	nvh := new(NVHeader)
+	_, err = nvh.Unmarshal(b[4 : 4+nvHLen])
 	if err != nil {
 		_ = f.Close()
 		return nil, err
 	}
-	h.nvh = coh
-
-	h.segRemoved = make([]uint32, segmentCnt)
+	h.nvh = nvh
 
 	return h, nil
 }
@@ -136,8 +132,8 @@ func (h *Header) Store(state metapb.ExtentState) error {
 	n := h.nvh.MarshalTo(b[4:])
 	binary.LittleEndian.PutUint32(b[:4], uint32(n))
 
-	checksum := xdigest.Sum32(b[:uid.GrainSize-4])
-	binary.LittleEndian.PutUint32(b[uid.GrainSize-4:], checksum)
+	checksum := xdigest.Sum32(b[:headerSize-4])
+	binary.LittleEndian.PutUint32(b[headerSize-4:], checksum)
 
 	return h.iosched.DoSync(xio.ReqMetaWrite, h.f, 0, b)
 }
