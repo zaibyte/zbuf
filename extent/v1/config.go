@@ -39,7 +39,7 @@ const (
 
 	defaultGCRatio        = 0.5
 	defaultGCInterval     = time.Hour * 24
-	defaultGCScanInterval = time.Minute
+	defaultGCScanInterval = time.Hour
 )
 
 // TODO may no need to create get queue
