@@ -8,29 +8,38 @@ import (
 	"g.tesamc.com/IT/zbuf/extent/v1/phyaddr"
 )
 
-func (e *Extenter) GCLoop() {
+func (e *Extenter) gcLoop() {
 
 	defer e.stopWg.Done()
 
 	ctx, cancel := context.WithCancel(e.ctx)
 	defer cancel()
 
-	// TODO use a ticker here
+	ratio := e.cfg.GCRatio
+
+	interval := e.cfg.GCScanInterval.Duration
+	t := time.NewTimer(interval)
+	// TODO We can't use a sleep here, because we may miss the ctx.Done() if using sleep. Need to figure it out.
+	var tryChan <-chan time.Time
+
 	for {
-		ratio := e.cfg.GCRatio
+
+		if tryChan == nil {
+			tryChan = getTryGCChan(t, interval)
+		}
 		select {
 		case ratio = <-e.forceGC:
+
+		case <-tryChan:
+			interval = e.TryGC(ratio)
+			tryChan = nil
+			ratio = e.cfg.GCRatio // After force GC once, reset the ratio back.
+			continue
+
 		case <-ctx.Done():
 			return
-		default:
-
 		}
-
-		e.TryGC(ratio)
-
-		ratio = e.cfg.GCRatio // After force GC once, reset the ratio back.
 	}
-
 }
 
 func (e *Extenter) DoGC(ratio float64) {
@@ -123,4 +132,26 @@ func (e *Extenter) getGCCandidates(ratio float64) []gcCandidate {
 
 func (e *Extenter) sortGCCandidates(c gcCandidates) {
 	sort.Sort(c)
+}
+
+var closedTryGCChan = make(chan time.Time)
+
+func init() {
+	close(closedTryGCChan)
+}
+
+func getTryGCChan(t *time.Timer, interval time.Duration) <-chan time.Time {
+	if interval <= 0 {
+		return closedTryGCChan
+	}
+
+	if !t.Stop() {
+		// Exhaust expired timer's chan.
+		select {
+		case <-t.C:
+		default:
+		}
+	}
+	t.Reset(interval)
+	return t.C
 }
