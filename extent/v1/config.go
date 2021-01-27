@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"time"
+
 	"g.tesamc.com/IT/zaipkg/config"
 	"g.tesamc.com/IT/zaipkg/typeutil"
 )
@@ -35,7 +37,9 @@ const (
 	// I've implemented a algorithm to measure the opportunity of making snapshot.
 	defaultMaxDirtyCount = 128
 
-	defaultGCRatio = 0.5
+	defaultGCRatio        = 0.5
+	defaultGCInterval     = time.Hour * 24
+	defaultGCScanInterval = time.Minute
 )
 
 // TODO may no need to create get queue
@@ -64,6 +68,12 @@ type Config struct {
 
 	// GCRatio is the ratio of garbage which if the segment's garbage is beyond it, the GC will start.
 	GCRatio float64 `toml:"gc_ratio"`
+	// GCInterval is the interval of two GC job.
+	// After GC, the GC worker will sleep for GCInterval for next scan.
+	GCInterval typeutil.Duration `toml:"gc_interval"`
+	// GCScanInterval is the interval of two GC scan job.
+	// If there is nothing to do for GC, the GC worker will sleep for GCScanInterval for next scan.
+	GCScanInterval typeutil.Duration `toml:"gc_scan_interval"`
 }
 
 func (cfg *Config) adjust() {
@@ -74,4 +84,6 @@ func (cfg *Config) adjust() {
 	config.Adjust(&cfg.SizePerRead, defaultSizePerRead)
 	config.Adjust(&cfg.MaxDirtyCount, defaultMaxDirtyCount)
 	config.Adjust(&cfg.GCRatio, defaultGCRatio)
+	config.Adjust(&cfg.GCInterval, defaultGCInterval)
+	config.Adjust(&cfg.GCScanInterval, defaultGCScanInterval)
 }
