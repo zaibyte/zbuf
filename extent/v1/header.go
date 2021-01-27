@@ -4,8 +4,6 @@ import (
 	"encoding/binary"
 	"path/filepath"
 
-	"github.com/templexxx/tsc"
-
 	"g.tesamc.com/IT/zaipkg/directio"
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/uid"
@@ -17,7 +15,7 @@ import (
 )
 
 const (
-	historyCnt = 32
+	historyCnt = 256
 )
 
 // Header is extent.v1 header.
@@ -67,10 +65,15 @@ func CreateHeader(sched xio.Scheduler, fs vfs.FS, extDir string, segSize uint32,
 	if err != nil {
 		return nil, err
 	}
+	err = vfs.FAlloc(f.Fd(), 4096)
+	if err != nil {
+		_ = f.Close()
+		return nil, err
+	}
 
 	h.f = f
 
-	h.nvh = new(colf.Header)
+	h.nvh = new(NVHeader)
 	h.nvh.State = int32(state)
 	h.nvh.SegSize = segSize
 	h.nvh.ReservedSeg = uint8(reservedSeg)
@@ -86,11 +89,11 @@ func CreateHeader(sched xio.Scheduler, fs vfs.FS, extDir string, segSize uint32,
 	h.nvh.SealedTS = make([]int64, segmentCnt)
 
 	h.nvh.WritableHistory = make([]byte, historyCnt)
-	h.nvh.WritableHistoryTS = make([]int64, historyCnt)
-	h.nvh.WritableHistoryTS[0] = tsc.UnixNano()
 	h.nvh.WritableHistoryNextIdx = 1 // segment_0 is writable now.
 
-	h.segRemoved = make([]uint32, segmentCnt)
+	h.nvh.Removed = make([]uint32, segmentCnt)
+
+	h.nvh.CloneJobState = int32(metapb.CloneJobState_CloneJob_Terminated)
 
 	err = h.Store(state)
 	if err != nil {
