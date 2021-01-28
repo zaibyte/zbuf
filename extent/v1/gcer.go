@@ -6,6 +6,8 @@ import (
 	"sort"
 	"time"
 
+	"g.tesamc.com/IT/zaipkg/xtime"
+
 	"g.tesamc.com/IT/zaipkg/xlog"
 
 	"g.tesamc.com/IT/zbuf/extent/v1/phyaddr"
@@ -28,7 +30,7 @@ func (e *Extenter) gcLoop() {
 	for {
 
 		if tryChan == nil {
-			tryChan = getTryGCChan(t, interval)
+			tryChan = xtime.GetTimerEvent(t, interval)
 		}
 		select {
 		case ratio = <-e.forceGC:
@@ -204,26 +206,4 @@ func (e *Extenter) getGCCandidates(ratio float64) []gcCandidate {
 
 func (e *Extenter) sortGCCandidates(cs gcCandidates) {
 	sort.Sort(cs)
-}
-
-var closedTryGCChan = make(chan time.Time)
-
-func init() {
-	close(closedTryGCChan)
-}
-
-func getTryGCChan(t *time.Timer, interval time.Duration) <-chan time.Time {
-	if interval <= 0 {
-		return closedTryGCChan
-	}
-
-	if !t.Stop() {
-		// Exhaust expired timer's chan.
-		select {
-		case <-t.C:
-		default:
-		}
-	}
-	t.Reset(interval)
-	return t.C
 }
