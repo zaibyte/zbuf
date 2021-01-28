@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	// DefaultIODepth is the single disk concurrent readers/writers.
+	// DefaultThreads is the single disk concurrent readers/writers.
 	// ZBuf has internal cache, these threads are used for accessing disk.
 	// Beyond 32, we may get higher IOPS, but much higher latency.
 	//
@@ -23,14 +23,14 @@ const (
 	// For large I/O, 16 is a better choice.
 	//
 	// This value is the result of combination of Intel manual & my experience & testing results.
-	DefaultIODepth = 32
+	DefaultThreads = 32
 )
 
 // Config is Scheduler's config.
 type Config struct {
 	// The maximum number of concurrent read/write.
-	// Default is DefaultIODepth.
-	IODepth     int          `toml:"io_depth"`
+	// Default is DefaultThreads.
+	Threads     int          `toml:"threads"`
 	QueueConfig *QueueConfig `toml:"queue_config"`
 }
 
@@ -75,7 +75,7 @@ func New(ctx context.Context, stopWg *sync.WaitGroup, cfg *Config) *Scheduler {
 
 		queue: NewQueue(cfg.QueueConfig),
 
-		workersCh: make(chan struct{}, cfg.IODepth),
+		workersCh: make(chan struct{}, cfg.Threads),
 
 		ctx:    ctx,
 		stopWg: stopWg,
@@ -83,7 +83,7 @@ func New(ctx context.Context, stopWg *sync.WaitGroup, cfg *Config) *Scheduler {
 }
 
 func (c *Config) adjust() {
-	config.Adjust(&c.IODepth, DefaultIODepth)
+	config.Adjust(&c.Threads, DefaultThreads)
 }
 
 // That balancing is expected to happen over a specific time window,

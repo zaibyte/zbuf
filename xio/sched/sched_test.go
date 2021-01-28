@@ -77,19 +77,19 @@ func TestSchedulerIsFairWithPriority(t *testing.T) {
 	})
 }
 
-func testSchedulerIsFairWithPriority(vfsSpeed, iodepth, reqSize int, reqCnts []reqCnt) {
+func testSchedulerIsFairWithPriority(vfsSpeed, threads, reqSize int, reqCnts []reqCnt) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	wg := new(sync.WaitGroup)
 	s := New(ctx, wg, &Config{
-		IODepth:     iodepth,
+		Threads:     threads,
 		QueueConfig: &QueueConfig{},
 	})
 	wg.Add(1)
 	go s.FindRunnableLoop()
 
-	speed := vfsSpeed / iodepth
+	speed := vfsSpeed / threads
 	sf := &vfs.SpeedFile{Speed: speed}
 	data := make([]byte, reqSize)
 
@@ -106,7 +106,7 @@ func testSchedulerIsFairWithPriority(vfsSpeed, iodepth, reqSize int, reqCnts []r
 				cnt++
 			}
 			cost := tsc.UnixNano() - start
-			formatFairTestRet(vfsSpeed, iodepth, reqSize, int(rc.reqType), cnt, time.Duration(cost))
+			formatFairTestRet(vfsSpeed, threads, reqSize, int(rc.reqType), cnt, time.Duration(cost))
 			wg2.Done()
 		}(rc, ars)
 
