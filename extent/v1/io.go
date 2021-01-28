@@ -30,12 +30,7 @@ func (e *Extenter) updatesLoop() {
 	ctx, cancel := context.WithCancel(e.ctx)
 	defer cancel()
 
-	// TODO in present, we won't split write. See https://g.tesamc.com/IT/zbuf/issues/104 for details.
-	// sizePerWrite := e.cfg.SizePerWrite
-
-	// writeBuf is 4MB + 4KB, 4KB for oid.
-	// It's the max space of an object could take.
-	writeBuf := directio.AlignedBlock(4*1024*1024 + 4*1024*1024)
+	writeBuf := directio.AlignedBlock(int(oidSizeInSeg + e.cfg.SizePerWrite))
 	segSize := int64(e.cfg.SegmentSize)
 	for {
 		if e.info.GetState() == metapb.ExtentState_Extent_Broken {
@@ -86,12 +81,9 @@ func (e *Extenter) updatesLoop() {
 			}
 			wseg := e.writableSeg
 			cursor := e.writableCursor
-			objData := wr.objData.Bytes()
-			binary.LittleEndian.PutUint64(writeBuf[:8], wr.oid)
-			copy(writeBuf[oidSizeInSeg:], objData)
 			offset := segCursorToOffset(wseg, cursor, segSize)
-			written := oidSizeInSeg + len(objData)
-			err := e.flushWrite(wr.reqType, offset, writeBuf[:written])
+
+			written, err := e.bufWrite(wr.reqType, wr.oid, offset, wr.objData, writeBuf)
 			if err != nil {
 				e.handleError(err)
 				wr.err = err
@@ -137,17 +129,34 @@ func (e *Extenter) updatesLoop() {
 	}
 }
 
-func (e *Extenter) flushWrite(reqType uint64, offset int64, data []byte) error {
+// bufWrite writes with a buffer.
+// Using bufWrite split big data chunk into buffer size, avoiding stall.
+// Returns written & error.
+func (e *Extenter) bufWrite(reqType, oid uint64, offset int64, objData xbytes.Buffer, buf []byte) (written int, err error) {
 
-	if len(data) == 0 {
-		return nil
-	}
+	objBytes := objData.Bytes()
+	n := len(objBytes)
+	binary.LittleEndian.PutUint64(buf[:8], oid)
+	written = copy(buf[oidSizeInSeg:], objBytes)
 
-	err := e.iosched.DoSync(reqType, e.segsFile, offset, data)
+	err = e.iosched.DoSync(reqType, e.segsFile, offset, buf[:written+oidSizeInSeg])
 	if err != nil {
-		return err
+		return
 	}
-	return nil
+	offset += int64(written)
+	offset += oidSizeInSeg
+
+	buf = buf[:e.cfg.SizePerWrite]
+	for written != n {
+		cn := copy(buf, objBytes[written:])
+		err = e.iosched.DoSync(reqType, e.segsFile, offset, buf[:cn])
+		if err != nil {
+			return
+		}
+		written += cn
+		offset += int64(cn)
+	}
+	return
 }
 
 // handleError handles I/O error,
@@ -252,7 +261,6 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 			coHeader.SegStates[last] = segSealed
 			coHeader.SealedTS[last] = tsc.UnixNano()
 			coHeader.WritableHistory[coHeader.WritableHistoryNextIdx] = byte(next)
-			coHeader.WritableHistoryTS[coHeader.WritableHistoryNextIdx] = tsc.UnixNano()
 			coHeader.WritableHistoryNextIdx++
 			err := e.header.Store(e.info.GetState())
 			if err != nil {
