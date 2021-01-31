@@ -24,8 +24,16 @@ func NewCreator(cfg *Config, iosched xio.Scheduler) *Creator {
 	return &Creator{cfg: cfg, iosched: iosched}
 }
 
+// GetSize returns the space allocation of an extent.v1, including:
+// segments_file + header + boot_sector + max_phy_addr_snap * 4
+// 4 for keeping space enough, actually it won't use that much, so it includes extra space taken by file system or others.
 func (c *Creator) GetSize() uint64 {
-	panic("implement me")
+
+	seg := uint64(c.cfg.SegmentSize * segmentCnt)
+	header := uint64(headerSize)
+	boot := uint64(extent.BootSectorSize)
+	pa := float64(seg/phyaddr.Alignment) * 8 / 0.9 * 4
+	return seg + header + boot + uint64(pa)
 }
 
 func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
