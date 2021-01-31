@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"sync"
 	"sync/atomic"
+	"syscall"
 
 	"g.tesamc.com/IT/zaipkg/directio"
 	"g.tesamc.com/IT/zaipkg/diskutil"
@@ -170,13 +171,16 @@ func (e *Extenter) bufWrite(reqType, oid uint64, offset int64, objData xbytes.Bu
 // set disk & extent broken, if it's disk broken.
 //
 // set extent full, if it's full.
-// set extent ghost, if it's checksum mismatched.
+// set extent ghost, if it's checksum mismatched or EIO but pass fast disk health checking.
 // set extent broken, if it's extent broken.
 func (e *Extenter) handleError(err error) {
 
 	isGhost := false
 	if diskutil.IsBroken(err) {
-		ferr := e.fastDiskHealthCheck()
+		var ferr error
+		if errors.Is(err, syscall.EIO) {
+			ferr = e.fastDiskHealthCheck()
+		}
 		if ferr != nil {
 			xlog.Error(fmt.Sprintf("disk: %d is broken: %s", e.diskInfo.PbDisk.Id, err.Error()))
 			e.diskInfo.SetState(metapb.DiskState_Disk_Broken, false)
