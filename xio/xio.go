@@ -72,7 +72,6 @@ func IsReqRead(t uint64) bool {
 }
 
 // AsyncRequest is the I/O async request of ZBuf.
-// TODO add canceled flag?
 type AsyncRequest struct {
 	Type   uint64
 	File   vfs.File
