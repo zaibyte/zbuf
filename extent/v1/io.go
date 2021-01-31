@@ -33,7 +33,10 @@ func (e *Extenter) updatesLoop() {
 	writeBuf := directio.AlignedBlock(int(oidSizeInSeg + e.cfg.SizePerWrite))
 	segSize := int64(e.cfg.SegmentSize)
 	for {
-		if e.info.GetState() == metapb.ExtentState_Extent_Broken {
+		state := e.info.GetState()
+		if state != metapb.ExtentState_Extent_ReadWrite &&
+			state != metapb.ExtentState_Extent_Offline && // We could do clone when it's offline.
+			state != metapb.ExtentState_Extent_Full { // We could do meta updates when it's full.
 			return
 		}
 
@@ -46,6 +49,7 @@ func (e *Extenter) updatesLoop() {
 
 		select {
 		case wr = <-e.writeDataChan:
+		case mr = <-e.metaUpdateChan:
 		default:
 			// Give the last chance for ready goroutines filling chan.
 			runtime.Gosched()
@@ -68,14 +72,17 @@ func (e *Extenter) updatesLoop() {
 				continue
 			}
 
-			if e.writableCursor+int64(len(wr.objData.Bytes()))+oidSizeInSeg > segSize {
+			if e.writableCursor+int64(len(wr.objData))+oidSizeInSeg > segSize {
+				e.rwMutex.Lock()
 				nextSeg, err := e.getNextWritableSeg(e.writableSeg)
 				if err != nil {
+					e.rwMutex.Unlock()
 					e.handleError(err)
 					wr.err = err
 					close(wr.done)
 					continue
 				}
+				e.rwMutex.Unlock()
 				e.writableSeg = nextSeg
 				e.writableCursor = 0
 			}
@@ -160,41 +167,55 @@ func (e *Extenter) bufWrite(reqType, oid uint64, offset int64, objData xbytes.Bu
 }
 
 // handleError handles I/O error,
-// set disk broken, if it's disk broken.
+// set disk & extent broken, if it's disk broken.
+//
+// set extent full, if it's full.
+// set extent ghost, if it's checksum mismatched.
 // set extent broken, if it's extent broken.
 func (e *Extenter) handleError(err error) {
 
-	broken := false
+	isGhost := false
 	if diskutil.IsBroken(err) {
-		broken = true
-		xlog.Error(fmt.Sprintf("disk: %d is broken: %s", e.diskInfo.PbDisk.Id, err.Error()))
-		e.diskInfo.SetState(metapb.DiskState_Disk_Broken, false)
+		ferr := e.fastDiskHealthCheck()
+		if ferr != nil {
+			xlog.Error(fmt.Sprintf("disk: %d is broken: %s", e.diskInfo.PbDisk.Id, err.Error()))
+			e.diskInfo.SetState(metapb.DiskState_Disk_Broken, false)
+		} else {
+			isGhost = true
+		}
 	}
 
 	state := metapb.ExtentState_Extent_Broken
-	if !broken && errors.Is(err, orpc.ErrExtentFull) { // We regards all I/O error is extent_broken, except full.
+	if errors.Is(err, orpc.ErrExtentFull) {
 		state = metapb.ExtentState_Extent_Full
 	}
+	if errors.Is(err, orpc.ErrChecksumMismatch) || isGhost {
+		state = metapb.ExtentState_Extent_Ghost
+		isGhost = true
+	}
 	xlog.Error(fmt.Sprintf("extent: %d is %s: %s", e.info.PbExt.Id, state.String(), err.Error()))
+
 	changed := e.info.SetState(state, false)
-	if state == metapb.ExtentState_Extent_Broken {
+	if state == metapb.ExtentState_Extent_Broken || isGhost {
 		_ = e.Close()
 	}
-	e.cleanUpdates(err)
+	e.cleanPendingUpdates(err)
 	if changed {
+		e.rwMutex.Lock()
 		_ = e.header.Store(state)
+		e.rwMutex.Unlock()
 	}
 }
 
-// cleanUpdates cleans updates channels.
+// cleanPendingUpdates cleans updates channels.
 // When extenter is broken, we should forbidden any updates,
 // but there maybe already requests sent into channel are waiting for the GC,
-// we could call cleanUpdates to cancel them all, the user-facing thread will
+// we could call cleanPendingUpdates to cancel them all, the user-facing thread will
 // get response faster.
 // Usage:
 // 1. set extent broken
 // 2. call it inside updatesLoop(only consumer), this will help the unconsumed message count is correct.
-func (e *Extenter) cleanUpdates(err error) {
+func (e *Extenter) cleanPendingUpdates(err error) {
 
 	if e.writeDataChan != nil {
 		n := len(e.writeDataChan)
@@ -262,7 +283,8 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 			coHeader.SealedTS[last] = tsc.UnixNano()
 			coHeader.WritableHistory[coHeader.WritableHistoryNextIdx] = byte(next)
 			coHeader.WritableHistoryNextIdx++
-			err := e.header.Store(e.info.GetState())
+			err := e.header.Store(e.info.GetState()) // TODO May block lock too long.
+
 			if err != nil {
 				coHeader.WritableHistoryNextIdx-- // Backwards for avoiding inconsistency.
 				err = xerrors.WithMessage(err, "store header failed")
@@ -273,6 +295,13 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 	}
 	err := orpc.ErrExtentFull
 	return -1, err
+}
+
+// fastDiskHealthCheck checks the disk health by load header,
+// if succeed, we think the EIO is just inside an extent but not the whole disk.
+func (e *Extenter) fastDiskHealthCheck() error {
+	_, err := LoadHeader(e.iosched, e.fs, e.extDir)
+	return err
 }
 
 // offsetToAddr transfers offset in segments file to address in phy_addr.
@@ -286,7 +315,7 @@ type writeDataRequest struct {
 	forceUpdate bool // Indicates if oid existed, updating or not.
 
 	oid     uint64
-	objData xbytes.Buffer
+	objData []byte
 
 	done chan struct{}
 	err  error

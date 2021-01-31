@@ -49,6 +49,8 @@ type Extenter struct {
 
 	fs vfs.FS
 
+	extDir string
+
 	diskInfo *vdisk.Info
 
 	info   *extent.Info
