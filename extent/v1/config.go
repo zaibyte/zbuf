@@ -14,7 +14,24 @@ const (
 	// Too big value may block other requests too long.
 	defaultSizePerWrite = typeutil.ByteSize(128 * 1024)
 	defaultSizePerRead  = typeutil.ByteSize(128 * 1024)
-	defaultSegmentSize  = typeutil.ByteSize(1024 * 1024 * 1024) // 1GiB.
+	// By default, the size of segment is 1GB, which means the extent size is 256GB.
+	// For a 8TB NVMe driver(raw capacity), in practice, we'll use about 70% of the capacity
+	// (30% for over-provisioning & other things). So we have about 20 extents on each disk.
+	//
+	// When the usable capacity of box is getting to 16PB, and the replicas is 2:
+	// 65536 groups, 131072 extents, almost 6000 disks.
+	// And 3 disks are broken, the probability of unrecoverable extent is:
+	// (20/6000)*2 = 1/150
+	// If there are 150 disks are broken, it will be almost 100%.
+	//
+	// If the segment_size is 1GB, it'll be:
+	// (5120/6000)*2 > 1.
+	//
+	// It's obvious that the bigger extent, the lower rate of losing extent.
+	// But we can't make it too bigger either, because we may lose the property of distributed repairing,
+	// we hope if there is a broken disk, more disks could help to reconstruct the data, it'll reduce the
+	// load of reconstruction on disks in avg. and speeding up the process.
+	defaultSegmentSize = typeutil.ByteSize(1024 * 1024 * 1024) // 1GiB.
 	// Each extent has the same segment count: 256.
 	// Warn:
 	// Don't change it, because in present there are some hard codes are using 256 directly.
