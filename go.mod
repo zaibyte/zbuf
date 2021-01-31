@@ -3,10 +3,9 @@ module g.tesamc.com/IT/zbuf
 go 1.15
 
 require (
-	g.tesamc.com/IT/zaipkg v0.0.0-20210129001051-6ea795e614ae
-	g.tesamc.com/IT/zproto v0.0.0-20210122211359-f61643216a51
+	g.tesamc.com/IT/zaipkg v0.0.0-20210130094937-4aa3af283183
+	g.tesamc.com/IT/zproto v0.0.0-20210131020900-3b4196b509ed
 	github.com/VictoriaMetrics/metrics v1.12.3
-	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/julienschmidt/httprouter v1.2.0
 	github.com/lni/goutils v1.2.0
