@@ -16,15 +16,16 @@ func (p *Info) GetState() metapb.ExtentState {
 
 // SetState sets new state, return true if state changed.
 func (p *Info) SetState(state metapb.ExtentState, isKeeper bool) bool {
-	oldSate := atomic.LoadInt32((*int32)(&p.PbExt.State))
-	if metapb.ExtentState(oldSate) == state {
+	oldSate := metapb.ExtentState(atomic.LoadInt32((*int32)(&p.PbExt.State)))
+	if oldSate == state {
 		return false
 	}
 
 	if !isKeeper {
-		if metapb.ExtentState(oldSate) == metapb.ExtentState_Extent_Offline ||
-			metapb.ExtentState(oldSate) == metapb.ExtentState_Extent_Tombstone ||
-			metapb.ExtentState(oldSate) == metapb.ExtentState_Extent_Broken {
+		if oldSate == metapb.ExtentState_Extent_Offline ||
+			oldSate == metapb.ExtentState_Extent_Tombstone ||
+			oldSate == metapb.ExtentState_Extent_Broken ||
+			oldSate == metapb.ExtentState_Extent_Ghost {
 			return false
 		}
 	}
