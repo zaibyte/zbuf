@@ -4,9 +4,10 @@ import (
 	"context"
 	"sync"
 
+	"g.tesamc.com/IT/zaipkg/orpc"
+
 	"g.tesamc.com/IT/zbuf/vdisk"
 
-	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 )
@@ -15,18 +16,11 @@ import (
 type Extenter interface {
 	GetInfo() *Info
 
-	Objecter
+	orpc.ServerHandler
 	GCer
 	Cloner
 
 	Close() error
-}
-
-// Objecter is the interface that implements basic objects operations.
-type Objecter interface {
-	PutObj(reqid, oid uint64, objData xbytes.Buffer) error
-	GetObj(reqid, oid uint64) (objData xbytes.Buffer, err error)
-	DeleteObj(reqid, oid uint64) error
 }
 
 const (
