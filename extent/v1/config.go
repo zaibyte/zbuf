@@ -18,16 +18,7 @@ const (
 	// For a 8TB NVMe driver(raw capacity), in practice, we'll use about 70% of the capacity
 	// (30% for over-provisioning & other things). So we have about 20 extents on each disk.
 	//
-	// When the usable capacity of box is getting to 16PB, and the replicas is 2:
-	// 65536 groups, 131072 extents, almost 6000 disks.
-	// And 3 disks are broken, the probability of unrecoverable extent is:
-	// (20/6000)*2 = 1/150
-	// If there are 150 disks are broken, it will be almost 100%.
-	//
-	// If the segment_size is 1GB, it'll be:
-	// (5120/6000)*2 > 1.
-	//
-	// It's obvious that the bigger extent, the lower rate of losing extent.
+	// It's obvious that the bigger extent, the lower rate of losing extent when there are broken disks.
 	// But we can't make it too bigger either, because we may lose the property of distributed repairing,
 	// we hope if there is a broken disk, more disks could help to reconstruct the data, it'll reduce the
 	// load of reconstruction on disks in avg. and speeding up the process.
