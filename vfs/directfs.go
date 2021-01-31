@@ -94,7 +94,11 @@ func (fs directFS) ReuseForWrite(oldname, newname string) (File, error) {
 }
 
 func (directFS) MkdirAll(dir string, perm os.FileMode) error {
-	return os.MkdirAll(dir, perm)
+	err := os.MkdirAll(dir, perm)
+	if err != nil {
+		return err
+	}
+	return SyncDir(DirectFS, filepath.Dir(dir))
 }
 
 func (directFS) List(dir string) ([]string, error) {

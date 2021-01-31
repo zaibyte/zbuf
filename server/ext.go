@@ -30,8 +30,8 @@ const (
 	extNamePrefix = "ext_"
 )
 
-// makeExtDir makes extents paths belong to the diskDir.
-func makeExtDir(extID uint32, diskDir string) string {
+// getExtDir gets extents paths belong to the diskDir.
+func getExtDir(extID uint32, diskDir string) string {
 	return filepath.Join(diskDir, extDirName, extNamePrefix+cast.ToString(extID))
 }
 
@@ -50,7 +50,7 @@ func (s *Server) createExtent(version uint16, extID, diskID uint32) (err error) 
 		}
 	}()
 
-	extDir := makeExtDir(extID, makeDiskDir(diskID, s.cfg.DataRoot))
+	extDir := getExtDir(extID, makeDiskDir(diskID, s.cfg.DataRoot))
 
 	if vfs.IsDirExisted(s.fs, extDir) {
 		err = fmt.Errorf("extID: %d already existed", extID)
@@ -114,7 +114,7 @@ func (s *Server) listExtents() {
 		diskDir := makeDiskDir(diskID, s.cfg.DataRoot)
 		for _, extID := range extIDs {
 			if s.verifyExtID() {
-				extDir := makeExtDir(extID, diskDir)
+				extDir := getExtDir(extID, diskDir)
 				ver, err2 := extent.OpenBootSector(s.fs, extDir)
 				if err2 != nil {
 					s.handleIOError(err2, extID, diskID)

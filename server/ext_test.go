@@ -23,7 +23,7 @@ func TestMakeExtDir(t *testing.T) {
 	var diskID uint32 = 1
 	diskPath := makeDiskDir(diskID, root)
 	var extID uint32 = 2
-	extDir := makeExtDir(extID, diskPath)
+	extDir := getExtDir(extID, diskPath)
 
 	assert.Equal(t, filepath.Join(diskPath, "ext", extNamePrefix+cast.ToString(extID)), extDir)
 
@@ -52,7 +52,7 @@ func TestListExtIDs(t *testing.T) {
 	}
 
 	for _, id := range ids {
-		err = fs.MkdirAll(makeExtDir(uint32(id), diskDir), 0777)
+		err = fs.MkdirAll(getExtDir(uint32(id), diskDir), 0777)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -140,5 +140,8 @@ func (h *Header) Store(state metapb.ExtentState) error {
 
 // Close releases the resource.
 func (h *Header) Close() {
+	if h.f == nil {
+		return
+	}
 	_ = h.f.Close()
 }

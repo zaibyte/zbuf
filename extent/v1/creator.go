@@ -28,21 +28,10 @@ func (c *Creator) GetSize() uint64 {
 	panic("implement me")
 }
 
-// cleanFailedCreate cleans files created by creating process.
-func cleanFailedCreate(fs vfs.FS, extDir string) {
-	_ = fs.RemoveAll(extDir)
-}
-
 func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
 	instanceID, diskID, extID uint32, extDir string, diskInfo *vdisk.Info) (ext extent.Extenter, err error) {
 
-	defer func() {
-		if err != nil {
-			cleanFailedCreate(fs, extDir)
-		}
-	}()
-
-	h, err := CreateHeader(c.iosched, fs, extDir, c.cfg.SegmentSize, metapb.ExtentState_Extent_ReadWrite, int(c.cfg.ReservedSeg))
+	h, err := CreateHeader(c.iosched, fs, extDir, uint32(c.cfg.SegmentSize), metapb.ExtentState_Extent_ReadWrite, int(c.cfg.ReservedSeg))
 	if err != nil {
 		return nil, err
 	}
@@ -50,13 +39,6 @@ func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
 	segFile, err := fs.Create(filepath.Join(extDir, SegmentsFileName))
 	if err != nil {
 		h.Close()
-		return nil, err
-	}
-
-	err = vfs.SyncDir(fs, extDir)
-	if err != nil {
-		h.Close()
-		_ = segFile.Close()
 		return nil, err
 	}
 
