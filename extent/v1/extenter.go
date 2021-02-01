@@ -123,7 +123,7 @@ func (e *Extenter) getLastPhyAddrSnap() *colf.PhyAddrSnap {
 //
 // Warning:
 // Extenter should be locked already.
-func (e *Extenter) TryMakePhyAddrSnap() {
+func (e *Extenter) TryMakePhyAddrSnap(force bool) {
 
 	if atomic.LoadInt64(&e.isMakingPhyAddrSnap) == 1 {
 		return
@@ -134,15 +134,17 @@ func (e *Extenter) TryMakePhyAddrSnap() {
 
 	last := e.getLastPhyAddrSnap()
 
-	acceptable := false
-	if last == nil {
-		acceptable = true
-	} else {
-		acceptable = isSnapCostAcceptable(last.TablesSize, last.CreatTS)
-	}
+	if !force {
+		acceptable := false
+		if last == nil {
+			acceptable = true
+		} else {
+			acceptable = isSnapCostAcceptable(last.TablesSize, last.CreatTS)
+		}
 
-	if !acceptable {
-		return
+		if !acceptable {
+			return
+		}
 	}
 
 	snap := new(colf.PhyAddrSnap)
