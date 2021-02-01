@@ -120,7 +120,13 @@ func (e *Extenter) updatesLoop() {
 		// mr must not be nil
 		_, _, grains, digest, otype, _ := uid.ParseOID(mr.oid)
 		if mr.isRemove {
-			e.phyAddr.Remove(digest)
+			rHas, rAddr := e.phyAddr.Remove(digest)
+			if rHas {
+				rSeg := addrToSeg(rAddr, segSize)
+				e.rwMutex.Lock()
+				e.header.nvh.Removed[rSeg] += grains
+				e.rwMutex.Unlock()
+			}
 			mr.done <- nil
 			// We don't add dirtyUpdates here, what we do care is add/reset, not remove.
 			continue

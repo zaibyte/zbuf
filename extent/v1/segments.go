@@ -1,5 +1,7 @@
 package v1
 
+import "g.tesamc.com/IT/zbuf/extent/v1/phyaddr"
+
 // Segments layout on local file system:
 //
 // Address   4KB
@@ -29,10 +31,11 @@ const (
 // segments file is made of sequential segments, it's the objects container.
 const SegmentsFileName = "segments"
 
-// TODO
 // addrToSeg gets what is the segment address belongs to.
 func addrToSeg(addr uint32, segSize int64) int {
-	return 0
+	bytesOff := int64(addr) * phyaddr.Alignment
+	seg := bytesOff / segSize
+	return int(seg)
 }
 
 // segCursorToOffset calculates offset in segments file by seg_id & its cursor.

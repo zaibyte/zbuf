@@ -15,7 +15,7 @@ type NVHeader struct {
 	WritableHistory        []uint8 // 256B.
 	WritableHistoryNextIdx int64
 
-	// Removed records segments removed count of phyaddr.AddressAlignment.
+	// Removed records segments removed count of uid.GrainSize.
 	// Helping GC greedy algorithm working.
 	Removed []uint32 // 256 * 4B = 1024B
 
