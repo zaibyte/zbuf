@@ -48,6 +48,7 @@ func (e *Extenter) updatesLoop() {
 		var wr *writeDataRequest
 		var mr *metaUpdatesRequest
 
+		// We must be sure loop blocking on select, otherwise the loop will do nothing & wasting the CPU.
 		select {
 		case wr = <-e.writeDataChan:
 		case mr = <-e.metaUpdateChan:
