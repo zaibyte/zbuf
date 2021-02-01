@@ -23,10 +23,7 @@ const (
 	segSealed   // Sealed segment, it's a full segment. Could GC if there is too much garbage.
 
 	segGCSrc // Doing GC(source).
-	// After GC finishing, the GC source segment will be GC Done, and it could be ready or reserved ,
-	// depends on the extent segments management logic.
-	segGCDone // GC done(source).
-	segGCDst  // Doing GC(destination).
+	segGCDst // Doing GC(destination).
 )
 
 // segments file is made of sequential segments, it's the objects container.
