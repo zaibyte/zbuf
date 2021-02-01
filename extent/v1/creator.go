@@ -75,6 +75,9 @@ func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
 		writeDataChan:  make(chan *writeDataRequest, c.cfg.UpdatesPending),
 		metaUpdateChan: make(chan *metaUpdatesRequest, c.cfg.UpdatesPending), // Shares same config.
 
+		gcSrcSeg: -1,
+		gcDstSeg: -1,
+
 		ctx:    ctx,
 		stopWg: wg,
 	}
@@ -126,11 +129,15 @@ func (c *Creator) Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
 		writeDataChan:  make(chan *writeDataRequest, c.cfg.UpdatesPending),
 		metaUpdateChan: make(chan *metaUpdatesRequest, c.cfg.UpdatesPending), // Shares same config.
 
+		gcSrcSeg: -1,
+		gcDstSeg: -1,
+
 		ctx:    ctx,
 		stopWg: wg,
 	}
 
 	// TODO after open, write down happen and phy_addr snapshot
+	// TODO open snapshot
 	return ext, err
 	// TODO start clone job in a goroutine before return
 }
