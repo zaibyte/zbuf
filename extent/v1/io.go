@@ -186,8 +186,10 @@ func (e *Extenter) handleIOError(err error) {
 		}
 	}
 
+	isFull := false
 	state := metapb.ExtentState_Extent_Broken
 	if errors.Is(err, orpc.ErrExtentFull) {
+		isFull = true
 		state = metapb.ExtentState_Extent_Full
 	}
 	if errors.Is(err, orpc.ErrChecksumMismatch) || isGhost {
@@ -200,7 +202,7 @@ func (e *Extenter) handleIOError(err error) {
 	if state == metapb.ExtentState_Extent_Broken || isGhost {
 		_ = e.Close()
 	}
-	e.cleanPendingUpdates(err)
+	e.cleanPendingUpdates(err, isFull)
 	if changed {
 		_ = e.header.Store(state)
 	}
@@ -212,30 +214,23 @@ func (e *Extenter) handleIOError(err error) {
 // we could call cleanPendingUpdates to cancel them all, the user-facing thread will
 // get response faster.
 // Usage:
-// 1. set extent broken
-// 2. call it inside updatesLoop(only consumer), this will help the unconsumed message count is correct.
-func (e *Extenter) cleanPendingUpdates(err error) {
+// 1. call it inside updatesLoop(only consumer), this will help to make the unconsumed message count correct.
+func (e *Extenter) cleanPendingUpdates(err error, isFull bool) {
 
 	if e.writeDataChan != nil {
 		n := len(e.writeDataChan)
 		for i := 0; i < n; i++ {
 			r := <-e.writeDataChan
-			if r.done != nil {
-				r.done = err
-				// There maybe some new requests, leaving them to GC.
-				// Closing here may cause panic, because there maybe goroutines want to send message to this chan.
-				// close(r.done)
-			}
+			r.done <- err
 		}
 	}
 
-	if e.metaUpdateChan != nil {
-		n := len(e.metaUpdateChan)
-		for i := 0; i < n; i++ {
-			r := <-e.metaUpdateChan
-			if r.done != nil {
-				r.done = err
-				// close(r.done)
+	if !isFull {
+		if e.metaUpdateChan != nil {
+			n := len(e.metaUpdateChan)
+			for i := 0; i < n; i++ {
+				r := <-e.metaUpdateChan
+				r.done <- err
 			}
 		}
 	}
