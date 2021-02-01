@@ -2,9 +2,16 @@ package v1
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 	"sort"
 	"time"
+
+	"g.tesamc.com/IT/zaipkg/config/settings"
+
+	"g.tesamc.com/IT/zaipkg/directio"
+
+	"g.tesamc.com/IT/zbuf/xio"
 
 	"g.tesamc.com/IT/zaipkg/uid"
 
@@ -80,7 +87,7 @@ func (e *Extenter) DoGC(ratio float64) {
 // wait for a while and check it again.
 // GC will update Extenter.dirtyUpdates, and if (hasCheckedSnap), tryGC will call make snapshot forcely.
 // so it won't block unless extent un-writable.
-const checkSnapSyncGCInterval = 32 * time.Second
+const checkSnapSyncGCInterval = 16 * time.Second
 
 // checkSnapCatchGC checks phy_addr snapshot has caught the newest updates of GC.
 // Every time we want to change src/dst should check it.
@@ -98,12 +105,15 @@ func (e *Extenter) checkSnapCatchGC() bool {
 		lastDstInSanp = lastSnap.GcDstSeg
 		lastDstCursorInSnap = lastSnap.GcDstCursor
 	}
+
 	if lastSrc != lastSrcInSnap || lastSrcCursor != lastSrcCursorInSnap ||
 		lastDst != lastDstInSanp || lastDstCursor != lastDstCursorInSnap {
 		return false
 	}
 	return true
 }
+
+const gcBufSize = 8 * 1024 * 1024 // 8MB.
 
 // TODO how to pick up paused job. checking the cursor every gc_src & dst pair.
 func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duration, hasCheckedSnap bool) {
@@ -113,9 +123,16 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 		return e.cfg.GCScanInterval.Duration, false
 	}
 
+	segSize := uint32(e.cfg.SegmentSize)
+
+	gcObjBuf := directio.AlignedBlock(settings.MaxObjectSize)
+	gcWriteBuf := directio.AlignedBlock(int(oidSizeInSeg + e.cfg.SizePerWrite))
+	oidBuf := directio.AlignedBlock(oidSizeInSeg)
+
 	for _, c := range cs { // Deal with candidates one by one.
 		// TODO how to sync cursor
 
+		// Source will be changed, checking the snapshot.
 		if !e.checkSnapCatchGC() {
 			if !checkedSnap {
 				return checkSnapSyncGCInterval, true
@@ -124,9 +141,37 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			return checkSnapSyncGCInterval, false // Reset checked, avoiding TryMakePhyAddrSnap too frequently.
 		}
 
-		needCheckSnap := false
-		if int64(c.seg) != lastSrc {
-			needCheckSnap = true
+		e.rwMutex.Lock()
+		e.gcSrcSeg = c.seg
+		if e.gcSrcCursor >= segSize { // If true, means last gc src finished; if not, we'll go on last gc src.
+			e.gcSrcCursor = 0
+		}
+		e.rwMutex.Unlock()
+
+		for {
+			if e.gcSrcCursor >= segSize {
+				break
+			}
+			err := e.iosched.DoSync(xio.ReqGCRead, e.segsFile, segCursorToOffset(e.gcSrcSeg, int64(e.gcSrcCursor), int64(segSize)), oidBuf)
+			if err != nil {
+				e.rwMutex.Lock()
+				e.handleIOError(err)
+				e.rwMutex.Unlock()
+				return 3 * time.Second, false // Ghost or broken.
+			}
+			oid := binary.LittleEndian.Uint64(oidBuf[:8])
+			if oid == 0 {
+				e.rwMutex.Lock()
+				e.gcSrcCursor = segSize
+				e.rwMutex.Unlock()
+				continue
+			}
+
+			_, _, grains, digest, _, _ := uid.ParseOID(oid)
+			_, has := e.phyAddr.Search(digest)
+			if has {
+
+			}
 		}
 
 		dst := e.gcDstSeg
@@ -197,7 +242,7 @@ func (e *Extenter) findGCDst() int64 {
 }
 
 type gcCandidate struct {
-	seg      uint8
+	seg      int64
 	removed  uint32
 	sealedTS int64
 }
@@ -241,7 +286,7 @@ func (e *Extenter) getGCSrcCandidates(ratio float64) []gcCandidate {
 	if e.gcSrcSeg != -1 { // There is one unfinished GC source segment.
 		cnt++
 		cs = append(cs, gcCandidate{
-			seg: uint8(e.gcSrcSeg),
+			seg: e.gcSrcSeg,
 			// Set all removed, so the unfinished segment will come first.
 			removed: uint32(e.cfg.SegmentSize / uid.GrainSize),
 			// Set sealedTS 0, none candidate could compete with it.
@@ -256,7 +301,7 @@ func (e *Extenter) getGCSrcCandidates(ratio float64) []gcCandidate {
 			if rm >= threshold {
 				cnt++
 				cs = append(cs, gcCandidate{
-					seg:      uint8(i),
+					seg:      int64(i),
 					removed:  rm,
 					sealedTS: nvh.SealedTS[i],
 				})
