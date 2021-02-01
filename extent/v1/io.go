@@ -14,7 +14,6 @@ import (
 	"g.tesamc.com/IT/zaipkg/diskutil"
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/uid"
-	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zaipkg/xerrors"
 	"g.tesamc.com/IT/zaipkg/xlog"
 	"g.tesamc.com/IT/zbuf/extent/v1/phyaddr"
@@ -139,12 +138,11 @@ func (e *Extenter) updatesLoop() {
 // bufWrite writes with a buffer.
 // Using bufWrite split big data chunk into buffer size, avoiding stall.
 // Returns written & error.
-func (e *Extenter) bufWrite(reqType, oid uint64, offset int64, objData xbytes.Buffer, buf []byte) (written int, err error) {
+func (e *Extenter) bufWrite(reqType, oid uint64, offset int64, objData []byte, buf []byte) (written int, err error) {
 
-	objBytes := objData.Bytes()
-	n := len(objBytes)
+	n := len(objData)
 	binary.LittleEndian.PutUint64(buf[:8], oid)
-	written = copy(buf[oidSizeInSeg:], objBytes)
+	written = copy(buf[oidSizeInSeg:], objData)
 
 	err = e.iosched.DoSync(reqType, e.segsFile, offset, buf[:written+oidSizeInSeg])
 	if err != nil {
@@ -155,7 +153,7 @@ func (e *Extenter) bufWrite(reqType, oid uint64, offset int64, objData xbytes.Bu
 
 	buf = buf[:e.cfg.SizePerWrite]
 	for written != n {
-		cn := copy(buf, objBytes[written:])
+		cn := copy(buf, objData[written:])
 		err = e.iosched.DoSync(reqType, e.segsFile, offset, buf[:cn])
 		if err != nil {
 			return
