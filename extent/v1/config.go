@@ -58,6 +58,7 @@ const (
 
 // Config is the configs of v1 extent.
 type Config struct {
+	// SegmentSize is [16KB, 1GB].
 	SegmentSize typeutil.ByteSize `toml:"segment_size"`
 	// ReservedSeg are the count of segments reserved for GC.
 	ReservedSeg int `toml:"reserved_seg"`
@@ -96,6 +97,12 @@ func (cfg *Config) adjust() {
 	config.Adjust(&cfg.SizePerWrite, defaultSizePerWrite)
 	config.Adjust(&cfg.SizePerRead, defaultSizePerRead)
 	config.Adjust(&cfg.MaxDirtyCount, defaultMaxDirtyCount)
+	maxDirtyCount := cfg.SegmentSize / 4 * 1024 * 1024 / 2
+	if maxDirtyCount < 1 {
+		cfg.MaxDirtyCount = 1
+	} else {
+		cfg.MaxDirtyCount = int64(maxDirtyCount)
+	}
 	config.Adjust(&cfg.GCRatio, defaultGCRatio)
 	config.Adjust(&cfg.GCInterval, defaultGCInterval)
 	config.Adjust(&cfg.GCScanInterval, defaultGCScanInterval)
