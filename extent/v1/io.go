@@ -175,6 +175,10 @@ func (e *Extenter) bufWrite(reqType, oid uint64, offset int64, objData []byte, b
 
 func (e *Extenter) bufRead(reqType, oid uint64, offset int64, objData []byte, buf []byte) {
 	// TODO GC may cause checksum mismatched
+	// 1. compare oid, if not match, search phy_addr again (do once)
+	// 2. read & calc checksum
+	// 3. if checksum mismatch, search phy_addr again, if same addr, return checksum err. If not, using new addr do 2
+	// 4. if not found, return not found
 }
 
 // handleIOError handles I/O error,
