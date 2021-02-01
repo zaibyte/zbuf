@@ -26,7 +26,6 @@ import (
 
 	"g.tesamc.com/IT/zbuf/vdisk"
 
-	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zbuf/extent"
 	"g.tesamc.com/IT/zbuf/extent/v1/colf"
 	"g.tesamc.com/IT/zbuf/extent/v1/phyaddr"
@@ -41,20 +40,22 @@ type Extenter struct {
 	// in some situation, it may improve performance, e.g. copy a slice,
 	// if we are using atomic, we have to load it one by one,
 	// using a lock could write done it directly because of the memory barrier brought by lock.
-	// For an extent, there won't be more than one thread to update it,
-	// so the lock operation is just a lock instruction & an atomic compare, it won't be a slow lock
+	// For an extent, there won't be more than two goroutines are updating it,
+	// so the lock operation is just a lock instruction & an atomic compare in most time, it won't be a slow lock
 	// which is waiting for wake up.
 	// At the same time, part of fields in Extenter will still be modified by atomic for wait-free atomic read.
 	rwMutex *sync.RWMutex
 
-	fs vfs.FS
-
-	extDir string
-
+	fs       vfs.FS
+	extDir   string
+	info     *extent.Info
 	diskInfo *vdisk.Info
+	iosched  xio.Scheduler
+	segsFile vfs.File
 
-	info   *extent.Info
 	header *Header
+
+	phyAddr *phyaddr.PhyAddr
 
 	// TODO init it if there is existed extent and a snap
 	writableSeg    int64
@@ -65,42 +66,36 @@ type Extenter struct {
 	// lastPhyAddrSnap is the last Phy_Addr snapshot.
 	lastPhyAddrSnap unsafe.Pointer
 
-	iosched  xio.Scheduler
-	segsFile vfs.File
-	phyAddr  *phyaddr.PhyAddr
-
-	// TODO write-back cache
-
-	writeDataChan  chan *writeDataRequest
-	metaUpdateChan chan *metaUpdatesRequest
-
 	// After GC done, must be set to -1.
 	gcSrcSeg int64
 	gcDstSeg int64
 	// After GC done, must be set to 0.
 	gcSrcCursor uint32
 	gcDstCursor uint32
-	forceGC     chan float64
+
+	writeDataChan  chan *writeDataRequest
+	metaUpdateChan chan *metaUpdatesRequest
+	forceGC        chan float64
 
 	ctx    context.Context
 	stopWg *sync.WaitGroup
 }
 
-func (e *Extenter) GetInfo() *extent.Info {
-
-	return e.info
-}
-
-func (e *Extenter) PutObj(reqid, oid uint64, objData xbytes.Buffer) error {
+func (e *Extenter) PutObj(reqid, oid uint64, objData []byte) error {
 	panic("implement me")
 }
 
-func (e *Extenter) GetObj(reqid, oid uint64) (objData xbytes.Buffer, err error) {
+func (e *Extenter) GetObj(reqid, oid uint64) (objData []byte, err error) {
 	panic("implement me")
 }
 
 func (e *Extenter) DeleteObj(reqid, oid uint64) error {
 	panic("implement me")
+}
+
+func (e *Extenter) GetInfo() *extent.Info {
+
+	return e.info
 }
 
 func (e *Extenter) Close() error {
@@ -149,11 +144,11 @@ func (e *Extenter) TryMakePhyAddrSnap(force bool) {
 
 	snap := new(colf.PhyAddrSnap)
 	snap.CreatTS = tsc.UnixNano()
-	// TODO lock here?
 	e.rwMutex.RLock()
 	snap.WritableHistoryIdx = e.header.nvh.WritableHistoryNextIdx - 1
 	snap.WritableSeg = e.writableSeg
 	snap.WritableCursor = e.writableCursor
+	// TODO read GC
 	e.rwMutex.RUnlock()
 
 	// TODO after init snap, make a new goroutine to do snap
