@@ -60,7 +60,7 @@ const (
 type Config struct {
 	SegmentSize typeutil.ByteSize `toml:"segment_size"`
 	// ReservedSeg are the count of segments reserved for GC.
-	ReservedSeg float64 `toml:"reserved_seg"`
+	ReservedSeg int `toml:"reserved_seg"`
 
 	// UpdatesPending is updates request queue size.
 	UpdatesPending int `toml:"put_pending"`
