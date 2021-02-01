@@ -6,11 +6,15 @@ import (
 	"sort"
 	"time"
 
+	"g.tesamc.com/IT/zaipkg/uid"
+
+	"g.tesamc.com/IT/zproto/pkg/metapb"
+
+	"g.tesamc.com/IT/zaipkg/orpc"
+
 	"g.tesamc.com/IT/zaipkg/xtime"
 
 	"g.tesamc.com/IT/zaipkg/xlog"
-
-	"g.tesamc.com/IT/zbuf/extent/v1/phyaddr"
 )
 
 func (e *Extenter) gcLoop() {
@@ -24,10 +28,16 @@ func (e *Extenter) gcLoop() {
 
 	interval := e.cfg.GCScanInterval.Duration
 	t := time.NewTimer(interval)
-	// TODO We can't use a sleep here, because we may miss the ctx.Done() if using sleep. Need to figure it out.
 	var tryChan <-chan time.Time
 
+	hasCheckedSnap := false
 	for {
+
+		state := e.info.GetState()
+		if state != metapb.ExtentState_Extent_ReadWrite &&
+			state != metapb.ExtentState_Extent_Full { // We could do meta updates when it's full.
+			return
+		}
 
 		if tryChan == nil {
 			tryChan = xtime.GetTimerEvent(t, interval)
@@ -36,7 +46,7 @@ func (e *Extenter) gcLoop() {
 		case ratio = <-e.forceGC:
 
 		case <-tryChan:
-			interval = e.TryGC(ratio)
+			interval, hasCheckedSnap = e.tryGC(ratio, hasCheckedSnap)
 			tryChan = nil
 			ratio = e.cfg.GCRatio // After force GC once, reset the ratio back.
 			continue
@@ -67,53 +77,110 @@ func (e *Extenter) DoGC(ratio float64) {
 }
 
 // When we want to set new GC src /dst but meet inconsistent between GC process & phy_addr snapshot,
-// wait for a while and check again.
+// wait for a while and check it again.
+// GC will update Extenter.dirtyUpdates, and if (hasCheckedSnap), tryGC will call make snapshot forcely.
+// so it won't block unless extent un-writable.
 const checkSnapSyncGCInterval = 32 * time.Second
 
+// checkSnapCatchGC checks phy_addr snapshot has caught the newest updates of GC.
+// Every time we want to change src/dst should check it.
+// Return false if snapshot is behind.
+func (e *Extenter) checkSnapCatchGC() bool {
+	lastSrc, lastDst := e.gcSrcSeg, e.gcDstSeg
+	lastSrcCursor, lastDstCursor := e.gcSrcCursor, e.gcDstCursor
+
+	lastSnap := e.getLastPhyAddrSnap()
+	var lastSrcInSnap, lastDstInSanp int64 = -1, -1
+	var lastSrcCursorInSnap, lastDstCursorInSnap uint32 = 0, 0
+	if lastSnap != nil {
+		lastSrcInSnap = lastSnap.GcSrcSeg
+		lastSrcCursorInSnap = lastSnap.GcSrcCursor
+		lastDstInSanp = lastSnap.GcDstSeg
+		lastDstCursorInSnap = lastSnap.GcDstCursor
+	}
+	if lastSrc != lastSrcInSnap || lastSrcCursor != lastSrcCursorInSnap ||
+		lastDst != lastDstInSanp || lastDstCursor != lastDstCursorInSnap {
+		return false
+	}
+	return true
+}
+
 // TODO how to pick up paused job. checking the cursor every gc_src & dst pair.
-func (e *Extenter) TryGC(ratio float64) time.Duration {
+func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duration, hasCheckedSnap bool) {
 	// TODO after GC will check is full or not, if it was full, and there is ready seg after GC, change the full state
-	cs := e.getGCCandidates(ratio)
+	cs := e.getGCSrcCandidates(ratio)
 	if len(cs) == 0 {
-		return e.cfg.GCScanInterval.Duration
+		return e.cfg.GCScanInterval.Duration, false
 	}
 
-	for i, c := range cs {
+	for _, c := range cs { // Deal with candidates one by one.
 		// TODO how to sync cursor
 
-		snap := e.getLastPhyAddrSnap()
-		var lastSrcInSnap int64 = -1
-		var lastSrcCursorInSnap uint32 = 0
-		if snap != nil {
-			lastSrcInSnap = snap.GcSrcSeg
-			lastSrcCursorInSnap = snap.GcSrcCursor
+		if !e.checkSnapCatchGC() {
+			if !checkedSnap {
+				return checkSnapSyncGCInterval, true
+			}
+			e.TryMakePhyAddrSnap(true)
+			return checkSnapSyncGCInterval, false // Reset checked, avoiding TryMakePhyAddrSnap too frequently.
 		}
-		lastSrc := e.gcSrcSeg
-		lastSrcCursor := e.gcSrcCursor
 
-		e.rwMutex.Lock()
-		e.gcSrcSeg = int64(c.seg)
+		needCheckSnap := false
+		if int64(c.seg) != lastSrc {
+			needCheckSnap = true
+		}
+
 		dst := e.gcDstSeg
 		if dst == -1 {
+			e.rwMutex.Lock()
 			dst = e.findGCDst()
+			e.rwMutex.Unlock()
 			if dst == -1 {
-				e.rwMutex.Unlock()
-				return e.cfg.GCScanInterval.Duration
+				return e.cfg.GCScanInterval.Duration, false
 			}
 			// Checking source is enough, because src&dst changes is a atomic txn.
 			if lastSrc != lastSrcInSnap || lastSrcCursor != lastSrcCursorInSnap {
-				return checkSnapSyncGCInterval
+
 			}
+			e.rwMutex.Lock()
 			e.gcDstSeg = dst
 			e.gcDstCursor = 0 // After set new dst, should reset cursor.
+			e.rwMutex.Unlock()
 		}
 		srcCursor := e.gcSrcCursor
 		dstCursor := e.gcDstCursor
-		e.rwMutex.Unlock()
 
 		// TODO check count of reserved segments is enough or not after GC, if not, mark the new empty segment to reserved
 		// TODO before set src/dst to -1, check snapshot finish or not by cursor inside.
 	}
+}
+
+func (e *Extenter) gcSegment() {
+
+	segSize := uint32(e.cfg.SegmentSize)
+	minReserved := e.cfg.ReservedSeg
+	for {
+		if e.gcSrcCursor >= segSize {
+			newState := segReady
+			e.rwMutex.Lock()
+			if e.countReservedSeg() <= minReserved {
+				newState = segReserved
+			}
+			e.header.nvh.SegStates[e.gcSrcSeg] = newState
+
+			e.rwMutex.Unlock()
+			break
+		}
+	}
+}
+
+func (e *Extenter) countReservedSeg() int {
+	cnt := 0
+	for _, s := range e.header.nvh.SegStates {
+		if s == segReserved {
+			cnt++
+		}
+	}
+	return cnt
 }
 
 // findGCDst finds a GC dst segment from reserved segment.
@@ -124,7 +191,8 @@ func (e *Extenter) findGCDst() int64 {
 			return int64(i)
 		}
 	}
-	xlog.Panic(fmt.Sprintf("could not find a reserved segment for GC dst, ext_id: %d", e.info.PbExt.Id))
+	xlog.Error(fmt.Sprintf("could not find a reserved segment for GC dst, ext_id: %d", e.info.PbExt.Id))
+	e.handleIOError(orpc.ErrExtentBroken) // Set extent broken if there is no reserved segment.
 	return -1
 }
 
@@ -158,24 +226,24 @@ func (g gcCandidates) Swap(i, j int) {
 	g[i], g[j] = g[j], g[i]
 }
 
-func (e *Extenter) getGCCandidates(ratio float64) []gcCandidate {
+func (e *Extenter) getGCSrcCandidates(ratio float64) []gcCandidate {
 
 	e.rwMutex.RLock()
 	defer e.rwMutex.RUnlock()
 
 	// If removed >= threshold, means need to be GC.
-	threshold := uint32(float64(e.cfg.SegmentSize/phyaddr.Alignment) * ratio)
+	threshold := uint32(float64(e.cfg.SegmentSize/uid.GrainSize) * ratio)
 
 	cnt := 0
 	cs := make([]gcCandidate, 0, segmentCnt)
 
-	// At the beginning, the Extenter will load last unfinished GC job.
+	// At the beginning, the Extenter will load last unfinished GC job from phy_addr snapshot.
 	if e.gcSrcSeg != -1 { // There is one unfinished GC source segment.
 		cnt++
 		cs = append(cs, gcCandidate{
 			seg: uint8(e.gcSrcSeg),
 			// Set all removed, so the unfinished segment will come first.
-			removed: uint32(e.cfg.SegmentSize / phyaddr.Alignment),
+			removed: uint32(e.cfg.SegmentSize / uid.GrainSize),
 			// Set sealedTS 0, none candidate could compete with it.
 			sealedTS: 0,
 		})
