@@ -72,6 +72,11 @@ type Config struct {
 
 	// MaxDirtyCount is the maximum dirty updates in phy_addr(memory) which we could tolerate,
 	// if the dirty_count > MaxDirtyCount we should trigger a snapshot making event.
+	// It should < Min_Objects_Count_in_Segment / 2,
+	// e.g. the max size of object is 4MB, and segments size is 1GB,
+	// MaxDirtyCount should be < 1GB/4MB/2
+	// It ensures that when GCer wants to get the next source,
+	// we have high probability of making snapshot.
 	MaxDirtyCount int64 `toml:"max_dirty_count"`
 
 	// GCRatio is the ratio of garbage which if the segment's garbage is beyond it, the GC will start.
