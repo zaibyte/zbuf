@@ -149,9 +149,12 @@ func (e *Extenter) TryMakePhyAddrSnap(force bool) {
 
 	snap := new(colf.PhyAddrSnap)
 	snap.CreatTS = tsc.UnixNano()
+	// TODO lock here?
+	e.rwMutex.RLock()
 	snap.WritableHistoryIdx = e.header.nvh.WritableHistoryNextIdx - 1
 	snap.WritableSeg = e.writableSeg
 	snap.WritableCursor = e.writableCursor
+	e.rwMutex.RUnlock()
 
 	// TODO after init snap, make a new goroutine to do snap
 	pa := e.phyAddr
