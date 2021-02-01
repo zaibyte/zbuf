@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math/rand"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -172,6 +173,10 @@ func (e *Extenter) bufWrite(reqType, oid uint64, offset int64, objData []byte, b
 	return
 }
 
+func (e *Extenter) bufRead(reqType, oid uint64, offset int64, objData []byte, buf []byte) {
+	// TODO GC may cause checksum mismatched
+}
+
 // handleIOError handles I/O error,
 // set disk & extent broken, if it's disk broken.
 //
@@ -277,10 +282,11 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 	}
 
 	nvh := e.header.nvh
-	for i, state := range nvh.SegStates {
-		if state == segReady {
-			next := i
-			nvh.SegStates[i] = segWritable
+	cstates := shuffleSegStates(nvh.SegStates)
+	for i, state := range cstates {
+		if state.state == segReady {
+			next := cstates[i].originSeg
+			nvh.SegStates[next] = segWritable
 			nvh.SegStates[last] = segSealed
 			nvh.SealedTS[last] = tsc.UnixNano()
 			nvh.WritableHistory[nvh.WritableHistoryNextIdx%historyCnt] = byte(next)
@@ -297,6 +303,26 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 	}
 	err := orpc.ErrExtentFull
 	return -1, err
+}
+
+type stateClone struct {
+	originSeg int
+	state     uint8
+}
+
+// shuffleSegStates shuffles segments states for reducing the rate of always picking up segments which
+// position is in the beginning of segments when both of writing and deletion are frequent.
+func shuffleSegStates(states []uint8) []stateClone {
+	c := make([]stateClone, segmentCnt)
+	for i := range states {
+		c[i].originSeg = i
+		c[i].state = states[i]
+	}
+	rand.Seed(tsc.UnixNano())
+	rand.Shuffle(segmentCnt, func(i, j int) {
+		c[i], c[j] = c[j], c[i]
+	})
+	return c
 }
 
 // fastDiskHealthCheck checks the disk health by load header,
