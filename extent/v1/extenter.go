@@ -119,11 +119,11 @@ func (e *Extenter) getLastPhyAddrSnap() *colf.PhyAddrSnap {
 	return (*colf.PhyAddrSnap)(p)
 }
 
-// MakePhyAddrSnapshot makes phy_addr snapshot.
+// TryMakePhyAddrSnap makes phy_addr snapshot.
 //
 // Warning:
 // Extenter should be locked already.
-func (e *Extenter) MakePhyAddrSnapshot() {
+func (e *Extenter) TryMakePhyAddrSnap() {
 
 	if atomic.LoadInt64(&e.isMakingPhyAddrSnap) == 1 {
 		return

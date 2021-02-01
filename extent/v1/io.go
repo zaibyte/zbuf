@@ -42,7 +42,7 @@ func (e *Extenter) updatesLoop() {
 		}
 
 		if atomic.LoadInt64(&e.dirtyUpdates) > e.cfg.MaxDirtyCount {
-			e.MakePhyAddrSnapshot()
+			e.TryMakePhyAddrSnap()
 		}
 
 		var wr *writeDataRequest
@@ -69,8 +69,7 @@ func (e *Extenter) updatesLoop() {
 			// Although we will reject new data request if extent is full,
 			// we may still have some request already put into request chan.
 			if e.info.GetState() == metapb.ExtentState_Extent_Full {
-				wr.err = orpc.ErrExtentFull
-				close(wr.done)
+				wr.done <- orpc.ErrExtentFull
 				continue
 			}
 
@@ -78,10 +77,9 @@ func (e *Extenter) updatesLoop() {
 				e.rwMutex.Lock()
 				nextSeg, err := e.getNextWritableSeg(e.writableSeg)
 				if err != nil {
+					e.handleIOError(err)
+					wr.done <- err
 					e.rwMutex.Unlock()
-					e.handleError(err)
-					wr.err = err
-					close(wr.done)
 					continue
 				}
 				e.rwMutex.Unlock()
@@ -94,9 +92,10 @@ func (e *Extenter) updatesLoop() {
 
 			written, err := e.bufWrite(wr.reqType, wr.oid, offset, wr.objData, writeBuf)
 			if err != nil {
-				e.handleError(err)
-				wr.err = err
-				close(wr.done)
+				e.rwMutex.Lock()
+				e.handleIOError(err)
+				e.rwMutex.Unlock()
+				wr.done <- err
 				continue
 			}
 
@@ -106,33 +105,32 @@ func (e *Extenter) updatesLoop() {
 			if err != nil {
 				if err == phyaddr.ErrIsFull || err == phyaddr.ErrIsSealed {
 					err = xerrors.WithMessage(orpc.ErrExtentFull, err.Error())
-					e.handleError(err)
+					e.rwMutex.Lock()
+					e.handleIOError(err)
+					e.rwMutex.Unlock()
 				}
-				wr.err = err
-				close(wr.done)
+				wr.done <- err
 				continue
 			}
 
 			e.writableCursor += alignSize(int64(written), phyaddr.Alignment)
 			atomic.AddInt64(&e.dirtyUpdates, 1)
-			continue
+			continue // Write updates request done, go back to the top of loop.
 		}
 
 		// mr must not be nil
 		_, _, grains, digest, otype, _ := uid.ParseOID(mr.oid)
 		if mr.isRemove {
 			e.phyAddr.Remove(digest)
-			mr.err = nil
-			close(mr.done)
-			atomic.AddInt64(&e.dirtyUpdates, 1)
+			mr.done <- nil
+			// We don't add dirtyUpdates here, what we do care is add/reset, not remove.
 			continue
 		} else {
 			err := e.phyAddr.Add(digest, uint32(otype), grains, mr.newAddr, true)
 			if err == nil {
 				atomic.AddInt64(&e.dirtyUpdates, 1)
 			}
-			mr.err = err
-			close(mr.done)
+			mr.done <- err
 			continue
 		}
 	}
@@ -168,13 +166,13 @@ func (e *Extenter) bufWrite(reqType, oid uint64, offset int64, objData xbytes.Bu
 	return
 }
 
-// handleError handles I/O error,
+// handleIOError handles I/O error,
 // set disk & extent broken, if it's disk broken.
 //
 // set extent full, if it's full.
 // set extent ghost, if it's checksum mismatched or EIO but pass fast disk health checking.
 // set extent broken, if it's extent broken.
-func (e *Extenter) handleError(err error) {
+func (e *Extenter) handleIOError(err error) {
 
 	isGhost := false
 	if diskutil.IsBroken(err) {
@@ -206,9 +204,7 @@ func (e *Extenter) handleError(err error) {
 	}
 	e.cleanPendingUpdates(err)
 	if changed {
-		e.rwMutex.Lock()
 		_ = e.header.Store(state)
-		e.rwMutex.Unlock()
 	}
 }
 
@@ -227,7 +223,7 @@ func (e *Extenter) cleanPendingUpdates(err error) {
 		for i := 0; i < n; i++ {
 			r := <-e.writeDataChan
 			if r.done != nil {
-				r.err = err
+				r.done = err
 				// There maybe some new requests, leaving them to GC.
 				// Closing here may cause panic, because there maybe goroutines want to send message to this chan.
 				// close(r.done)
@@ -240,7 +236,7 @@ func (e *Extenter) cleanPendingUpdates(err error) {
 		for i := 0; i < n; i++ {
 			r := <-e.metaUpdateChan
 			if r.done != nil {
-				r.err = err
+				r.done = err
 				// close(r.done)
 			}
 		}
@@ -291,7 +287,7 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 			err := e.header.Store(e.info.GetState()) // TODO May block lock too long.
 
 			if err != nil {
-				coHeader.WritableHistoryNextIdx-- // Backwards for avoiding inconsistency.
+				coHeader.WritableHistoryNextIdx-- // Backwards for avoiding inconsistency in logic.
 				err = xerrors.WithMessage(err, "store header failed")
 				return -1, err
 			}
@@ -322,8 +318,7 @@ type writeDataRequest struct {
 	oid     uint64
 	objData []byte
 
-	done chan struct{}
-	err  error
+	done chan error
 }
 
 // Including deletion & GC.
@@ -332,8 +327,7 @@ type metaUpdatesRequest struct {
 	isRemove bool   // Remove request, otherwise is GC.
 	newAddr  uint32 // GC will move object to a new address.
 
-	done chan struct{}
-	err  error
+	done chan error
 }
 
 var writeDataRequestPool sync.Pool
@@ -351,9 +345,7 @@ func releaseWriteDataRequest(wr *writeDataRequest) {
 	wr.forceUpdate = false
 	wr.oid = 0
 	wr.objData = nil
-
 	wr.done = nil
-	wr.err = nil
 
 	writeDataRequestPool.Put(wr)
 }
@@ -374,7 +366,6 @@ func releaseMetaUpdatesRequest(mr *metaUpdatesRequest) {
 	mr.newAddr = 0
 
 	mr.done = nil
-	mr.err = nil
 
 	metaUpdatesRequestPool.Put(mr)
 }
