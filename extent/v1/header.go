@@ -138,40 +138,6 @@ func (h *Header) Store(state metapb.ExtentState) error {
 	return h.iosched.DoSync(xio.ReqMetaWrite, h.f, 0, b)
 }
 
-// Clone clones header to a new place.
-// Used for avoiding block on Store, after Clone, we could release the lock and store the header safely at the same time.
-func (h *Header) Clone(newH *Header) {
-
-	newH.iosched = h.iosched
-	newH.f = h.f
-
-	segStates := make([]byte, segmentCnt)
-	copy(segStates, h.nvh.SegStates)
-
-	sealedTS := make([]int64, segmentCnt)
-	copy(sealedTS, h.nvh.SealedTS)
-
-	writableHistory := make([]uint8, historyCnt)
-	copy(writableHistory, h.nvh.WritableHistory)
-
-	removed := make([]uint32, segmentCnt)
-	copy(removed, h.nvh.Removed)
-
-	newH.nvh = &NVHeader{
-		State:                  h.nvh.State,
-		SegSize:                h.nvh.SegSize,
-		ReservedSeg:            h.nvh.ReservedSeg,
-		SegStates:              segStates,
-		SealedTS:               sealedTS,
-		WritableHistory:        writableHistory,
-		WritableHistoryNextIdx: h.nvh.WritableHistoryNextIdx,
-		Removed:                removed,
-		CloneJobState:          h.nvh.CloneJobState,
-		CloneJobParentId:       h.nvh.CloneJobParentId,
-		CloneJobSourceExtId:    h.nvh.CloneJobSourceExtId,
-	}
-}
-
 // Close releases the resource.
 func (h *Header) Close() {
 	if h.f == nil {
