@@ -238,11 +238,11 @@ func (pa *PhyAddr) GetUsage() (total, usage int) {
 }
 
 // Remove sets the entry to deleted(grains to 0).
-func (pa *PhyAddr) Remove(digest uint32) {
+func (pa *PhyAddr) Remove(digest uint32) (has bool, addr uint32) {
 	if !pa.IsRunning() {
 		return
 	}
-	pa.tryRemove(digest)
+	return pa.tryRemove(digest)
 }
 
 func (pa *PhyAddr) expand(ri int) {
@@ -291,7 +291,7 @@ func (pa *PhyAddr) expand(ri int) {
 	}
 }
 
-func (pa *PhyAddr) tryRemove(digest uint32) {
+func (pa *PhyAddr) tryRemove(digest uint32) (has bool, addr uint32) {
 
 restart:
 
@@ -317,10 +317,12 @@ restart:
 			if e == 0 {
 				continue
 			}
-			tag, neighOff, otype, _, addr := ParseEntry(e)
+			tag, neighOff, otype, _, eaddr := ParseEntry(e)
 			if digest == backToDigest(tag, uint32(slotCnt), uint32(slot+j), neighOff) {
-				newEn := MakeEntry(digest, neighOff, otype, 0, addr)
+				newEn := MakeEntry(digest, neighOff, otype, 0, eaddr)
 				atomic.StoreUint64(&tbl[slot+j], newEn)
+				has = true
+				addr = eaddr
 				break
 			}
 		}
