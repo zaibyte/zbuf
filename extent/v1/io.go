@@ -81,9 +81,9 @@ func (e *Extenter) updatesLoop() {
 					e.rwMutex.Unlock()
 					continue
 				}
-				e.rwMutex.Unlock()
 				e.writableSeg = nextSeg
 				e.writableCursor = 0
+				e.rwMutex.Unlock()
 			}
 			wseg := e.writableSeg
 			cursor := e.writableCursor
@@ -112,7 +112,9 @@ func (e *Extenter) updatesLoop() {
 				continue
 			}
 
+			e.rwMutex.Lock()
 			e.writableCursor += alignSize(int64(written), phyaddr.Alignment)
+			e.rwMutex.Unlock()
 			atomic.AddInt64(&e.dirtyUpdates, 1)
 			continue // Write updates request done, go back to the top of loop.
 		}
@@ -210,7 +212,7 @@ func (e *Extenter) handleIOError(err error) {
 	}
 	e.cleanPendingUpdates(err, isFull)
 	if changed {
-		_ = e.header.Store(state)
+		_ = e.header.Store(state) // Try to sync new state, may block but doesn't matter.
 	}
 }
 
@@ -247,18 +249,18 @@ func (e *Extenter) isPhyAddrSnapBehind() bool {
 
 	lastSnap := e.getLastPhyAddrSnap()
 
-	coHeader := e.header.nvh
+	nvh := e.header.nvh
 
 	if lastSnap == nil { // None snapshot has been made.
-		if coHeader.WritableHistoryNextIdx >= historyCnt {
-			return false // No free place to put new writable seg.
+		if nvh.WritableHistoryNextIdx >= historyCnt {
+			return true // No free place to put new writable seg.
 		}
-		return true
+		return false
 	}
 
 	snapIdx := lastSnap.WritableHistoryIdx
 
-	if coHeader.WritableHistoryNextIdx-historyCnt >= snapIdx {
+	if nvh.WritableHistoryNextIdx-historyCnt >= snapIdx {
 		return true
 	}
 	return false
@@ -274,19 +276,19 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 		return -1, err
 	}
 
-	coHeader := e.header.nvh
-	for i, state := range coHeader.SegStates {
+	nvh := e.header.nvh
+	for i, state := range nvh.SegStates {
 		if state == segReady {
 			next := i
-			coHeader.SegStates[i] = segWritable
-			coHeader.SegStates[last] = segSealed
-			coHeader.SealedTS[last] = tsc.UnixNano()
-			coHeader.WritableHistory[coHeader.WritableHistoryNextIdx] = byte(next)
-			coHeader.WritableHistoryNextIdx++
-			err := e.header.Store(e.info.GetState()) // TODO May block lock too long.
+			nvh.SegStates[i] = segWritable
+			nvh.SegStates[last] = segSealed
+			nvh.SealedTS[last] = tsc.UnixNano()
+			nvh.WritableHistory[nvh.WritableHistoryNextIdx%historyCnt] = byte(next)
+			nvh.WritableHistoryNextIdx++
+			err := e.header.Store(e.info.GetState())
 
 			if err != nil {
-				coHeader.WritableHistoryNextIdx-- // Backwards for avoiding inconsistency in logic.
+				nvh.WritableHistoryNextIdx-- // Backwards for avoiding inconsistency in logic.
 				err = xerrors.WithMessage(err, "store header failed")
 				return -1, err
 			}
