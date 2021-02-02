@@ -242,7 +242,18 @@ func (pa *PhyAddr) Remove(digest uint32) (has bool, addr uint32) {
 	if !pa.IsRunning() {
 		return
 	}
-	return pa.tryRemove(digest)
+	return pa.tryRemove(digest, false)
+}
+
+// Reset sets the entry's slot 0, free the slot.
+func (pa *PhyAddr) Reset(digest uint32) {
+	if !pa.IsRunning() {
+		return
+	}
+	has, _ := pa.tryRemove(digest, true)
+	if has {
+		pa.delCnt()
+	}
 }
 
 func (pa *PhyAddr) expand(ri int) {
@@ -291,7 +302,7 @@ func (pa *PhyAddr) expand(ri int) {
 	}
 }
 
-func (pa *PhyAddr) tryRemove(digest uint32) (has bool, addr uint32) {
+func (pa *PhyAddr) tryRemove(digest uint32, isReset bool) (has bool, addr uint32) {
 
 restart:
 
@@ -319,7 +330,10 @@ restart:
 			}
 			tag, neighOff, otype, _, eaddr := ParseEntry(e)
 			if digest == backToDigest(tag, uint32(slotCnt), uint32(slot+j), neighOff) {
-				newEn := MakeEntry(digest, neighOff, otype, 0, eaddr)
+				var newEn uint64 = 0
+				if !isReset {
+					newEn = MakeEntry(digest, neighOff, otype, 0, eaddr)
+				}
 				atomic.StoreUint64(&tbl[slot+j], newEn)
 				has = true
 				addr = eaddr

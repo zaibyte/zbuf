@@ -94,6 +94,42 @@ func TestIndex_Remove(t *testing.T) {
 	}
 }
 
+func TestIndex_Reset(t *testing.T) {
+
+	start := MinCap
+	for n := start; n <= MinCap*2; n *= 2 {
+		ens := generatesEntriesFast(n / 2)
+		pa, _ := New(n)
+		for _, en := range ens {
+			err := pa.Add(en.digest, en.otype, en.grains, en.addr, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			pa.Reset(en.digest)
+			sen, has := pa.Search(en.digest)
+			if has {
+				t.Fatal("should not have entry")
+			}
+			if !IsRemoved(sen) {
+				t.Fatal("should be removed")
+			}
+		}
+		for _, en := range ens {
+			sen, has := pa.Search(en.digest)
+			if has {
+				t.Fatal("should not have entry")
+			}
+			if !IsRemoved(sen) {
+				t.Fatal("should be removed")
+			}
+		}
+		_, usage := pa.GetUsage()
+		if usage != 0 {
+			t.Fatal("usage size mismatched")
+		}
+	}
+}
+
 // Add & Remove concurrently, checking dead lock or not.
 func TestIndex_UpdateConcurrent(t *testing.T) {
 
