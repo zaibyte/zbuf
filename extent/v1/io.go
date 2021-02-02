@@ -185,7 +185,7 @@ func (e *Extenter) writeAt(reqType, oid uint64, offset int64, objData []byte, bu
 }
 
 // readAt reads Extent's segments file from a certain offset.
-func (e *Extenter) readAt(reqType, oid uint64, offset int64, objData []byte) error {
+func (e *Extenter) readAt(reqType uint64, digest uint32, offset int64, objData []byte) error {
 
 	offset += oidSizeInSeg
 
@@ -209,8 +209,7 @@ func (e *Extenter) readAt(reqType, oid uint64, offset int64, objData []byte) err
 	}
 
 	actDigest := d.Sum32()
-	_, _, _, expDigest, _, _ := uid.ParseOID(oid)
-	if actDigest != expDigest {
+	if actDigest != digest {
 		return orpc.ErrChecksumMismatch
 	}
 	return nil
