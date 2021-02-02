@@ -31,6 +31,12 @@ func (e *Extenter) updatesLoop() {
 	ctx, cancel := context.WithCancel(e.ctx)
 	defer cancel()
 
+	// The only benefit we could get from the writeBuf is when we are trying to
+	// write object to disk, we also have to write down the oid as the first page,
+	// for reducing the I/O times, we combine the oid page and first write into
+	// writeBuf.
+	// If the object size is large than SizePerWrite, the writeBuf is useless,
+	// we will pass the objData piece by piece directly.
 	writeBuf := directio.AlignedBlock(int(oidSizeInSeg + e.cfg.SizePerWrite))
 	segSize := int64(e.cfg.SegmentSize)
 	for {
@@ -146,12 +152,12 @@ func (e *Extenter) updatesLoop() {
 
 // bufWrite writes with a buffer.
 // Using bufWrite split big data chunk into buffer size, avoiding stall.
-// Returns written & error.
-func (e *Extenter) bufWrite(reqType, oid uint64, offset int64, objData []byte, buf []byte) (written int, err error) {
+// Returns total_written(include oid & object_data) & error.
+func (e *Extenter) bufWrite(reqType, oid uint64, offset int64, objData []byte, buf []byte) (totalWritten int, err error) {
 
 	n := len(objData)
 	binary.LittleEndian.PutUint64(buf[:8], oid)
-	written = copy(buf[oidSizeInSeg:], objData)
+	written := copy(buf[oidSizeInSeg:], objData)
 
 	err = e.iosched.DoSync(reqType, e.segsFile, offset, buf[:written+oidSizeInSeg])
 	if err != nil {
@@ -160,20 +166,29 @@ func (e *Extenter) bufWrite(reqType, oid uint64, offset int64, objData []byte, b
 	offset += int64(written)
 	offset += oidSizeInSeg
 
-	buf = buf[:e.cfg.SizePerWrite]
+	sizePerWrite := int(e.cfg.SizePerWrite)
 	for written != n {
-		cn := copy(buf, objData[written:])
-		err = e.iosched.DoSync(reqType, e.segsFile, offset, buf[:cn])
+		nn := sizePerWrite
+		if n-written < nn {
+			nn = n - written
+		}
+		err = e.iosched.DoSync(reqType, e.segsFile, offset, objData[written:written+nn])
 		if err != nil {
 			return
 		}
-		written += cn
-		offset += int64(cn)
+		written += nn
+		offset += int64(nn)
 	}
-	return
+	return written + oidSizeInSeg, nil
 }
 
 func (e *Extenter) bufRead(reqType, oid uint64, offset int64, objData []byte, buf []byte) {
+
+	n := len(objData)
+	read := 0
+	for read != n {
+		cn := copy()
+	}
 	// TODO GC may cause checksum mismatched
 	// 1. compare oid, if not match, search phy_addr again (do once)
 	// 2. read & calc checksum
