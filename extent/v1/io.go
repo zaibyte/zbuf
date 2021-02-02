@@ -388,15 +388,6 @@ type writeDataRequest struct {
 	done chan error
 }
 
-// Including deletion & GC.
-type metaUpdatesRequest struct {
-	oid      uint64
-	isRemove bool   // Remove request, otherwise is GC.
-	newAddr  uint32 // GC will move object to a new address.
-
-	done chan error
-}
-
 var writeDataRequestPool sync.Pool
 
 func acquireWriteDataRequest() *writeDataRequest {
@@ -415,6 +406,15 @@ func releaseWriteDataRequest(wr *writeDataRequest) {
 	wr.done = nil
 
 	writeDataRequestPool.Put(wr)
+}
+
+// Including deletion & GC.
+type metaUpdatesRequest struct {
+	oid      uint64
+	isRemove bool   // Remove request, otherwise is GC.
+	newAddr  uint32 // GC will move object to a new address.
+
+	done chan error
 }
 
 var metaUpdatesRequestPool sync.Pool

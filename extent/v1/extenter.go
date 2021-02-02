@@ -89,8 +89,42 @@ type Extenter struct {
 	stopWg *sync.WaitGroup
 }
 
-func (e *Extenter) PutObj(reqid, oid uint64, extID uint32, objData []byte) error {
-	panic("implement me")
+func (e *Extenter) PutObj(_reqid, oid uint64, _extID uint32, objData []byte) error {
+
+	wr := acquireWriteDataRequest()
+
+	wr.reqType = xio.ReqObjWrite
+	wr.forceUpdate = false
+	wr.oid = oid
+	wr.objData = objData
+	wr.done = make(chan error)
+
+	select {
+	case e.writeDataChan <- wr:
+	default:
+		// Try substituting the oldest async request by the new one
+		// on requests' queue overflow.
+		// This increases the chances for new request to succeed
+		// without timeout.
+		select {
+		case wr2 := <-e.writeDataChan:
+			wr2.done <- orpc.ErrRequestQueueOverflow
+			releaseWriteDataRequest(wr2)
+		default:
+		}
+
+		// After pop, try to put again.
+		select {
+		case e.writeDataChan <- wr:
+		default:
+			// RequestsChan is filled, release it since wr wasn't exposed to the caller yet.
+			releaseWriteDataRequest(wr)
+			return orpc.ErrRequestQueueOverflow
+		}
+	}
+
+	err := <-wr.done
+	return err
 }
 
 func (e *Extenter) GetObj(reqid, oid uint64, _extID uint32) (objData []byte, err error) {
