@@ -188,8 +188,39 @@ func (e *Extenter) getObjOffsetSize(oid uint64) (has bool, digest uint32, offset
 	return true, digest, int64(addr * phyaddr.Alignment), int(grains * uid.GrainSize)
 }
 
-func (e *Extenter) DeleteObj(reqid, oid uint64, extID uint32) error {
-	panic("implement me")
+func (e *Extenter) DeleteObj(_reqid, oid uint64, _extID uint32) error {
+	mr := acquireMetaUpdatesRequest()
+
+	mr.oid = oid
+	mr.isRemove = true
+	mr.done = make(chan error)
+
+	select {
+	case e.metaUpdateChan <- mr:
+	default:
+		// Try substituting the oldest async request by the new one
+		// on requests' queue overflow.
+		// This increases the chances for new request to succeed
+		// without timeout.
+		select {
+		case mr2 := <-e.metaUpdateChan:
+			mr2.done <- orpc.ErrRequestQueueOverflow
+			releaseMetaUpdatesRequest(mr2)
+		default:
+		}
+
+		// After pop, try to put again.
+		select {
+		case e.metaUpdateChan <- mr:
+		default:
+			// RequestsChan is filled, release it since mr wasn't exposed to the caller yet.
+			releaseMetaUpdatesRequest(mr)
+			return orpc.ErrRequestQueueOverflow
+		}
+	}
+
+	err := <-mr.done
+	return err
 }
 
 func (e *Extenter) GetInfo() *extent.Info {
