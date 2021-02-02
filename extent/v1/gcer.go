@@ -172,6 +172,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			if has {
 
 			}
+			// TODO after gc, removed in Extenter should be set to 0
 		}
 
 		dst := e.gcDstSeg
