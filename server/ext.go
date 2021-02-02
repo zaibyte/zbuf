@@ -176,3 +176,12 @@ func listExtIDs(diskID uint32, root string, fs vfs.FS) (ids []uint32, err error)
 func (s *Server) verifyExtID() bool {
 	return true
 }
+
+// getExtenter gets Extenter by extID.
+func (s *Server) getExtenter(extID uint32) extent.Extenter {
+	v, ok := s.extenters.Load(extID)
+	if !ok {
+		return nil
+	}
+	return v.(extent.Extenter)
+}
