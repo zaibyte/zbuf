@@ -18,9 +18,17 @@ package v1
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"unsafe"
+
+	"g.tesamc.com/IT/zaipkg/xbytes"
+	"g.tesamc.com/IT/zaipkg/xlog"
+
+	"g.tesamc.com/IT/zaipkg/orpc"
+	"g.tesamc.com/IT/zaipkg/uid"
+	"g.tesamc.com/IT/zaipkg/xerrors"
 
 	"github.com/templexxx/tsc"
 
@@ -81,15 +89,72 @@ type Extenter struct {
 	stopWg *sync.WaitGroup
 }
 
-func (e *Extenter) PutObj(reqid, oid uint64, objData []byte) error {
+func (e *Extenter) PutObj(reqid, oid uint64, extID uint32, objData []byte) error {
 	panic("implement me")
 }
 
-func (e *Extenter) GetObj(reqid, oid uint64) (objData []byte, err error) {
-	panic("implement me")
+func (e *Extenter) GetObj(reqid, oid uint64, _extID uint32) (objData []byte, err error) {
+
+	has, digest, offset, size := e.getObjOffsetSize(oid)
+	if !has {
+		err = xerrors.WithMessage(orpc.ErrNotFound, fmt.Sprintf("oid: %d", oid))
+		xlog.WarnID(reqid, err.Error())
+		return nil, err
+	}
+
+	objData = xbytes.GetAlignedBytes(size)
+	err = e.readAt(xio.ReqObjRead, digest, offset, objData)
+	if err != nil {
+		// May meet GC segments could be write again: https://g.tesamc.com/IT/zbuf/issues/124
+		if err == orpc.ErrChecksumMismatch {
+			newHas, _, newOffset, _ := e.getObjOffsetSize(oid)
+			if !newHas {
+				err = xerrors.WithMessage(orpc.ErrNotFound, fmt.Sprintf("oid: %d", oid))
+				xlog.WarnID(reqid, err.Error())
+				xbytes.PutAlignedBytes(objData)
+				return nil, err
+			}
+			if newOffset == offset {
+				e.rwMutex.Lock()
+				e.handleIOError(err)
+				e.rwMutex.Unlock()
+				xbytes.PutAlignedBytes(objData)
+				return nil, err
+			}
+			err = e.readAt(xio.ReqObjRead, digest, newOffset, objData)
+			if err != nil {
+				e.rwMutex.Lock()
+				e.handleIOError(err)
+				e.rwMutex.Unlock()
+				xbytes.PutAlignedBytes(objData)
+				return nil, err
+			}
+			return objData, nil
+		}
+		e.rwMutex.Lock()
+		e.handleIOError(err)
+		e.rwMutex.Unlock()
+		xbytes.PutAlignedBytes(objData)
+		return nil, err
+	}
+	return objData, nil
 }
 
-func (e *Extenter) DeleteObj(reqid, oid uint64) error {
+func (e *Extenter) getObjOffsetSize(oid uint64) (has bool, digest uint32, offset int64, size int) {
+	_, _, _, digest, _, _ = uid.ParseOID(oid)
+	entry, ok := e.phyAddr.Search(digest)
+	if !ok {
+
+		return false, 0, 0, 0
+	}
+	_, _, _, grains, addr := phyaddr.ParseEntry(entry)
+	if grains == 0 { // Removed.
+		return false, 0, 0, 0
+	}
+	return true, digest, int64(addr * phyaddr.Alignment), int(grains * uid.GrainSize)
+}
+
+func (e *Extenter) DeleteObj(reqid, oid uint64, extID uint32) error {
 	panic("implement me")
 }
 
