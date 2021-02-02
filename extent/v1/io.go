@@ -316,6 +316,7 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 
 	if e.isPhyAddrSnapBehind() {
 		err := xerrors.WithMessage(orpc.ErrExtentBroken, "phy_addr snapshot flushing too slow")
+		xlog.Warn(err.Error())
 		return -1, err
 	}
 
@@ -336,6 +337,7 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 				err = xerrors.WithMessage(err, "store header failed")
 				return -1, err
 			}
+			xlog.Info(fmt.Sprintf("ext: %d got new writable seg: %d", e.info.PbExt.Id, next))
 			return int64(next), nil
 		}
 	}
