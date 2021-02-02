@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 	"syscall"
 
+	"g.tesamc.com/IT/zaipkg/xdigest"
+
 	"g.tesamc.com/IT/zaipkg/directio"
 	"g.tesamc.com/IT/zaipkg/diskutil"
 	"g.tesamc.com/IT/zaipkg/orpc"
@@ -96,7 +98,7 @@ func (e *Extenter) updatesLoop() {
 			cursor := e.writableCursor
 			offset := segCursorToOffset(wseg, cursor, segSize)
 
-			written, err := e.bufWrite(wr.reqType, wr.oid, offset, wr.objData, writeBuf)
+			written, err := e.writeAt(wr.reqType, wr.oid, offset, wr.objData, writeBuf)
 			if err != nil {
 				e.rwMutex.Lock()
 				e.handleIOError(err)
@@ -150,10 +152,10 @@ func (e *Extenter) updatesLoop() {
 	}
 }
 
-// bufWrite writes with a buffer.
-// Using bufWrite split big data chunk into buffer size, avoiding stall.
+// writeAt writes with a buffer in a certain offset.
+// Using writeAt split big data chunk into buffer size, avoiding stall.
 // Returns total_written(include oid & object_data) & error.
-func (e *Extenter) bufWrite(reqType, oid uint64, offset int64, objData []byte, buf []byte) (totalWritten int, err error) {
+func (e *Extenter) writeAt(reqType, oid uint64, offset int64, objData []byte, buf []byte) (totalWritten int, err error) {
 
 	n := len(objData)
 	binary.LittleEndian.PutUint64(buf[:8], oid)
@@ -182,18 +184,36 @@ func (e *Extenter) bufWrite(reqType, oid uint64, offset int64, objData []byte, b
 	return written + oidSizeInSeg, nil
 }
 
-func (e *Extenter) bufRead(reqType, oid uint64, offset int64, objData []byte, buf []byte) {
+// readAt reads Extent's segments file from a certain offset.
+func (e *Extenter) readAt(reqType, oid uint64, offset int64, objData []byte) error {
 
+	offset += oidSizeInSeg
+
+	sizePerRead := int(e.cfg.SizePerRead)
 	n := len(objData)
 	read := 0
+	d := xdigest.Acquire()
 	for read != n {
-		cn := copy()
+		nn := sizePerRead
+		if n-read < nn {
+			nn = n - read
+		}
+		err := e.iosched.DoSync(reqType, e.segsFile, offset, objData[read:read+nn])
+		if err != nil {
+			xdigest.Release(d)
+			return err
+		}
+		_, _ = d.Write(objData[read : read+nn])
+		read += nn
+		offset += int64(nn)
 	}
-	// TODO GC may cause checksum mismatched
-	// 1. compare oid, if not match, search phy_addr again (do once)
-	// 2. read & calc checksum
-	// 3. if checksum mismatch, search phy_addr again, if same addr, return checksum err. If not, using new addr do 2
-	// 4. if not found, return not found
+
+	actDigest := d.Sum32()
+	_, _, _, expDigest, _, _ := uid.ParseOID(oid)
+	if actDigest != expDigest {
+		return orpc.ErrChecksumMismatch
+	}
+	return nil
 }
 
 // handleIOError handles I/O error,
