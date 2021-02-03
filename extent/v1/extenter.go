@@ -124,6 +124,7 @@ func (e *Extenter) PutObj(_reqid, oid uint64, _extID uint32, objData []byte) err
 	}
 
 	err := <-wr.done
+	releaseWriteDataRequest(wr)
 	return err
 }
 
@@ -220,10 +221,11 @@ func (e *Extenter) DeleteObj(_reqid, oid uint64, _extID uint32) error {
 	}
 
 	err := <-mr.done
+	releaseMetaUpdatesRequest(mr)
 	return err
 }
 
-func (e *Extenter) updatesAddr(oid uint64, newAddr uint32) {
+func (e *Extenter) gcUpdatesAddr(oid uint64, newAddr uint32) {
 	mr := acquireMetaUpdatesRequest()
 
 	mr.oid = oid
@@ -234,6 +236,7 @@ func (e *Extenter) updatesAddr(oid uint64, newAddr uint32) {
 	e.metaUpdateChan <- mr
 
 	<-mr.done
+	releaseMetaUpdatesRequest(mr)
 }
 
 func (e *Extenter) GetInfo() *extent.Info {
@@ -242,6 +245,7 @@ func (e *Extenter) GetInfo() *extent.Info {
 }
 
 func (e *Extenter) Close() error {
+	// TODO close a buffered chan, could read/write?
 	panic("implement me")
 }
 

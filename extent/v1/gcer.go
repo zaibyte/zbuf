@@ -245,7 +245,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			// Updates result could be ignored here.
 			// The oid must be existed, no actually insert will happen, so it must be succeed.
 			// TODO cannot overflow here, it's hard to deal with it.
-			_ = e.updatesAddr(oid, uint32(writeOffset))
+			_ = e.gcUpdatesAddr(oid, uint32(writeOffset))
 
 			e.rwMutex.Lock()
 			e.gcDstCursor += uint32(alignSize(int64(totalWritten), phyaddr.Alignment))
