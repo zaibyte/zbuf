@@ -238,6 +238,7 @@ func (pa *PhyAddr) GetUsage() (total, usage int) {
 }
 
 // Remove sets the entry to deleted(grains to 0).
+// Removed helping to rebuild segments removed grains count when restart. It's important for future GC.
 func (pa *PhyAddr) Remove(digest uint32) (has bool, addr uint32) {
 	if !pa.IsRunning() {
 		return
