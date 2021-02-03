@@ -98,7 +98,7 @@ func (e *Extenter) updatesLoop() {
 			cursor := e.writableCursor
 			offset := segCursorToOffset(wseg, cursor, segSize)
 
-			written, err := e.writeAt(wr.reqType, wr.oid, offset, wr.objData, writeBuf)
+			written, err := e.objWriteAt(wr.reqType, wr.oid, offset, wr.objData, writeBuf)
 			if err != nil {
 				e.rwMutex.Lock()
 				e.handleIOError(err)
@@ -121,9 +121,7 @@ func (e *Extenter) updatesLoop() {
 				continue
 			}
 
-			e.rwMutex.Lock()
-			e.writableCursor += alignSize(int64(written), phyaddr.Alignment)
-			e.rwMutex.Unlock()
+			atomic.AddInt64(&e.writableCursor, alignSize(int64(written), phyaddr.Alignment))
 			atomic.AddInt64(&e.dirtyUpdates, 1)
 			continue // Write updates request done, go back to the top of loop.
 		}
@@ -152,10 +150,10 @@ func (e *Extenter) updatesLoop() {
 	}
 }
 
-// writeAt writes with a buffer in a certain offset.
-// Using writeAt split big data chunk into buffer size, avoiding stall.
+// objWriteAt writes with a buffer in a certain offset.
+// Using objWriteAt split big data chunk into buffer size, avoiding stall.
 // Returns total_written(include oid & object_data) & error.
-func (e *Extenter) writeAt(reqType, oid uint64, offset int64, objData []byte, buf []byte) (totalWritten int, err error) {
+func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte, buf []byte) (totalWritten int, err error) {
 
 	n := len(objData)
 	binary.LittleEndian.PutUint64(buf[:8], oid)
@@ -184,8 +182,8 @@ func (e *Extenter) writeAt(reqType, oid uint64, offset int64, objData []byte, bu
 	return written + oidSizeInSeg, nil
 }
 
-// readAt reads Extent's segments file from a certain offset.
-func (e *Extenter) readAt(reqType uint64, digest uint32, offset int64, objData []byte) error {
+// objReadAt reads Extent's segments file from a certain offset.
+func (e *Extenter) objReadAt(reqType uint64, digest uint32, offset int64, objData []byte) error {
 
 	offset += oidSizeInSeg
 
