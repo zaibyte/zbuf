@@ -223,7 +223,7 @@ func (e *Extenter) DeleteObj(_reqid, oid uint64, _extID uint32) error {
 	return err
 }
 
-func (e *Extenter) updatesAddr(oid uint64, newAddr uint32) error {
+func (e *Extenter) updatesAddr(oid uint64, newAddr uint32) {
 	mr := acquireMetaUpdatesRequest()
 
 	mr.oid = oid
@@ -231,32 +231,9 @@ func (e *Extenter) updatesAddr(oid uint64, newAddr uint32) error {
 	mr.newAddr = newAddr
 	mr.done = make(chan error)
 
-	select {
-	case e.metaUpdateChan <- mr:
-	default:
-		// Try substituting the oldest async request by the new one
-		// on requests' queue overflow.
-		// This increases the chances for new request to succeed
-		// without timeout.
-		select {
-		case mr2 := <-e.metaUpdateChan:
-			mr2.done <- orpc.ErrRequestQueueOverflow
-			releaseMetaUpdatesRequest(mr2)
-		default:
-		}
+	e.metaUpdateChan <- mr
 
-		// After pop, try to put again.
-		select {
-		case e.metaUpdateChan <- mr:
-		default:
-			// RequestsChan is filled, release it since mr wasn't exposed to the caller yet.
-			releaseMetaUpdatesRequest(mr)
-			return orpc.ErrRequestQueueOverflow
-		}
-	}
-
-	err := <-mr.done
-	return err
+	<-mr.done
 }
 
 func (e *Extenter) GetInfo() *extent.Info {
