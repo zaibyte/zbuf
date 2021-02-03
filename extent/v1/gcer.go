@@ -7,7 +7,7 @@ import (
 	"sort"
 	"time"
 
-	"g.tesamc.com/IT/zaipkg/config/settings"
+	"g.tesamc.com/IT/zbuf/extent/v1/phyaddr"
 
 	"g.tesamc.com/IT/zaipkg/directio"
 
@@ -83,11 +83,16 @@ func (e *Extenter) DoGC(ratio float64) {
 	}
 }
 
-// When we want to set new GC src /dst but meet inconsistent between GC process & phy_addr snapshot,
-// wait for a while and check it again.
-// GC will update Extenter.dirtyUpdates, and if (hasCheckedSnap), tryGC will call make snapshot forcely.
-// so it won't block unless extent un-writable.
-const checkSnapSyncGCInterval = 16 * time.Second
+const (
+	// When we want to set new GC src /dst but meet inconsistent between GC process & phy_addr snapshot,
+	// wait for a while and check it again.
+	// GC will update Extenter.dirtyUpdates, and if (hasCheckedSnap), tryGC will call make snapshot forcely.
+	// so it won't block unless extent un-writable.
+	checkSnapSyncGCInterval = 16 * time.Second
+	// deadInterval is the interval when Extenter meets unexpected error and the Extenter need to be closed.
+	// Using time.Hour to ensure the ctx.Done() will be selected firstly.(caused by Extenter.Close())
+	deadInterval = time.Hour
+)
 
 // checkSnapCatchGC checks phy_addr snapshot has caught the newest updates of GC.
 // Every time we want to change src/dst should check it.
@@ -113,9 +118,6 @@ func (e *Extenter) checkSnapCatchGC() bool {
 	return true
 }
 
-const gcBufSize = 8 * 1024 * 1024 // 8MB.
-
-// TODO how to pick up paused job. checking the cursor every gc_src & dst pair.
 func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duration, hasCheckedSnap bool) {
 	// TODO after GC will check is full or not, if it was full, and there is ready seg after GC, change the full state
 	cs := e.getGCSrcCandidates(ratio)
@@ -125,9 +127,10 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 
 	segSize := uint32(e.cfg.SegmentSize)
 
-	gcObjBuf := directio.AlignedBlock(settings.MaxObjectSize)
 	gcWriteBuf := directio.AlignedBlock(int(oidSizeInSeg + e.cfg.SizePerWrite))
+	gcObjBuf := gcWriteBuf[oidSizeInSeg:]
 	oidBuf := directio.AlignedBlock(oidSizeInSeg)
+	blankOID := directio.AlignedBlock(oidSizeInSeg) // For reset OID in segment.
 
 	for _, c := range cs { // Deal with candidates one by one.
 		// TODO how to sync cursor
@@ -149,18 +152,19 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 		e.rwMutex.Unlock()
 
 		for {
-			if e.gcSrcCursor >= segSize {
+			if e.gcSrcCursor >= segSize { // Meet src end.
 				break
 			}
-			err := e.iosched.DoSync(xio.ReqGCRead, e.segsFile, segCursorToOffset(e.gcSrcSeg, int64(e.gcSrcCursor), int64(segSize)), oidBuf)
+			readOffset := segCursorToOffset(e.gcSrcSeg, int64(e.gcSrcCursor), int64(segSize))
+			err := e.iosched.DoSync(xio.ReqGCRead, e.segsFile, readOffset, oidBuf)
 			if err != nil {
 				e.rwMutex.Lock()
 				e.handleIOError(err)
 				e.rwMutex.Unlock()
-				return 3 * time.Second, false // Ghost or broken.
+				return deadInterval, false // Ghost or broken.
 			}
 			oid := binary.LittleEndian.Uint64(oidBuf[:8])
-			if oid == 0 {
+			if oid == 0 { // Objects are written sequentially, if meet 0, means reaching the end.
 				e.rwMutex.Lock()
 				e.gcSrcCursor = segSize
 				e.rwMutex.Unlock()
@@ -168,36 +172,108 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			}
 
 			_, _, grains, digest, _, _ := uid.ParseOID(oid)
-			_, has := e.phyAddr.Search(digest)
-			if has {
+			objSize := grains * uid.GrainSize
 
+			entry, has := e.phyAddr.Search(digest)
+			if !has {
+				e.rwMutex.Lock()
+				e.gcSrcCursor += uint32(alignSize(int64(objSize+oidSizeInSeg), phyaddr.Alignment))
+				e.rwMutex.Unlock()
+				continue
 			}
+
+			if phyaddr.IsRemoved(entry) {
+				e.phyAddr.Reset(digest)
+				e.rwMutex.Lock()
+				e.gcSrcCursor += uint32(alignSize(int64(objSize+oidSizeInSeg), phyaddr.Alignment))
+				e.rwMutex.Unlock()
+				continue
+			}
+
+			if oidSizeInSeg+objSize > segSize-e.gcDstCursor || e.gcDstSeg == -1 { // Dst has no enough space or haven't had any GC job.
+				// Destination will be changed, checking the snapshot.
+				if !e.checkSnapCatchGC() {
+					if !checkedSnap {
+						return checkSnapSyncGCInterval, true
+					}
+					e.TryMakePhyAddrSnap(true)
+					return checkSnapSyncGCInterval, false // Reset checked, avoiding TryMakePhyAddrSnap too frequently.
+				}
+				e.rwMutex.Lock()
+				newDst := e.findGCDst()
+				if newDst == -1 {
+					e.rwMutex.Unlock()
+					return deadInterval, false
+				}
+				e.header.nvh.SegStates[e.gcDstSeg] = segSealed
+				e.gcDstSeg = newDst
+				e.gcDstCursor = 0
+				e.rwMutex.Unlock()
+			}
+
+			err = e.objReadAt(xio.ReqGCRead, digest, readOffset+oidSizeInSeg, gcObjBuf[:objSize])
+			if err != nil {
+				e.rwMutex.Lock()
+				e.handleIOError(err)
+				e.rwMutex.Unlock()
+				return deadInterval, false
+			}
+
+			writeOffset := segCursorToOffset(e.gcDstSeg, int64(e.gcDstCursor), int64(segSize))
+			totalWritten, werr := e.objWriteAt(xio.ReqGCWrite, oid, writeOffset, gcObjBuf[:objSize], gcWriteBuf[:objSize+oidSizeInSeg])
+			if werr != nil {
+				e.rwMutex.Lock()
+				e.handleIOError(err)
+				e.rwMutex.Unlock()
+				return deadInterval, false
+			}
+
+			err = e.iosched.DoSync(xio.ReqGCWrite, e.segsFile, readOffset, blankOID)
+			if err != nil {
+				e.rwMutex.Lock()
+				e.handleIOError(err)
+				e.rwMutex.Unlock()
+				return deadInterval, false
+			}
+
+			// Updates result could be ignored here.
+			// The oid must be existed, no actually insert will happen, so it must be succeed.
+			_ = e.updatesAddr(oid, uint32(writeOffset))
+
+			e.rwMutex.Lock()
+			e.gcDstCursor += uint32(alignSize(int64(totalWritten), phyaddr.Alignment))
+			e.rwMutex.Unlock()
+
 			// TODO after gc, removed in Extenter should be set to 0
 		}
 
-		dst := e.gcDstSeg
-		if dst == -1 {
-			e.rwMutex.Lock()
-			dst = e.findGCDst()
-			e.rwMutex.Unlock()
-			if dst == -1 {
-				return e.cfg.GCScanInterval.Duration, false
-			}
-			// Checking source is enough, because src&dst changes is a atomic txn.
-			if lastSrc != lastSrcInSnap || lastSrcCursor != lastSrcCursorInSnap {
-
-			}
-			e.rwMutex.Lock()
-			e.gcDstSeg = dst
-			e.gcDstCursor = 0 // After set new dst, should reset cursor.
-			e.rwMutex.Unlock()
+		e.rwMutex.Lock()
+		e.header.nvh.Removed[e.gcSrcSeg] = 0
+		srcNewState := segReady
+		if !e.isReservedEnough() {
+			srcNewState = segReserved
 		}
-		srcCursor := e.gcSrcCursor
-		dstCursor := e.gcDstCursor
-
-		// TODO check count of reserved segments is enough or not after GC, if not, mark the new empty segment to reserved
-		// TODO before set src/dst to -1, check snapshot finish or not by cursor inside.
+		e.header.nvh.SegStates[e.gcSrcSeg] = srcNewState
+		e.rwMutex.Unlock()
 	}
+	return e.cfg.GCScanInterval.Duration, false
+}
+
+func (e *Extenter) isReservedEnough() bool {
+	if e.countReserved() >= e.cfg.ReservedSeg {
+		return true
+	}
+	return false
+}
+
+func (e *Extenter) countReserved() int {
+	cnt := 0
+	for _, s := range e.header.nvh.SegStates {
+		if s == segReserved {
+			cnt++
+		}
+	}
+	return cnt
 }
 
 func (e *Extenter) gcSegment() {
