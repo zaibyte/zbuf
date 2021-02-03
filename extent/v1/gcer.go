@@ -42,7 +42,8 @@ func (e *Extenter) gcLoop() {
 
 		state := e.info.GetState()
 		if state != metapb.ExtentState_Extent_ReadWrite &&
-			state != metapb.ExtentState_Extent_Full { // We could do meta updates when it's full.
+			state != metapb.ExtentState_Extent_Full &&
+			state != metapb.ExtentState_Extent_Offline {
 			return
 		}
 
@@ -119,6 +120,11 @@ func (e *Extenter) checkSnapCatchGC() bool {
 }
 
 func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duration, hasCheckedSnap bool) {
+
+	state := e.info.GetState()
+	if state == metapb.ExtentState_Extent_Offline {
+		return e.cfg.GCScanInterval.Duration, false
+	}
 	// TODO after GC will check is full or not, if it was full, and there is ready seg after GC, change the full state
 	cs := e.getGCSrcCandidates(ratio)
 	if len(cs) == 0 {
@@ -238,13 +244,12 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 
 			// Updates result could be ignored here.
 			// The oid must be existed, no actually insert will happen, so it must be succeed.
+			// TODO cannot overflow here, it's hard to deal with it.
 			_ = e.updatesAddr(oid, uint32(writeOffset))
 
 			e.rwMutex.Lock()
 			e.gcDstCursor += uint32(alignSize(int64(totalWritten), phyaddr.Alignment))
 			e.rwMutex.Unlock()
-
-			// TODO after gc, removed in Extenter should be set to 0
 		}
 
 		e.rwMutex.Lock()
@@ -256,7 +261,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 		e.header.nvh.SegStates[e.gcSrcSeg] = srcNewState
 		e.rwMutex.Unlock()
 	}
-	return e.cfg.GCScanInterval.Duration, false
+	return e.cfg.GCInterval.Duration, false
 }
 
 func (e *Extenter) isReservedEnough() bool {
