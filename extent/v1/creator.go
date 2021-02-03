@@ -86,6 +86,7 @@ func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
 }
 
 // TODO if extent is broken or terminated, don't open it.
+// TODO traverse segment should first oid and its checksum, maybe dirty. If dirty, means over.
 func (c *Creator) Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
 	instanceID, diskID, extID uint32, extDir string, diskInfo *vdisk.Info) (ext extent.Extenter, err error) {
 
