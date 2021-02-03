@@ -137,7 +137,7 @@ func (e *Extenter) GetObj(reqid, oid uint64, _extID uint32) (objData []byte, err
 	}
 
 	objData = xbytes.GetAlignedBytes(size)
-	err = e.readAt(xio.ReqObjRead, digest, offset, objData)
+	err = e.objReadAt(xio.ReqObjRead, digest, offset, objData)
 	if err != nil {
 		// May meet GC segments could be write again: https://g.tesamc.com/IT/zbuf/issues/124
 		if err == orpc.ErrChecksumMismatch {
@@ -155,7 +155,7 @@ func (e *Extenter) GetObj(reqid, oid uint64, _extID uint32) (objData []byte, err
 				xbytes.PutAlignedBytes(objData)
 				return nil, err
 			}
-			err = e.readAt(xio.ReqObjRead, digest, newOffset, objData)
+			err = e.objReadAt(xio.ReqObjRead, digest, newOffset, objData)
 			if err != nil {
 				e.rwMutex.Lock()
 				e.handleIOError(err)
@@ -193,6 +193,42 @@ func (e *Extenter) DeleteObj(_reqid, oid uint64, _extID uint32) error {
 
 	mr.oid = oid
 	mr.isRemove = true
+	mr.done = make(chan error)
+
+	select {
+	case e.metaUpdateChan <- mr:
+	default:
+		// Try substituting the oldest async request by the new one
+		// on requests' queue overflow.
+		// This increases the chances for new request to succeed
+		// without timeout.
+		select {
+		case mr2 := <-e.metaUpdateChan:
+			mr2.done <- orpc.ErrRequestQueueOverflow
+			releaseMetaUpdatesRequest(mr2)
+		default:
+		}
+
+		// After pop, try to put again.
+		select {
+		case e.metaUpdateChan <- mr:
+		default:
+			// RequestsChan is filled, release it since mr wasn't exposed to the caller yet.
+			releaseMetaUpdatesRequest(mr)
+			return orpc.ErrRequestQueueOverflow
+		}
+	}
+
+	err := <-mr.done
+	return err
+}
+
+func (e *Extenter) updatesAddr(oid uint64, newAddr uint32) error {
+	mr := acquireMetaUpdatesRequest()
+
+	mr.oid = oid
+	mr.isRemove = false
+	mr.newAddr = newAddr
 	mr.done = make(chan error)
 
 	select {
