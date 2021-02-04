@@ -1,6 +1,8 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 g.tesamc.com/IT/zaipkg v0.0.0-20210202082200-86396604e35c h1:a9kwIlEBzfqg/WGiFKZYzg3ybEAk6UWtmpTQB6tdtr0=
 g.tesamc.com/IT/zaipkg v0.0.0-20210202082200-86396604e35c/go.mod h1:Wx5yYTCSm//V4+mpErGLMbbO/lx5Tm3dyKF3d7UOHPE=
+g.tesamc.com/IT/zaipkg v0.0.0-20210204025235-7c71b36da54a h1:oziDtOaS53IZJgyERtidiSQZSvCcvAJu8FTqGl7oG5A=
+g.tesamc.com/IT/zaipkg v0.0.0-20210204025235-7c71b36da54a/go.mod h1:Wx5yYTCSm//V4+mpErGLMbbO/lx5Tm3dyKF3d7UOHPE=
 g.tesamc.com/IT/zproto v0.0.0-20210114071438-1018be4c55d3 h1:T9uNHqRS9Bf0KtAOmVEKHDjlRW9vOjskccyyU1BsW8s=
 g.tesamc.com/IT/zproto v0.0.0-20210114071438-1018be4c55d3/go.mod h1:cOpEEu7RT7ocVlcIh/c4JmLSyIFQoPGbzU+77RVg1NE=
 g.tesamc.com/IT/zproto v0.0.0-20210131020900-3b4196b509ed h1:5uUkgE2GhE+eaO+I1zcT+ZQ0zTxEC54HS8jtt68Gioc=

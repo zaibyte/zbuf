@@ -3,7 +3,7 @@ module g.tesamc.com/IT/zbuf
 go 1.15
 
 require (
-	g.tesamc.com/IT/zaipkg v0.0.0-20210202082200-86396604e35c
+	g.tesamc.com/IT/zaipkg v0.0.0-20210204025235-7c71b36da54a
 	g.tesamc.com/IT/zproto v0.0.0-20210131020900-3b4196b509ed
 	github.com/VictoriaMetrics/metrics v1.12.3
 	github.com/gogo/protobuf v1.3.1 // indirect
