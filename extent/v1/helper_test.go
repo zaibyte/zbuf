@@ -9,7 +9,7 @@ import (
 
 	"g.tesamc.com/IT/zaipkg/xtest"
 
-	"g.tesamc.com/IT/zbuf/extent/v1/phyaddr"
+	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
 )
 
 func TestAlignSize(t *testing.T) {
@@ -204,8 +204,8 @@ func TestCalcSnapCost2(t *testing.T) {
 		t.Skip("we already got data, run it again unless you've changed the algorithm")
 	}
 
-	var start int64 = phyaddr.MinCap * 8
-	var end int64 = phyaddr.MaxCap * 8
+	var start int64 = dmu.MinCap * 8
+	var end int64 = dmu.MaxCap * 8
 	for n := start; n <= end; n *= 2 {
 		var last int64 = 0
 		var now int64 = 16 * int64(time.Second)

@@ -7,7 +7,7 @@ import (
 	"sort"
 	"time"
 
-	"g.tesamc.com/IT/zbuf/extent/v1/phyaddr"
+	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
 
 	"g.tesamc.com/IT/zaipkg/directio"
 
@@ -183,15 +183,15 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			entry, has := e.phyAddr.Search(digest)
 			if !has {
 				e.rwMutex.Lock()
-				e.gcSrcCursor += uint32(alignSize(int64(objSize+oidSizeInSeg), phyaddr.Alignment))
+				e.gcSrcCursor += uint32(alignSize(int64(objSize+oidSizeInSeg), dmu.AlignSize))
 				e.rwMutex.Unlock()
 				continue
 			}
 
-			if phyaddr.IsRemoved(entry) {
-				e.phyAddr.Reset(digest)
+			if dmu.IsRemoved(entry) {
+				e.phyAddr.Remove(digest)
 				e.rwMutex.Lock()
-				e.gcSrcCursor += uint32(alignSize(int64(objSize+oidSizeInSeg), phyaddr.Alignment))
+				e.gcSrcCursor += uint32(alignSize(int64(objSize+oidSizeInSeg), dmu.AlignSize))
 				e.rwMutex.Unlock()
 				continue
 			}
@@ -248,7 +248,8 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			_ = e.gcUpdatesAddr(oid, uint32(writeOffset))
 
 			e.rwMutex.Lock()
-			e.gcDstCursor += uint32(alignSize(int64(totalWritten), phyaddr.Alignment))
+			e.gcSrcCursor += uint32(alignSize(int64(objSize+oidSizeInSeg), dmu.AlignSize))
+			e.gcDstCursor += uint32(alignSize(int64(totalWritten), dmu.AlignSize))
 			e.rwMutex.Unlock()
 		}
 

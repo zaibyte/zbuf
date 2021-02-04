@@ -7,7 +7,7 @@ import (
 
 	"g.tesamc.com/IT/zbuf/vdisk"
 
-	"g.tesamc.com/IT/zbuf/extent/v1/phyaddr"
+	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
 
 	"g.tesamc.com/IT/zbuf/extent"
 	"g.tesamc.com/IT/zbuf/vfs"
@@ -32,7 +32,7 @@ func (c *Creator) GetSize() uint64 {
 	seg := uint64(c.cfg.SegmentSize * segmentCnt)
 	header := uint64(headerSize)
 	boot := uint64(extent.BootSectorSize)
-	pa := float64(seg/phyaddr.Alignment) * 8 / 0.9 * 4
+	pa := float64(seg/dmu.AlignSize) * 8 / 0.9 * 4
 	return seg + header + boot + uint64(pa)
 }
 
@@ -50,7 +50,7 @@ func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
 		return nil, err
 	}
 
-	phyAddr, _ := phyaddr.New(phyaddr.MinCap)
+	phyAddr, _ := dmu.New(dmu.MinCap)
 
 	ext = &Extenter{
 		cfg:      c.cfg,
@@ -87,6 +87,7 @@ func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
 
 // TODO if extent is broken or terminated, don't open it.
 // TODO traverse segment should first oid and its checksum, maybe dirty. If dirty, means over.
+// TODO reconstruct used, object count by snapshot & traverse.
 func (c *Creator) Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
 	instanceID, diskID, extID uint32, extDir string, diskInfo *vdisk.Info) (ext extent.Extenter, err error) {
 
@@ -104,7 +105,7 @@ func (c *Creator) Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
 	// TODO open phyAddr by snapshot & traverse writable segments
 	// TODO traverse gc seg first for release slot in phy_addr, then writable seg
 	// TODO if seg is gc_src, skip writable replay(in writable history too)
-	phyAddr, _ := phyaddr.New(phyaddr.MinCap)
+	phyAddr, _ := dmu.New(dmu.MinCap)
 
 	ext = &Extenter{
 		cfg:      c.cfg,

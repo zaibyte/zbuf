@@ -1,6 +1,6 @@
 package v1
 
-import "g.tesamc.com/IT/zbuf/extent/v1/phyaddr"
+import "g.tesamc.com/IT/zbuf/extent/v1/dmu"
 
 // Segments layout on local file system:
 //
@@ -33,7 +33,7 @@ const SegmentsFileName = "segments"
 
 // addrToSeg gets what is the segment address belongs to.
 func addrToSeg(addr uint32, segSize int64) int {
-	bytesOff := int64(addr) * phyaddr.Alignment
+	bytesOff := int64(addr) * dmu.AlignSize
 	seg := bytesOff / segSize
 	return int(seg)
 }

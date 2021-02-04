@@ -3,23 +3,20 @@ package v1
 import (
 	"context"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"math/rand"
 	"runtime"
 	"sync"
 	"sync/atomic"
-	"syscall"
 
 	"g.tesamc.com/IT/zaipkg/xdigest"
 
 	"g.tesamc.com/IT/zaipkg/directio"
-	"g.tesamc.com/IT/zaipkg/diskutil"
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/uid"
 	"g.tesamc.com/IT/zaipkg/xerrors"
 	"g.tesamc.com/IT/zaipkg/xlog"
-	"g.tesamc.com/IT/zbuf/extent/v1/phyaddr"
+	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 
 	"github.com/templexxx/tsc"
@@ -79,6 +76,7 @@ func (e *Extenter) updatesLoop() {
 				wr.done <- orpc.ErrExtentFull
 				continue
 			}
+			// TODO before writing check existed or not, if true, return indicates Zai to choose another group
 
 			if e.writableCursor+int64(len(wr.objData))+oidSizeInSeg > segSize {
 				e.rwMutex.Lock()
@@ -110,7 +108,7 @@ func (e *Extenter) updatesLoop() {
 
 			err = e.phyAddr.Add(digest, uint32(otype), grains, offsetToAddr(offset), wr.forceUpdate)
 			if err != nil {
-				if err == phyaddr.ErrIsFull || err == phyaddr.ErrIsSealed {
+				if err == dmu.ErrIsFull || err == dmu.ErrIsSealed {
 					err = xerrors.WithMessage(orpc.ErrExtentFull, err.Error())
 					e.rwMutex.Lock()
 					e.handleIOError(err)
@@ -120,7 +118,7 @@ func (e *Extenter) updatesLoop() {
 				continue
 			}
 
-			atomic.AddInt64(&e.writableCursor, alignSize(int64(written), phyaddr.Alignment))
+			atomic.AddInt64(&e.writableCursor, alignSize(int64(written), dmu.AlignSize))
 			atomic.AddInt64(&e.dirtyUpdates, 1)
 			continue // Write updates request done, go back to the top of loop.
 		}
@@ -210,50 +208,6 @@ func (e *Extenter) objReadAt(reqType uint64, digest uint32, offset int64, objDat
 		return orpc.ErrChecksumMismatch
 	}
 	return nil
-}
-
-// handleIOError handles I/O error,
-// set disk & extent broken, if it's disk broken.
-//
-// set extent full, if it's full.
-// set extent ghost, if it's checksum mismatched or EIO but pass fast disk health checking.
-// set extent broken, if it's extent broken.
-func (e *Extenter) handleIOError(err error) {
-
-	isGhost := false
-	if diskutil.IsBroken(err) {
-		var ferr error
-		if errors.Is(err, syscall.EIO) {
-			ferr = e.fastDiskHealthCheck()
-		}
-		if ferr != nil {
-			xlog.Error(fmt.Sprintf("disk: %d is broken: %s", e.diskInfo.PbDisk.Id, err.Error()))
-			e.diskInfo.SetState(metapb.DiskState_Disk_Broken, false)
-		} else {
-			isGhost = true
-		}
-	}
-
-	isFull := false
-	state := metapb.ExtentState_Extent_Broken
-	if errors.Is(err, orpc.ErrExtentFull) {
-		isFull = true
-		state = metapb.ExtentState_Extent_Full
-	}
-	if errors.Is(err, orpc.ErrChecksumMismatch) || isGhost {
-		state = metapb.ExtentState_Extent_Ghost
-		isGhost = true
-	}
-	xlog.Error(fmt.Sprintf("extent: %d is %s: %s", e.info.PbExt.Id, state.String(), err.Error()))
-
-	changed := e.info.SetState(state, false)
-	if state == metapb.ExtentState_Extent_Broken || isGhost {
-		_ = e.Close()
-	}
-	e.cleanPendingUpdates(err, isFull)
-	if changed {
-		_ = e.header.Store(state) // Try to sync new state, may block but doesn't matter.
-	}
 }
 
 // cleanPendingUpdates cleans updates channels.
@@ -363,7 +317,7 @@ func shuffleSegStates(states []uint8) []stateClone {
 }
 
 // fastDiskHealthCheck checks the disk health by load header,
-// if succeed, we think the EIO is just inside an extent but not the whole disk.
+// if succeed, we think the EIO is just happens inside an extent but not the whole disk.
 func (e *Extenter) fastDiskHealthCheck() error {
 	_, err := LoadHeader(e.iosched, e.fs, e.extDir)
 	return err
@@ -371,7 +325,7 @@ func (e *Extenter) fastDiskHealthCheck() error {
 
 // offsetToAddr transfers offset in segments file to address in phy_addr.
 func offsetToAddr(offset int64) uint32 {
-	return uint32(offset / phyaddr.Alignment)
+	return uint32(offset / dmu.AlignSize)
 }
 
 type writeDataRequest struct {

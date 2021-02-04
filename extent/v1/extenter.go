@@ -36,7 +36,7 @@ import (
 
 	"g.tesamc.com/IT/zbuf/extent"
 	"g.tesamc.com/IT/zbuf/extent/v1/colf"
-	"g.tesamc.com/IT/zbuf/extent/v1/phyaddr"
+	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
 	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zbuf/xio"
 )
@@ -63,7 +63,7 @@ type Extenter struct {
 
 	header *Header
 
-	phyAddr *phyaddr.PhyAddr
+	phyAddr *dmu.PhyAddr
 
 	// TODO init it if there is existed extent and a snap
 	writableSeg    int64
@@ -182,11 +182,11 @@ func (e *Extenter) getObjOffsetSize(oid uint64) (has bool, digest uint32, offset
 
 		return false, 0, 0, 0
 	}
-	_, _, _, grains, addr := phyaddr.ParseEntry(entry)
+	_, _, _, grains, addr := dmu.ParseEntry(entry)
 	if grains == 0 { // Removed.
 		return false, 0, 0, 0
 	}
-	return true, digest, int64(addr * phyaddr.Alignment), int(grains * uid.GrainSize)
+	return true, digest, int64(addr * dmu.AlignSize), int(grains * uid.GrainSize)
 }
 
 func (e *Extenter) DeleteObj(_reqid, oid uint64, _extID uint32) error {
@@ -225,18 +225,13 @@ func (e *Extenter) DeleteObj(_reqid, oid uint64, _extID uint32) error {
 	return err
 }
 
-func (e *Extenter) gcUpdatesAddr(oid uint64, newAddr uint32) {
-	mr := acquireMetaUpdatesRequest()
+func (e *Extenter) gcUpdatesAddr(digest, otype, grains, newAddr uint32) error {
 
-	mr.oid = oid
-	mr.isRemove = false
-	mr.newAddr = newAddr
-	mr.done = make(chan error)
-
-	e.metaUpdateChan <- mr
-
-	<-mr.done
-	releaseMetaUpdatesRequest(mr)
+	err := e.phyAddr.Add(digest, otype, grains, newAddr, true)
+	if err == nil {
+		atomic.AddInt64(&e.dirtyUpdates, 1)
+	}
+	return err
 }
 
 func (e *Extenter) GetInfo() *extent.Info {
@@ -246,6 +241,7 @@ func (e *Extenter) GetInfo() *extent.Info {
 
 func (e *Extenter) Close() error {
 	// TODO close a buffered chan, could read/write?
+	// TODO do sync header...snap ...etc
 	panic("implement me")
 }
 
@@ -301,8 +297,8 @@ func (e *Extenter) TryMakePhyAddrSnap(force bool) {
 	// TODO after init snap, make a new goroutine to do snap
 	pa := e.phyAddr
 
-	t0 := phyaddr.GetTbl(pa, 0)
-	t1 := phyaddr.GetTbl(pa, 1)
+	t0 := dmu.GetTbl(pa, 0)
+	t1 := dmu.GetTbl(pa, 1)
 
 	// TODO could I use mfence, then copy the whole table?
 	// TODO I could make table aligned to cache line when create phy_addr, then allocate dst align to cache line,
