@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"g.tesamc.com/IT/zaipkg/config"
-	"g.tesamc.com/IT/zaipkg/xlog"
 	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zbuf/xio"
 	"github.com/templexxx/tsc"
@@ -214,32 +213,4 @@ func (s *Scheduler) setCostsZero() {
 	for _, q := range s.queue.pqs {
 		q.totalCost = 0
 	}
-}
-
-var timerPool sync.Pool
-
-func acquireTimer(timeout time.Duration) *time.Timer {
-	tv := timerPool.Get()
-	if tv == nil {
-		return time.NewTimer(timeout)
-	}
-
-	t := tv.(*time.Timer)
-	if t.Reset(timeout) {
-		xlog.Panic("bug: active timer trapped into acquireTimer()")
-	}
-	return t
-}
-
-func releaseTimer(t *time.Timer) {
-	if !t.Stop() {
-		// Collect possibly added time from the channel
-		// if timer has been stopped and nobody collected its' value.
-		select {
-		case <-t.C:
-		default:
-		}
-	}
-
-	timerPool.Put(t)
 }
