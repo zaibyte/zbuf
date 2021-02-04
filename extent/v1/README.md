@@ -51,5 +51,5 @@ logical block address (LBA) table (much like the MFT of an HDD). Inside the LBA 
 
 ####I/O
 
-I/O in GC is been done in a independent goroutine
+I/O in GC is been done in a independent goroutine, so it won't block the object uploading requests.
 
