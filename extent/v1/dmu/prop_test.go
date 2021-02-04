@@ -1,4 +1,4 @@
-package phyaddr
+package dmu
 
 import (
 	"bytes"
@@ -9,6 +9,8 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"g.tesamc.com/IT/zaipkg/orpc"
 
 	"github.com/pierrec/lz4/v4"
 )
@@ -42,7 +44,7 @@ func TestLZ4Compress(t *testing.T) {
 	for i := 1024 * 16; i <= cnt/2; i *= 2 {
 		for _, en := range ens[:i] {
 			err := pa.Add(en.digest, en.otype, en.grains, en.addr, false)
-			if err == ErrExisted {
+			if err == orpc.ErrObjDigestExisted {
 				continue
 			}
 			if err != nil {
@@ -128,7 +130,7 @@ func TestMitFull(t *testing.T) {
 	printRets(rets)
 }
 
-// Using bytes as source of digest, try to simulate phy_addr with real objects digest.
+// Using bytes as source of digest, try to simulate DMU with real objects digest.
 // Reference:
 // with fixed 12KiB rand bytes, [ MinCap, MaxCap ]: load_factor: avg: 0.92, min: 0.90(n: 33554432), max: 0.96(n: 65536)
 // with 4KiB - 12KiB rand bytes, [ MaxCap/4, MaxCap/2 ]: load_factor: avg: 0.91, min: 0.91(n: 16777216), max: 0.92(n: 8388608)

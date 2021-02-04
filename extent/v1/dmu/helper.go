@@ -1,4 +1,4 @@
-package phyaddr
+package dmu
 
 import (
 	"math/bits"
@@ -15,7 +15,7 @@ func calcMask(tableCap uint32) uint32 {
 
 // calcSlotCnt calculates the actual capacity of a table.
 // This capacity will add a bit extra slots for improving load factor hugely in some cases:
-// If there two keys being hashed to the highest position, the PhyAddr will have to be expanded
+// If there two keys being hashed to the highest position, the DMU will have to be expanded
 // if there is no extra space.
 func calcSlotCnt(c int) int {
 	if c <= neighbour {
@@ -33,9 +33,9 @@ func backToOriginCap(c int) int {
 	return c + 1 - neighbour
 }
 
-func (pa *PhyAddr) getWritableTable() []uint64 {
-	idx := pa.getWritableIdx()
-	p := atomic.LoadPointer(&pa.cycle[idx])
+func (u *DMU) getWritableTable() []uint64 {
+	idx := u.getWritableIdx()
+	p := atomic.LoadPointer(&u.cycle[idx])
 	return *(*[]uint64)(p)
 }
 
@@ -43,7 +43,7 @@ func getSlot(slotCnt int, digest uint32) int {
 	return int(digest & (calcMask(uint32(slotCnt))))
 }
 
-func GetTbl(pa *PhyAddr, idx int) []uint64 {
+func GetTbl(pa *DMU, idx int) []uint64 {
 	p := atomic.LoadPointer(&pa.cycle[idx])
 	if p == nil {
 		return nil

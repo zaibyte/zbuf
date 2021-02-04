@@ -1,4 +1,4 @@
-package phyaddr
+package dmu
 
 import "math/bits"
 

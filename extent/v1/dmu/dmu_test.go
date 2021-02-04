@@ -1,4 +1,4 @@
-package phyaddr
+package dmu
 
 import (
 	"encoding/binary"
@@ -6,6 +6,8 @@ import (
 	"math/rand"
 	"sync"
 	"testing"
+
+	"g.tesamc.com/IT/zaipkg/orpc"
 
 	"github.com/stretchr/testify/assert"
 
@@ -105,7 +107,7 @@ func TestIndex_Reset(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			pa.Reset(en.digest)
+			pa.Remove(en.digest)
 			sen, has := pa.Search(en.digest)
 			if has {
 				t.Fatal("should not have entry")
@@ -322,7 +324,7 @@ func TestIndex_Existed(t *testing.T) {
 		t.Fatal(err)
 	}
 	err = pa.Add(ens[0].digest, ens[0].otype, ens[0].grains, ens[0].addr, false)
-	assert.EqualError(t, err, ErrExisted.Error())
+	assert.EqualError(t, err, orpc.ErrObjDigestExisted.Error())
 
 	pa.scale()
 
@@ -342,7 +344,7 @@ func TestIndex_Existed(t *testing.T) {
 	widx := pa.getWritableIdx()
 	// Cannot expand because the digest is existed.
 	err = pa.Add(ens[0].digest, ens[0].otype, ens[0].grains, ens[0].addr, false)
-	assert.EqualError(t, err, ErrExisted.Error())
+	assert.EqualError(t, err, orpc.ErrObjDigestExisted.Error())
 	nwidx := pa.getWritableIdx()
 	assert.Equal(t, widx, nwidx)
 
@@ -353,5 +355,5 @@ func TestIndex_Existed(t *testing.T) {
 	}
 	// Try to add existed key must be in last writable table.
 	err = pa.Add(ens[ok-1].digest, ens[ok-1].otype, ens[ok-1].grains, ens[ok-1].addr, false)
-	assert.EqualError(t, err, ErrExisted.Error())
+	assert.EqualError(t, err, orpc.ErrObjDigestExisted.Error())
 }
