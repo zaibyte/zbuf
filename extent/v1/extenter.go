@@ -42,6 +42,8 @@ import (
 )
 
 type Extenter struct {
+	isRunning int64
+
 	cfg *Config
 
 	// Using a lock here won't break down performance,
@@ -240,9 +242,16 @@ func (e *Extenter) GetInfo() *extent.Info {
 }
 
 func (e *Extenter) Close() error {
+
+	atomic.StoreInt64(&e.isRunning, 0)
+
 	// TODO close a buffered chan, could read/write?
 	// TODO do sync header...snap ...etc
 	panic("implement me")
+}
+
+func (e *Extenter) isClosed() bool {
+	return atomic.LoadInt64(&e.isRunning) != 1
 }
 
 func (e *Extenter) LoadPhyAddr() {
