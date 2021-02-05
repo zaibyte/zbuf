@@ -72,7 +72,7 @@ func TestLZ4Compress(t *testing.T) {
 //
 // Reference:
 // before expand: cap: 65536, first_mit_full: 62687; after expand: cap: 131072, first_mit_full: 121570
-func TestIndexExpand(t *testing.T) {
+func TestDMUExpand(t *testing.T) {
 	if !IsPropEnabled() {
 		t.Skip("skip testing, because it only needs to be run once")
 	}

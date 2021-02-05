@@ -4,6 +4,20 @@
 //
 // DMU is made of sequential entries based on Hopscotch Hashing.
 //
+// DMU is based on some assumptions:
+// 1. Insert wil be much slower than expanding:
+//    a. Expanding is running in a loop, which means it can gain the lock faster than Insert
+//       (see https://medium.com/a-journey-with-go/go-mutex-and-starvation-3f4f4e75ad50)
+//    b. Each Insert will be finished in ~100ns, uploading couldn't be that fast.
+// 2. 2x expanding is always works:
+//    Actually, it's based on the rule above. When there is no enough slots for Inserting,
+//    we'll make a new 2x space for inserting. The new space must be big enough. If the rare thing
+//    happen, we set extent full, and it must be closed to full.
+//
+//    p.s. Recovery from assumptions break down(just in case):
+//    a.
+
+//
 // Basic Concepts:
 //
 // 1. Entry:
@@ -31,12 +45,14 @@ package dmu
 import (
 	"context"
 	"errors"
+	"fmt"
 	"runtime"
 	"sync"
 	"sync/atomic"
 	"unsafe"
 
 	"g.tesamc.com/IT/zaipkg/orpc"
+	"g.tesamc.com/IT/zaipkg/xerrors"
 
 	"github.com/templexxx/cpu"
 )
@@ -97,13 +113,13 @@ func New(ctx context.Context, cap int) (*DMU, error) {
 	}
 
 	cap = calcSlotCnt(cap)
-	bkt0 := make([]uint64, cap, cap) // Create one table at the beginning.
+	tbl0 := make([]uint64, cap, cap) // Create one table at the beginning.
 
 	ctx, cancel := context.WithCancel(ctx)
 
 	return &DMU{
 		status: createStatus(),
-		cycle:  [2]unsafe.Pointer{unsafe.Pointer(&bkt0)},
+		cycle:  [2]unsafe.Pointer{unsafe.Pointer(&tbl0)},
 		ctx:    ctx,
 		cancel: cancel,
 	}, nil
@@ -121,9 +137,8 @@ func (u *DMU) Close() {
 }
 
 var (
-	ErrIsClosed   = errors.New("is closed")
 	ErrAddTooFast = errors.New("add too fast") // Cycle being caught up.
-	ErrIsFull     = errors.New("index is full")
+	ErrIsFull     = errors.New("DMU is full")
 	ErrIsSealed   = errors.New("is sealed")
 	ErrUnknown    = errors.New("unknown")
 )
@@ -133,7 +148,7 @@ var (
 func (u *DMU) Insert(digest, otype, grains, addr uint32) error {
 
 	if !u.IsRunning() {
-		return ErrIsClosed
+		return xerrors.WithMessage(orpc.ErrServiceClosed, "DMU is closed")
 	}
 
 	u.Lock()
@@ -152,10 +167,10 @@ func (u *DMU) Insert(digest, otype, grains, addr uint32) error {
 		return nil
 	case ErrIsFull:
 		if u.isScaling() {
-			u.unlock()
 			// In practice, it's rare to have such fast adding.
-			// Which means the caller's speed if fast than 'sequential traverse'
-			return ErrAddTooFast
+			// Which means the caller's speed if fast than 'sequential traverse'.
+			rerr := xerrors.WithMessage(ErrAddTooFast, u.GetUsageFmt())
+			return xerrors.WithMessage(orpc.ErrExtentFull, rerr.Error())
 		}
 
 		// Last writable table is full, try to expand to new table.
@@ -329,17 +344,27 @@ restart:
 	return true
 }
 
+// GetUsageFmt gets usage after formatting to a string.
+func (u *DMU) GetUsageFmt() string {
+	capacity, usage := u.GetUsage()
+	return u.fmtUsage(capacity, usage)
+}
+
+func (u *DMU) fmtUsage(capacity, usage int) string {
+	return fmt.Sprintf("DMU cap: %d, usage: %d", capacity, usage)
+}
+
 // GetUsage returns DMU capacity & usage.
 // The usage include removed entries(which grains is 0),
 // Every time after GC, we should check usage, total & count(in higher level, index user),
 // if count is much lower than usage, try to shrink.
-func (u *DMU) GetUsage() (total, usage int) {
-	total = 0
+func (u *DMU) GetUsage() (capacity, usage int) {
+	capacity = 0
 	tbl := u.getWritableTable()
 	if tbl != nil { // In case.
-		total = backToOriginCap(len(tbl))
+		capacity = backToOriginCap(len(tbl))
 	}
-	return total, int(u.getCnt())
+	return capacity, int(u.getCnt())
 }
 
 func (u *DMU) expand(ri int) {
@@ -385,6 +410,8 @@ func (u *DMU) expand(ri int) {
 
 			err := u.tryInsert(digest, otype, grains, addr)
 			if err == ErrIsFull {
+				// If meet full here, the Insert may meet full too.
+				// There
 				u.seal()
 				u.unlock()
 				return
