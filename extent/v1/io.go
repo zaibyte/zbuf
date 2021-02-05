@@ -130,7 +130,7 @@ func (e *Extenter) updatesLoop() {
 			if rHas {
 				rSeg := addrToSeg(rAddr, segSize)
 				e.rwMutex.Lock()
-				e.header.nvh.Removed[rSeg] += grains
+				e.header.nvh.Removed[rSeg] += grains + oidSizeInSeg
 				e.rwMutex.Unlock()
 			}
 			mr.done <- nil
