@@ -38,6 +38,9 @@ type Creator interface {
 	// dir is extent dir.
 	Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
 		instanceID, diskID, extID uint32, dir string, diskInfo *vdisk.Info) (Extenter, error)
+	// CreateClone creates Extenter which needs to clone from source.
+	CreateClone(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
+		instanceID, diskID, extID uint32, srcExtID uint32, dir string, diskInfo *vdisk.Info) (Extenter, error)
 	// Open opens an existed Extenter.
 	Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
 		instanceID, diskID, extID uint32, dir string, diskInfo *vdisk.Info) (Extenter, error)
