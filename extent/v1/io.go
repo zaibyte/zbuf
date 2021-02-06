@@ -108,7 +108,7 @@ func (e *Extenter) updatesLoop() {
 
 			err = e.phyAddr.Add(digest, uint32(otype), grains, offsetToAddr(offset), wr.forceUpdate)
 			if err != nil {
-				if err == dmu.ErrIsFull || err == dmu.ErrIsSealed {
+				if err == dmu.ErrIsFull {
 					err = xerrors.WithMessage(orpc.ErrExtentFull, err.Error())
 					e.rwMutex.Lock()
 					e.handleIOError(err)
