@@ -14,8 +14,7 @@
 //    we'll make a new 2x space for inserting. The new space must be big enough. If the rare thing
 //    happen, we set extent full, and it must be closed to full.
 //
-//    p.s. Recovery from assumptions break down(just in case):
-//    a.
+// p.s. You could find a proof here: https://github.com/templexxx/u64
 
 //
 // Basic Concepts:
@@ -43,13 +42,14 @@
 package dmu
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	"runtime"
 	"sync"
 	"sync/atomic"
+	"time"
 	"unsafe"
+
+	"g.tesamc.com/IT/zaipkg/xlog"
 
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/xerrors"
@@ -91,9 +91,6 @@ type DMU struct {
 	// it's made of two uint64 slices.
 	// There will be only one writable at most in at any time.
 	cycle [2]unsafe.Pointer
-
-	ctx    context.Context
-	cancel func()
 }
 
 // New creates a new DMU.
@@ -101,7 +98,7 @@ type DMU struct {
 // DMU will grow if no bucket to add until meet MaxCap.
 //
 // If cap is zero, using MinCap.
-func New(ctx context.Context, cap int) (*DMU, error) {
+func New(cap int) (*DMU, error) {
 
 	cap = int(nextPower2(uint64(cap)))
 
@@ -115,13 +112,9 @@ func New(ctx context.Context, cap int) (*DMU, error) {
 	cap = calcSlotCnt(cap)
 	tbl0 := make([]uint64, cap, cap) // Create one table at the beginning.
 
-	ctx, cancel := context.WithCancel(ctx)
-
 	return &DMU{
 		status: createStatus(),
 		cycle:  [2]unsafe.Pointer{unsafe.Pointer(&tbl0)},
-		ctx:    ctx,
-		cancel: cancel,
 	}, nil
 }
 
@@ -130,8 +123,6 @@ func (u *DMU) Close() {
 
 	u.close()
 
-	u.cancel()
-
 	atomic.StorePointer(&u.cycle[0], nil)
 	atomic.StorePointer(&u.cycle[1], nil)
 }
@@ -139,8 +130,6 @@ func (u *DMU) Close() {
 var (
 	ErrAddTooFast = errors.New("add too fast") // Cycle being caught up.
 	ErrIsFull     = errors.New("DMU is full")
-	ErrIsSealed   = errors.New("is sealed")
-	ErrUnknown    = errors.New("unknown")
 )
 
 // Insert inserts kv entry into DMU.
@@ -170,6 +159,7 @@ func (u *DMU) Insert(digest, otype, grains, addr uint32) error {
 			// In practice, it's rare to have such fast adding.
 			// Which means the caller's speed if fast than 'sequential traverse'.
 			rerr := xerrors.WithMessage(ErrAddTooFast, u.GetUsageFmt())
+			xlog.Warn(rerr.Error())
 			return xerrors.WithMessage(orpc.ErrExtentFull, rerr.Error())
 		}
 
@@ -179,8 +169,7 @@ func (u *DMU) Insert(digest, otype, grains, addr uint32) error {
 		tbl := *(*[]uint64)(p)
 		oc := backToOriginCap(len(tbl))
 		if oc*2 > MaxCap {
-			u.unlock()
-			return ErrIsFull // Already MaxCap.
+			return xerrors.WithMessage(orpc.ErrExtentFull, fmt.Sprintf("DMU mit max_cap: %d", MaxCap))
 		}
 
 		u.scale()
@@ -191,10 +180,8 @@ func (u *DMU) Insert(digest, otype, grains, addr uint32) error {
 		_ = u.tryInsert(digest, otype, grains, addr) // First insert must be succeed.
 		go u.expand(int(idx))
 		u.addCnt()
-		u.unlock()
 		return nil
 	default:
-		u.unlock()
 		return err
 	}
 }
@@ -261,8 +248,11 @@ func (u *DMU) Remove(digest uint32) {
 	if !u.IsRunning() {
 		return
 	}
-	has, _ := u.tryRemove(digest, true)
-	if has {
+
+	u.Lock()
+	defer u.Unlock()
+
+	if u.tryRemove(digest) {
 		u.delCnt()
 	}
 }
@@ -275,19 +265,8 @@ func (u *DMU) Update(digest, newAddr uint32) bool {
 		return false
 	}
 
-restart:
-
-	if !u.lock() {
-		pause()
-		goto restart
-	}
-
-	entry := u.Search(digest)
-	if entry == 0 {
-		u.unlock()
-		return false
-	}
-	_, _, otype, grains, _ := ParseEntry(entry)
+	u.Lock()
+	defer u.Unlock()
 
 	// Must be succeed, because this operation doesn't need new slot.
 	widx := u.getWritableIdx()
@@ -295,6 +274,7 @@ restart:
 	wt := GetTbl(u, int(widx))
 	nt := GetTbl(u, int(next))
 
+	found := false
 	// 1. Update writable table first
 	if wt != nil {
 		slotCnt := len(wt)
@@ -309,10 +289,11 @@ restart:
 			if e == 0 {
 				continue
 			}
-			tag, neighOff, _, _, _ := ParseEntry(e)
+			tag, neighOff, otype, grains, _ := ParseEntry(e)
 			edigest := backToDigest(tag, uint32(slotCnt), uint32(slot+i), neighOff)
 			if digest == edigest {
 				atomic.StoreUint64(&wt[slot+i], MakeEntry(digest, neighOff, otype, grains, newAddr))
+				found = true
 				break
 			}
 		}
@@ -332,16 +313,16 @@ restart:
 			if e == 0 {
 				continue
 			}
-			tag, neighOff, _, _, _ := ParseEntry(e)
+			tag, neighOff, otype, grains, _ := ParseEntry(e)
 			edigest := backToDigest(tag, uint32(slotCnt), uint32(slot+i), neighOff)
 			if digest == edigest {
-				atomic.StoreUint64(&wt[slot+i], MakeEntry(digest, neighOff, otype, grains, newAddr))
+				atomic.StoreUint64(&nt[slot+i], MakeEntry(digest, neighOff, otype, grains, newAddr))
+				found = true
 				break
 			}
 		}
 	}
-	u.unlock()
-	return true
+	return found
 }
 
 // GetUsageFmt gets usage after formatting to a string.
@@ -371,10 +352,7 @@ func (u *DMU) expand(ri int) {
 	rp := atomic.LoadPointer(&u.cycle[ri])
 	src := *(*[]uint64)(rp)
 
-	n, cnt := len(src), 0
-
-	ctx, cancel := context.WithCancel(u.ctx)
-	defer cancel()
+	n := len(src)
 
 	for i := range src {
 
@@ -382,61 +360,45 @@ func (u *DMU) expand(ri int) {
 			return
 		}
 
-		select {
-		case <-ctx.Done():
-			return
-		default:
-
-		}
-
-		if cnt >= 10 {
-			cnt = 0
-			runtime.Gosched() // Let potential other goroutines run.
-		}
-
-	restart:
-		if !u.lock() {
-			if !u.IsRunning() {
-				return
-			}
-			pause()
-			goto restart
-		}
-
 		e := atomic.LoadUint64(&src[i])
 		if e != 0 {
 			tag, neighOff, otype, grains, addr := ParseEntry(e)
 			digest := backToDigest(tag, uint32(n), uint32(i), neighOff)
 
-			err := u.tryInsert(digest, otype, grains, addr)
-			if err == ErrIsFull {
-				// If meet full here, the Insert may meet full too.
-				// There
-				u.seal()
-				u.unlock()
-				return
+			for {
+
+				if !u.IsRunning() {
+					return
+				}
+
+				u.Lock()
+
+				if u.Search(digest) != 0 { // After restarting from snapshot, it could happen.
+					u.Unlock()
+					break
+				}
+
+				err := u.tryInsert(digest, otype, grains, addr)
+				if err != nil { // The only possible error is full which almost could not happen in mathematics.
+					u.Unlock()
+					xlog.Warn(fmt.Sprintf("DMU expand meets full: %s, try again later", u.GetUsageFmt()))
+					time.Sleep(3 * time.Second) // Sleep for a while, waiting for Remove and free the slot.
+					continue
+				}
+
+				u.Unlock()
 			}
 
-			cnt++
 		}
 		if i == n-1 { // Last one is finished.
 			atomic.StorePointer(&u.cycle[ri], unsafe.Pointer(nil))
 			u.unScale()
-			u.unlock()
 			return
 		}
-		u.unlock()
 	}
 }
 
-func (u *DMU) tryRemove(digest uint32, isReset bool) (has bool, addr uint32) {
-
-restart:
-
-	if !u.lock() {
-		pause()
-		goto restart
-	}
+func (u *DMU) tryRemove(digest uint32) (has bool) {
 
 	for i := 0; i < 2; i++ {
 		tbl := GetTbl(u, i)
@@ -455,21 +417,15 @@ restart:
 			if e == 0 {
 				continue
 			}
-			tag, neighOff, otype, _, eaddr := ParseEntry(e)
+			tag, neighOff, _, _, _ := ParseEntry(e)
 			if digest == backToDigest(tag, uint32(slotCnt), uint32(slot+j), neighOff) {
-				var newEn uint64 = 0
-				if !isReset {
-					newEn = MakeEntry(digest, neighOff, otype, 0, eaddr)
-				}
-				atomic.StoreUint64(&tbl[slot+j], newEn)
+				atomic.StoreUint64(&tbl[slot+j], 0)
 				has = true
-				addr = eaddr
 				break
 			}
 		}
 	}
 
-	u.unlock()
 	return
 }
 
@@ -477,17 +433,13 @@ restart:
 // before invoking tryInsert, must be locked and have checked the digest been unique.
 func (u *DMU) tryInsert(digest, otype, grains, addr uint32) error {
 
-	if u.isSealed() {
-		return ErrIsSealed
-	}
-
 	idx := u.getWritableIdx()
 	tbl := GetTbl(u, int(idx))
-	if tbl == nil {
-		return ErrUnknown // It should not happen.
+	if tbl == nil { // After Close, and the expand invokes it.
+		return nil
 	}
 
-	// 1. Ensure digest is unique in writable table. And try to find free slot within neighbourhood.
+	// 1. Try to find free slot within neighbourhood.
 	slotOff := neighbour // slotOff is the distance between avail slot from hashed slot.
 	slotCnt := len(tbl)
 	slot := getSlot(slotCnt, digest)
@@ -550,7 +502,7 @@ func (u *DMU) swap(start, slotCnt int, tbl []uint64) (int, uint8) {
 				if i-jslot < neighbour {
 					e = MakeEntry(digest,
 						uint32(i)-uint32(jslot), otype, grains, addr)
-					// Put e first may cause meet same entry twice in traverse process,
+					// Put e first may cause meet same entry twice in traverse process temporally,
 					// but in DMU, there is no such traverse promise.
 					// If we don't put e first, we could lost the entry when we try to search,
 					// because search may finish before swap done.
