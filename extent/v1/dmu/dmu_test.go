@@ -2,18 +2,20 @@ package dmu
 
 import (
 	"encoding/binary"
+	"errors"
 	"math"
 	"math/rand"
 	"sync"
+	"sync/atomic"
 	"testing"
 
+	"g.tesamc.com/IT/zaipkg/config/settings"
 	"g.tesamc.com/IT/zaipkg/orpc"
+	"g.tesamc.com/IT/zaipkg/uid"
+	"g.tesamc.com/IT/zaipkg/xdigest"
+	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
 
 	"github.com/stretchr/testify/assert"
-
-	"g.tesamc.com/IT/zaipkg/xdigest"
-
-	"g.tesamc.com/IT/zaipkg/uid"
 	"github.com/templexxx/tsc"
 )
 
@@ -21,28 +23,37 @@ func TestDMU_Search(t *testing.T) {
 
 	start := MinCap
 	for n := start; n <= MinCap*2; n *= 2 {
-		ens := generatesEntriesFast(n)
+
+		ens := generatesEntriesFast(int(float64(n) * 2))
 		dmu, _ := New(n)
 
 		wg := new(sync.WaitGroup)
+
+		var cnt int64
 		wg.Add(1)
-		go func() {
+		go func(cnt *int64) {
 			defer wg.Done()
-			for i, en := range ens {
+			for _, en := range ens {
 				err := dmu.Insert(en.digest, en.otype, en.grains, en.addr)
 				if err != nil {
-					t.Fatal(err, i, n)
+					break
 				}
-				actEn := dmu.Search(en.digest)
-				checkSearchResult(t, actEn, en)
+				atomic.AddInt64(cnt, 1)
+
+				sen := dmu.Search(en.digest)
+				checkSearchResult(t, sen, en)
 			}
-		}()
+		}(&cnt)
 
 		wg.Wait()
 
-		for _, en := range ens {
+		hasCnt := atomic.LoadInt64(&cnt)
+		for i, en := range ens {
+			if int64(i) >= hasCnt {
+				break
+			}
 			actEn := dmu.Search(en.digest)
-			checkSearchResult(t, actEn, en)
+			checkSearchResult(t, actEn, ens[i])
 		}
 	}
 }
@@ -156,7 +167,7 @@ func TestDMU_Concurrent(t *testing.T) {
 		defer wg.Done()
 		removeEns := ens[1024:2048]
 		for i := range removeEns {
-			dmu.Remove(ens[i].digest)
+			dmu.Remove(removeEns[i].digest)
 		}
 	}()
 	wg.Wait()
@@ -172,16 +183,14 @@ func TestDMU_Concurrent(t *testing.T) {
 			exp := ens[i]
 			exp.addr += 1
 			checkSearchResult(t, e, exp)
-		}
-
-		if i >= 1024 && i < 2048 {
+		} else if i >= 1024 && i < 2048 {
 			if e != 0 {
 				t.Fatal("should be removed")
 			}
+		} else {
+			exp := ens[i]
+			checkSearchResult(t, e, exp)
 		}
-
-		exp := ens[i]
-		checkSearchResult(t, e, exp)
 	}
 }
 
@@ -212,7 +221,7 @@ func generatesEntries(cnt int, digestFunc func(buf []byte, n int) uint32, digest
 
 	digests := make(map[uint32]struct{})
 
-	srcBuf := make([]byte, 16*1024) // Max length.
+	srcBuf := make([]byte, settings.MaxObjectSize) // Max length.
 	for i := range ens {
 		for {
 			digest := digestFunc(srcBuf, digestSrcN)
@@ -267,26 +276,20 @@ func TestDMU_InsertSameDigest(t *testing.T) {
 	assert.EqualError(t, err, orpc.ErrObjDigestExisted.Error())
 }
 
-// In expanding, Search will return correct entry.
-func TestDMU_Expand_Search(t *testing.T) {
+// Trigger expand.
+func TestDMU_Expand(t *testing.T) {
 	n := MinCap
 	dmu, _ := New(n)
 	ens := generatesEntriesFast(n)
-	err := dmu.Add(ens[0].digest, ens[0].otype, ens[0].grains, ens[0].addr, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = dmu.Add(ens[0].digest, ens[0].otype, ens[0].grains, ens[0].addr, false)
-	assert.EqualError(t, err, orpc.ErrObjDigestExisted.Error())
 
 	dmu.scale()
 
 	ok := 0
-	for i := 1; i < len(ens); i++ {
-		err2 := dmu.Add(ens[i].digest, ens[i].otype, ens[i].grains, ens[i].addr, false)
-		if err2 == ErrAddTooFast {
+	for i := 0; i < len(ens); i++ {
+		err2 := dmu.Insert(ens[i].digest, ens[i].otype, ens[i].grains, ens[i].addr)
+		if errors.Is(err2, orpc.ErrExtentFull) {
 			ok = i
-			break // Now pa is full, any new entry will trigger scaling.
+			break // Now DMU is full, any new entry will trigger scaling.
 		}
 		if err2 != nil {
 			t.Fatal(err2)
@@ -296,17 +299,17 @@ func TestDMU_Expand_Search(t *testing.T) {
 	dmu.unScale()
 	widx := dmu.getWritableIdx()
 	// Cannot expand because the digest is existed.
-	err = dmu.Add(ens[0].digest, ens[0].otype, ens[0].grains, ens[0].addr, false)
+	err := dmu.Insert(ens[0].digest, ens[0].otype, ens[0].grains, ens[0].addr)
 	assert.EqualError(t, err, orpc.ErrObjDigestExisted.Error())
 	nwidx := dmu.getWritableIdx()
 	assert.Equal(t, widx, nwidx)
 
 	// Trigger expand.
-	err = dmu.Add(ens[ok].digest, ens[ok].otype, ens[ok].grains, ens[ok].addr, false)
+	err = dmu.Insert(ens[ok].digest, ens[ok].otype, ens[ok].grains, ens[ok].addr)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Try to add existed key must be in last writable table.
-	err = dmu.Add(ens[ok-1].digest, ens[ok-1].otype, ens[ok-1].grains, ens[ok-1].addr, false)
+	err = dmu.Insert(ens[ok-1].digest, ens[ok-1].otype, ens[ok-1].grains, ens[ok-1].addr)
 	assert.EqualError(t, err, orpc.ErrObjDigestExisted.Error())
 }

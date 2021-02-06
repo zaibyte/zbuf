@@ -49,10 +49,9 @@ import (
 	"time"
 	"unsafe"
 
-	"g.tesamc.com/IT/zaipkg/xlog"
-
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/xerrors"
+	"g.tesamc.com/IT/zaipkg/xlog"
 
 	"github.com/templexxx/cpu"
 )
@@ -120,6 +119,9 @@ func New(cap int) (*DMU, error) {
 
 // Close closes DMU and release the resource.
 func (u *DMU) Close() {
+
+	u.Lock()
+	defer u.Unlock()
 
 	u.close()
 
@@ -210,7 +212,7 @@ func (u *DMU) Search(digest uint32) (entry uint64) {
 				continue
 			}
 			tag, neighOff, _, _, _ := ParseEntry(e)
-			edigest := backToDigest(tag, uint32(slotCnt), uint32(slot+i), neighOff)
+			edigest := BackToDigest(tag, uint32(slotCnt), uint32(slot+i), neighOff)
 			if digest == edigest {
 				return e
 			}
@@ -232,9 +234,8 @@ func (u *DMU) Search(digest uint32) (entry uint64) {
 				continue
 			}
 			tag, neighOff, _, _, _ := ParseEntry(e)
-			edigest := backToDigest(tag, uint32(slotCnt), uint32(slot+i), neighOff)
+			edigest := BackToDigest(tag, uint32(slotCnt), uint32(slot+i), neighOff)
 			if digest == edigest {
-
 				return e
 			}
 		}
@@ -290,7 +291,7 @@ func (u *DMU) Update(digest, newAddr uint32) bool {
 				continue
 			}
 			tag, neighOff, otype, grains, _ := ParseEntry(e)
-			edigest := backToDigest(tag, uint32(slotCnt), uint32(slot+i), neighOff)
+			edigest := BackToDigest(tag, uint32(slotCnt), uint32(slot+i), neighOff)
 			if digest == edigest {
 				atomic.StoreUint64(&wt[slot+i], MakeEntry(digest, neighOff, otype, grains, newAddr))
 				found = true
@@ -314,7 +315,7 @@ func (u *DMU) Update(digest, newAddr uint32) bool {
 				continue
 			}
 			tag, neighOff, otype, grains, _ := ParseEntry(e)
-			edigest := backToDigest(tag, uint32(slotCnt), uint32(slot+i), neighOff)
+			edigest := BackToDigest(tag, uint32(slotCnt), uint32(slot+i), neighOff)
 			if digest == edigest {
 				atomic.StoreUint64(&nt[slot+i], MakeEntry(digest, neighOff, otype, grains, newAddr))
 				found = true
@@ -363,7 +364,7 @@ func (u *DMU) expand(ri int) {
 		e := atomic.LoadUint64(&src[i])
 		if e != 0 {
 			tag, neighOff, otype, grains, addr := ParseEntry(e)
-			digest := backToDigest(tag, uint32(n), uint32(i), neighOff)
+			digest := BackToDigest(tag, uint32(n), uint32(i), neighOff)
 
 			for {
 
@@ -373,13 +374,8 @@ func (u *DMU) expand(ri int) {
 
 				u.Lock()
 
-				if u.Search(digest) != 0 { // After restarting from snapshot, it could happen.
-					u.Unlock()
-					break
-				}
-
 				err := u.tryInsert(digest, otype, grains, addr)
-				if err != nil { // The only possible error is full which almost could not happen in mathematics.
+				if errors.Is(err, ErrIsFull) {
 					u.Unlock()
 					xlog.Warn(fmt.Sprintf("DMU expand meets full: %s, try again later", u.GetUsageFmt()))
 					time.Sleep(3 * time.Second) // Sleep for a while, waiting for Remove and free the slot.
@@ -418,7 +414,7 @@ func (u *DMU) tryRemove(digest uint32) (has bool) {
 				continue
 			}
 			tag, neighOff, _, _, _ := ParseEntry(e)
-			if digest == backToDigest(tag, uint32(slotCnt), uint32(slot+j), neighOff) {
+			if digest == BackToDigest(tag, uint32(slotCnt), uint32(slot+j), neighOff) {
 				atomic.StoreUint64(&tbl[slot+j], 0)
 				has = true
 				break
@@ -435,9 +431,6 @@ func (u *DMU) tryInsert(digest, otype, grains, addr uint32) error {
 
 	idx := u.getWritableIdx()
 	tbl := GetTbl(u, int(idx))
-	if tbl == nil { // After Close, and the expand invokes it.
-		return nil
-	}
 
 	// 1. Try to find free slot within neighbourhood.
 	slotOff := neighbour // slotOff is the distance between avail slot from hashed slot.
@@ -497,7 +490,7 @@ func (u *DMU) swap(start, slotCnt int, tbl []uint64) (int, uint8) {
 			for ; j < i; j++ { // Search start at the closet position.
 				e := atomic.LoadUint64(&tbl[j])
 				tag, neighOff, otype, grains, addr := ParseEntry(e)
-				digest := backToDigest(tag, uint32(slotCnt), uint32(j), neighOff)
+				digest := BackToDigest(tag, uint32(slotCnt), uint32(j), neighOff)
 				jslot := getSlot(slotCnt, digest)
 				if i-jslot < neighbour {
 					e = MakeEntry(digest,

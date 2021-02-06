@@ -46,7 +46,7 @@ func TestEntryMakeParse(t *testing.T) {
 		slot := getSlot(slotCnt, digest)
 
 		tagAct, neighOffAct, otypeAct, grainsAct, addrAct := ParseEntry(entry)
-		digestAct := backToDigest(tag, uint32(slotCnt), uint32(slot)+neighOff, neighOff)
+		digestAct := BackToDigest(tag, uint32(slotCnt), uint32(slot)+neighOff, neighOff)
 
 		assert.Equal(t, digest, digestAct)
 		assert.Equal(t, neighOff, neighOffAct)

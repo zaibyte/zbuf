@@ -47,7 +47,7 @@ func makeTag(digest uint32) (tag uint32, lowBits uint32) {
 	return
 }
 
-func backToDigest(tag, slotCnt, slot, neighOff uint32) uint32 {
+func BackToDigest(tag, slotCnt, slot, neighOff uint32) uint32 {
 
 	mask := calcMask(slotCnt)
 	maskBits := uint32(bits.OnesCount32(mask))

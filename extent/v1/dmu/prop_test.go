@@ -3,26 +3,18 @@ package dmu
 import (
 	"bytes"
 	"encoding/binary"
-	"flag"
+	"errors"
 	"fmt"
-	"math/rand"
-	"os"
 	"testing"
-	"time"
+
+	"g.tesamc.com/IT/zaipkg/config/settings"
 
 	"g.tesamc.com/IT/zaipkg/orpc"
+	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
+	"g.tesamc.com/IT/zaipkg/xtest"
 
 	"github.com/pierrec/lz4/v4"
 )
-
-func TestMain(m *testing.M) {
-
-	flag.Parse()
-
-	rand.Seed(time.Now().UnixNano())
-
-	os.Exit(m.Run())
-}
 
 // Results:
 // lz4 is good enough.
@@ -33,7 +25,7 @@ func TestMain(m *testing.M) {
 // 128Ki entry with 512Ki cap table: traverse: 1280KB, lz4: 1464KB, copy: 4096KB
 // 256Ki entry with 512Ki cap table: traverse: 2560KB, lz4: 2538KB, copy: 4096KB
 func TestLZ4Compress(t *testing.T) {
-	if !IsPropEnabled() {
+	if !xtest.IsPropEnabled() {
 		t.Skip("skip testing, because it only needs to be run once")
 	}
 
@@ -43,7 +35,7 @@ func TestLZ4Compress(t *testing.T) {
 
 	for i := 1024 * 16; i <= cnt/2; i *= 2 {
 		for _, en := range ens[:i] {
-			err := dmu.Add(en.digest, en.otype, en.grains, en.addr, false)
+			err := dmu.Insert(en.digest, en.otype, en.grains, en.addr)
 			if err == orpc.ErrObjDigestExisted {
 				continue
 			}
@@ -73,7 +65,7 @@ func TestLZ4Compress(t *testing.T) {
 // Reference:
 // before expand: cap: 65536, first_mit_full: 62687; after expand: cap: 131072, first_mit_full: 121570
 func TestDMUExpand(t *testing.T) {
-	if !IsPropEnabled() {
+	if !xtest.IsPropEnabled() {
 		t.Skip("skip testing, because it only needs to be run once")
 	}
 
@@ -81,24 +73,24 @@ func TestDMUExpand(t *testing.T) {
 	dmu, _ := New(cnt)
 	dmu.scale()
 
-	ens := generatesEntriesFast(cnt * 2)
+	ens := generatesEntriesSlow(cnt*2, settings.MaxObjectSize)
 
 	mitFull := 0
 	for i, en := range ens[:cnt] {
-		err := dmu.Add(en.digest, en.otype, en.grains, en.addr, false)
-		if err == ErrAddTooFast {
+		err := dmu.Insert(en.digest, en.otype, en.grains, en.addr)
+		if errors.Is(err, orpc.ErrExtentFull) {
 			mitFull = i
 			break
 		}
 	}
 
-	pa2, _ := New(cnt * 2)
-	pa2.scale()
+	dmu2, _ := New(cnt * 2)
+	dmu2.scale()
 
 	mitFull2 := 0
 	for i, en := range ens {
-		err := pa2.Add(en.digest, en.otype, en.grains, en.addr, false)
-		if err == ErrAddTooFast {
+		err := dmu2.Insert(en.digest, en.otype, en.grains, en.addr)
+		if errors.Is(err, orpc.ErrExtentFull) {
 			mitFull2 = i
 			break
 		}
@@ -113,7 +105,7 @@ func TestDMUExpand(t *testing.T) {
 // load_factor: avg: 0.92, min: 0.90(n: 16777216), max: 0.96(n: 65536)
 func TestMitFull(t *testing.T) {
 
-	if !IsPropEnabled() {
+	if !xtest.IsPropEnabled() {
 		t.Skip("skip testing, because it may take too long time")
 	}
 
@@ -127,7 +119,7 @@ func TestMitFull(t *testing.T) {
 		rets[n] = okCnt
 	}
 
-	printRets(rets)
+	printMitFullRets(rets)
 }
 
 // Using bytes as source of digest, try to simulate DMU with real objects digest.
@@ -136,7 +128,7 @@ func TestMitFull(t *testing.T) {
 // with 4KiB - 12KiB rand bytes, [ MaxCap/4, MaxCap/2 ]: load_factor: avg: 0.91, min: 0.91(n: 16777216), max: 0.92(n: 8388608)
 func TestMitFullBytes(t *testing.T) {
 
-	if !IsPropEnabled() {
+	if !xtest.IsPropEnabled() {
 		t.Skip("skip testing, because it may take too long time")
 	}
 
@@ -150,7 +142,7 @@ func TestMitFullBytes(t *testing.T) {
 		rets[n] = okCnt
 	}
 
-	printRets(rets)
+	printMitFullRets(rets)
 }
 
 func testMitFull(cnt int, slow bool) int {
@@ -164,15 +156,15 @@ func testMitFull(cnt int, slow bool) int {
 		ens = generatesEntriesFast(cnt)
 	}
 	for i, en := range ens {
-		err := dmu.Add(en.digest, en.otype, en.grains, en.addr, false)
-		if err == ErrAddTooFast {
+		err := dmu.Insert(en.digest, en.otype, en.grains, en.addr)
+		if errors.Is(err, orpc.ErrExtentFull) {
 			return i
 		}
 	}
 	return cnt
 }
 
-func printRets(rets map[int]int) {
+func printMitFullRets(rets map[int]int) {
 	var avg, min, max float64
 	min = 1
 	max = 0
@@ -193,20 +185,4 @@ func printRets(rets map[int]int) {
 
 	fmt.Printf("load_factor: avg: %.2f, min: %.2f(n: %d), max: %.2f(n: %d)\n",
 		avg, min, minN, max, maxN)
-}
-
-var _propEnabled = flag.Bool("prop", false, "enable properties testing or not")
-
-// IsPropEnabled returns enable properties testing or not.
-// Default is false.
-//
-// e.g.
-// no properties testing: go test -prop=false -v or go test -v
-// run properties testing: go test -prop=true -v
-func IsPropEnabled() bool {
-	if !flag.Parsed() {
-		flag.Parse()
-	}
-
-	return *_propEnabled
 }
