@@ -63,11 +63,3 @@ func MakeEntry(digest, neighOff, otype, grains, addr uint32) uint64 {
 		(uint64(otype)&maxOtype)<<(grainsBits+addrBits+paddingBits) | uint64(neighOff)<<(addrBits+paddingBits+grainsBits+otypeBits) |
 		uint64(tag)<<(addrBits+paddingBits+grainsBits+otypeBits+neighOffBits)
 }
-
-func IsRemoved(entry uint64) bool {
-	_, _, _, grains, _ := ParseEntry(entry)
-	if grains == 0 {
-		return true
-	}
-	return false
-}
