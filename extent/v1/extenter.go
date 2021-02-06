@@ -243,7 +243,9 @@ func (e *Extenter) GetInfo() *extent.Info {
 
 func (e *Extenter) Close() error {
 
-	atomic.StoreInt64(&e.isRunning, 0)
+	if !atomic.CompareAndSwapInt64(&e.isRunning, 1, 0) {
+		return nil // Already closed.
+	}
 
 	// TODO close a buffered chan, could read/write?
 	// TODO do sync header...snap ...etc
