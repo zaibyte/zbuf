@@ -32,11 +32,3 @@ func slowNextPower2(n uint64) uint64 {
 	}
 	return p
 }
-
-func BenchmarkPause(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		for j := 0; j < 10; j++ {
-			pause()
-		}
-	}
-}
