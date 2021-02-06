@@ -1,7 +1,6 @@
 package dmu
 
 import (
-	"sync/atomic"
 	"testing"
 )
 
@@ -83,39 +82,6 @@ func TestIndex_Writable(t *testing.T) {
 	pa.setWritable(0)
 	if pa.getWritableIdx() != 0 {
 		t.Fatal("writable table mismatched")
-	}
-}
-
-func TestIndex_Lock(t *testing.T) {
-
-	pa, _ := New(0)
-	if !pa.lock() {
-		t.Fatal("lock should be succeed")
-	}
-
-	if pa.lock() {
-		t.Fatal("should be locked")
-	}
-
-	sa := atomic.LoadUint64(&pa.status)
-	if !isLocked(sa) {
-		t.Fatal("should be locked")
-	}
-
-	pa.unlock()
-
-	sa = atomic.LoadUint64(&pa.status)
-	if isLocked(sa) {
-		t.Fatal("should be unlocked")
-	}
-}
-
-func TestIndex_Seal(t *testing.T) {
-
-	ix, _ := New(0)
-	ix.seal()
-	if !ix.isSealed() {
-		t.Fatal("should be sealed")
 	}
 }
 

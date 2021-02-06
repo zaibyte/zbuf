@@ -5,14 +5,12 @@ import "sync/atomic"
 // status struct(uint64):
 // 64                                                                                  58
 // <------------------------------------------------------------------------------------
-// | is_running(1) | locked(1) | sealed(1) | is_scaling(1) | writable(1) | padding(1) |
+// | is_running(1) | padding(1) | padding(1) | is_scaling(1) | writable(1) | padding(1) |
 // 58                       0
 // <------------------------
 // | padding(26) | cnt(32) |
 //
 // is_running: [63], is running or not.
-// locked: [62], is locked or not.
-// sealed: [61], seal DMU when there is an unexpected failure.
 // is_scaling: [60], DMU is expanding/shrinking.
 // writable: [59], writable table
 // cnt: [0,32), count of added keys.
@@ -34,21 +32,6 @@ func (u *DMU) close() {
 func createStatus() uint64 {
 
 	return setBit(0, 63) // index isRunning.
-}
-
-// TODO how to deal with sealed. Should pause make bigger table and transfer all data
-// seal seals DMU.
-// When there is no writable table setting DMU sealed.
-func (u *DMU) seal() {
-	sa := atomic.LoadUint64(&u.status)
-	sa = setBit(sa, 61)
-	atomic.StoreUint64(&u.status, sa)
-}
-
-// isSealed returns DMU is sealed or not.
-func (u *DMU) isSealed() bool {
-	sa := atomic.LoadUint64(&u.status)
-	return bitOne(sa, 61)
 }
 
 // scale sets DMU sealed.
