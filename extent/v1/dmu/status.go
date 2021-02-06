@@ -31,7 +31,7 @@ func (u *DMU) close() {
 // create status when New a DMU.
 func createStatus() uint64 {
 
-	return setBit(0, 63) // index isRunning.
+	return setBit(0, 63) // DMU isRunning.
 }
 
 // scale sets DMU sealed.

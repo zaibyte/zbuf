@@ -43,7 +43,7 @@ func TestBitsOperator(t *testing.T) {
 	}
 }
 
-func TestIndex_IsRunning(t *testing.T) {
+func TestDMU_IsRunning(t *testing.T) {
 
 	pa, _ := New(0)
 	if !pa.IsRunning() {
@@ -51,7 +51,7 @@ func TestIndex_IsRunning(t *testing.T) {
 	}
 }
 
-func TestIndex_Close(t *testing.T) {
+func TestDMU_Close(t *testing.T) {
 
 	pa, _ := New(0)
 	pa.Close()
@@ -72,7 +72,7 @@ func TestCreateStatusWritable(t *testing.T) {
 	}
 }
 
-func TestIndex_Writable(t *testing.T) {
+func TestDMU_Writable(t *testing.T) {
 
 	pa, _ := New(0)
 	pa.setWritable(1)
@@ -85,7 +85,7 @@ func TestIndex_Writable(t *testing.T) {
 	}
 }
 
-func TestIndex_Scale(t *testing.T) {
+func TestDMU_Scale(t *testing.T) {
 
 	ix, _ := New(0)
 	ix.scale()
@@ -98,7 +98,7 @@ func TestIndex_Scale(t *testing.T) {
 	}
 }
 
-func TestIndex_Cnt(t *testing.T) {
+func TestDMU_Cnt(t *testing.T) {
 
 	ix, _ := New(0)
 	for i := 0; i < MaxCap; i++ {

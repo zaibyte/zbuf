@@ -17,7 +17,7 @@ import (
 	"github.com/templexxx/tsc"
 )
 
-func TestIndex_Search(t *testing.T) {
+func TestDMU_Search(t *testing.T) {
 
 	start := MinCap
 	for n := start; n <= MinCap*2; n *= 2 {
@@ -29,25 +29,19 @@ func TestIndex_Search(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for i, en := range ens {
-				err := pa.Add(en.digest, en.otype, en.grains, en.addr, false)
+				err := pa.Insert(en.digest, en.otype, en.grains, en.addr)
 				if err != nil {
 					t.Fatal(err, i, n)
 				}
-				actEn, has := pa.Search(en.digest)
-				if !has {
-					t.Fatal("should have entry", i, en)
-				}
+				actEn := pa.Search(en.digest)
 				checkSearchResult(t, actEn, en)
 			}
 		}()
 
 		wg.Wait()
 
-		for i, en := range ens {
-			actEn, has := pa.Search(en.digest)
-			if !has {
-				t.Fatal("should have entry", i, en)
-			}
+		for _, en := range ens {
+			actEn := pa.Search(en.digest)
 			checkSearchResult(t, actEn, en)
 		}
 	}
@@ -60,68 +54,24 @@ func checkSearchResult(t *testing.T, actEn uint64, expEn entryFields) {
 	assert.Equal(t, expEn.addr, addr)
 }
 
-func TestIndex_Remove(t *testing.T) {
+func TestDMU_Remove(t *testing.T) {
 
 	start := MinCap
 	for n := start; n <= MinCap*2; n *= 2 {
 		ens := generatesEntriesFast(n / 2)
 		pa, _ := New(n)
 		for _, en := range ens {
-			err := pa.Add(en.digest, en.otype, en.grains, en.addr, false)
+			err := pa.Insert(en.digest, en.otype, en.grains, en.addr)
 			if err != nil {
 				t.Fatal(err)
 			}
 			pa.Remove(en.digest)
-			sen, has := pa.Search(en.digest)
-			if !has {
-				t.Fatal("should  have entry")
-			}
-			if !IsRemoved(sen) {
+			if pa.Search(en.digest) != 0 {
 				t.Fatal("should be removed")
 			}
 		}
 		for _, en := range ens {
-			sen, has := pa.Search(en.digest)
-			if !has {
-				t.Fatal("should  have entry")
-			}
-			if !IsRemoved(sen) {
-				t.Fatal("should be removed")
-			}
-		}
-		_, usage := pa.GetUsage()
-		if usage != len(ens) {
-			t.Fatal("usage size mismatched")
-		}
-	}
-}
-
-func TestIndex_Reset(t *testing.T) {
-
-	start := MinCap
-	for n := start; n <= MinCap*2; n *= 2 {
-		ens := generatesEntriesFast(n / 2)
-		pa, _ := New(n)
-		for _, en := range ens {
-			err := pa.Add(en.digest, en.otype, en.grains, en.addr, false)
-			if err != nil {
-				t.Fatal(err)
-			}
-			pa.Remove(en.digest)
-			sen, has := pa.Search(en.digest)
-			if has {
-				t.Fatal("should not have entry")
-			}
-			if !IsRemoved(sen) {
-				t.Fatal("should be removed")
-			}
-		}
-		for _, en := range ens {
-			sen, has := pa.Search(en.digest)
-			if has {
-				t.Fatal("should not have entry")
-			}
-			if !IsRemoved(sen) {
+			if pa.Search(en.digest) != 0 {
 				t.Fatal("should be removed")
 			}
 		}
@@ -132,8 +82,8 @@ func TestIndex_Reset(t *testing.T) {
 	}
 }
 
-// Add & Remove concurrently, checking dead lock or not.
-func TestIndex_UpdateConcurrent(t *testing.T) {
+// Insert & Remove concurrently, checking dead lock or not.
+func TestDMU_UpdateConcurrent(t *testing.T) {
 
 	n := MinCap
 	pa, _ := New(n)
@@ -181,7 +131,7 @@ func TestIndex_UpdateConcurrent(t *testing.T) {
 	}
 }
 
-func TestIndex_ForceUpdateConcurrent(t *testing.T) {
+func TestDMU_ForceUpdateConcurrent(t *testing.T) {
 
 	n := MinCap
 	pa, _ := New(n)
@@ -315,7 +265,7 @@ func generatesBytesDigest(buf []byte, n int) uint32 {
 // Two existed situations should be caught:
 // 1. In writable table
 // 2. In scaling source table
-func TestIndex_Existed(t *testing.T) {
+func TestDMU_Existed(t *testing.T) {
 	n := MinCap
 	pa, _ := New(n)
 	ens := generatesEntriesFast(n)

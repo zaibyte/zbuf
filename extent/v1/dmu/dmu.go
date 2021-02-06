@@ -30,15 +30,15 @@
 // 5. Table:
 // An array of buckets.
 //
-// The total memory usage of index is about: [512KB, 128MB]*x, x is the amplification.
+// The total memory usage of DMU is about: [512KB, 128MB]*x, x is the amplification.
 // The x is up to 1.6(0.5 for the middle status in expanding process, 0.1 for load factor overhead),
 // so the real memory usage peak is about:
 // 820KB (for all objects are 4MB) -
 // 205MB (for all objects is <= 16KB)
 //
 // In practice, most of objects in Tesamc are large, we could make a DMU with 2^16 capacity at the beginning,
-// and because of the GC overhead, there will be 20% of slots in index are empty, which means 2^16 (512KB) is just
-// the index's memory usage. For a server with 4*8TB disks, 64MB is the total usage.
+// and because of the GC overhead, there will be 20% of slots in DMU are empty, which means 2^16 (512KB) is just
+// the DMU's memory usage. For a server with 4*8TB disks, 64MB is the total usage.
 package dmu
 
 import (
@@ -65,7 +65,7 @@ const neighbour = 64
 
 const (
 	// Start with a MinCap, saving memory.
-	// The minimum capacity, index must have MinCap slots, otherwise the tag in entry will not have
+	// The minimum capacity, DMU must have MinCap slots, otherwise the tag in entry will not have
 	// the ability to reconstruct the digest back.
 	MinCap = 1 << 16
 	// MaxCap is the maximum capacity of DMU.
@@ -94,7 +94,7 @@ type DMU struct {
 }
 
 // New creates a new DMU.
-// cap is the index capacity at the beginning,
+// cap is the DMU capacity at the beginning,
 // DMU will grow if no bucket to add until meet MaxCap.
 //
 // If cap is zero, using MinCap.
@@ -337,7 +337,7 @@ func (u *DMU) fmtUsage(capacity, usage int) string {
 
 // GetUsage returns DMU capacity & usage.
 // The usage include removed entries(which grains is 0),
-// Every time after GC, we should check usage, total & count(in higher level, index user),
+// Every time after GC, we should check usage, total & count(in higher level, DMU user),
 // if count is much lower than usage, try to shrink.
 func (u *DMU) GetUsage() (capacity, usage int) {
 	capacity = 0
