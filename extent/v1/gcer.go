@@ -165,7 +165,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			err := e.iosched.DoSync(xio.ReqGCRead, e.segsFile, readOffset, oidBuf)
 			if err != nil {
 				e.rwMutex.Lock()
-				e.handleIOError(err)
+				e.handleError(err)
 				e.rwMutex.Unlock()
 				return deadInterval, false // Ghost or broken.
 			}
@@ -220,7 +220,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			err = e.objReadAt(xio.ReqGCRead, digest, readOffset+oidSizeInSeg, gcObjBuf[:objSize])
 			if err != nil {
 				e.rwMutex.Lock()
-				e.handleIOError(err)
+				e.handleError(err)
 				e.rwMutex.Unlock()
 				return deadInterval, false
 			}
@@ -229,7 +229,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			totalWritten, werr := e.objWriteAt(xio.ReqGCWrite, oid, writeOffset, gcObjBuf[:objSize], gcWriteBuf[:objSize+oidSizeInSeg])
 			if werr != nil {
 				e.rwMutex.Lock()
-				e.handleIOError(err)
+				e.handleError(err)
 				e.rwMutex.Unlock()
 				return deadInterval, false
 			}
@@ -237,7 +237,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			err = e.iosched.DoSync(xio.ReqGCWrite, e.segsFile, readOffset, blankOID)
 			if err != nil {
 				e.rwMutex.Lock()
-				e.handleIOError(err)
+				e.handleError(err)
 				e.rwMutex.Unlock()
 				return deadInterval, false
 			}
@@ -320,7 +320,7 @@ func (e *Extenter) findGCDst() int64 {
 		}
 	}
 	xlog.Error(fmt.Sprintf("could not find a reserved segment for GC dst, ext_id: %d", e.info.PbExt.Id))
-	e.handleIOError(orpc.ErrExtentBroken) // Set extent broken if there is no reserved segment.
+	e.handleError(orpc.ErrExtentBroken) // Set extent broken if there is no reserved segment.
 	return -1
 }
 

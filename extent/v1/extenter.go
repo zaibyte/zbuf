@@ -153,7 +153,7 @@ func (e *Extenter) GetObj(reqid, oid uint64, _extID uint32) (objData []byte, err
 			}
 			if newOffset == offset {
 				e.rwMutex.Lock()
-				e.handleIOError(err)
+				e.handleError(err)
 				e.rwMutex.Unlock()
 				xbytes.PutAlignedBytes(objData)
 				return nil, err
@@ -161,7 +161,7 @@ func (e *Extenter) GetObj(reqid, oid uint64, _extID uint32) (objData []byte, err
 			err = e.objReadAt(xio.ReqObjRead, digest, newOffset, objData)
 			if err != nil {
 				e.rwMutex.Lock()
-				e.handleIOError(err)
+				e.handleError(err)
 				e.rwMutex.Unlock()
 				xbytes.PutAlignedBytes(objData)
 				return nil, err
@@ -169,7 +169,7 @@ func (e *Extenter) GetObj(reqid, oid uint64, _extID uint32) (objData []byte, err
 			return objData, nil
 		}
 		e.rwMutex.Lock()
-		e.handleIOError(err)
+		e.handleError(err)
 		e.rwMutex.Unlock()
 		xbytes.PutAlignedBytes(objData)
 		return nil, err

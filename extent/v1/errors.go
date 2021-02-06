@@ -11,13 +11,12 @@ import (
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 )
 
-// handleDMUError handles DMU error.
-func (e *Extenter) handleDMUError(err error) {
+// handleError handles error happens in Extenter.
+func (e *Extenter) handleError(err error) {
 
-}
-
-// handleIOError handles I/O error.
-func (e *Extenter) handleIOError(err error) {
+	if errors.Is(err, orpc.ErrServiceClosed) {
+		return
+	}
 
 	isGhost := false
 	if diskutil.IsBroken(err) {

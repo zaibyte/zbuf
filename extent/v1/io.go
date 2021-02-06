@@ -82,7 +82,7 @@ func (e *Extenter) updatesLoop() {
 				e.rwMutex.Lock()
 				nextSeg, err := e.getNextWritableSeg(e.writableSeg)
 				if err != nil {
-					e.handleIOError(err)
+					e.handleError(err)
 					wr.done <- err
 					e.rwMutex.Unlock()
 					continue
@@ -98,7 +98,7 @@ func (e *Extenter) updatesLoop() {
 			written, err := e.objWriteAt(wr.reqType, wr.oid, offset, wr.objData, writeBuf)
 			if err != nil {
 				e.rwMutex.Lock()
-				e.handleIOError(err)
+				e.handleError(err)
 				e.rwMutex.Unlock()
 				wr.done <- err
 				continue
@@ -111,7 +111,7 @@ func (e *Extenter) updatesLoop() {
 				if err == dmu.ErrIsFull {
 					err = xerrors.WithMessage(orpc.ErrExtentFull, err.Error())
 					e.rwMutex.Lock()
-					e.handleIOError(err)
+					e.handleError(err)
 					e.rwMutex.Unlock()
 				}
 				wr.done <- err
