@@ -15,6 +15,10 @@ import (
 func (e *Extenter) handleError(err error) {
 
 	if errors.Is(err, orpc.ErrServiceClosed) {
+		xlog.Warn("service is closed, but got request")
+		return
+	}
+	if errors.Is(err, orpc.ErrObjDigestExisted) {
 		return
 	}
 
