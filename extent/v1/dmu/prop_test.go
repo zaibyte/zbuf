@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"testing"
 
-	"g.tesamc.com/IT/zaipkg/config/settings"
-
 	"g.tesamc.com/IT/zaipkg/orpc"
 	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
 	"g.tesamc.com/IT/zaipkg/xtest"
@@ -16,6 +14,7 @@ import (
 	"github.com/pierrec/lz4/v4"
 )
 
+// Try to test the ratio of compression of LZ4 for compressing sparse DMU.
 // Results:
 // lz4 is good enough.
 //
@@ -63,7 +62,7 @@ func TestLZ4Compress(t *testing.T) {
 // capacity grow 2x could make the expanding work as expecting or not.
 //
 // Reference:
-// before expand: cap: 65536, first_mit_full: 62687; after expand: cap: 131072, first_mit_full: 121570
+// before expand: cap: 65536, first_mit_full: 63149; after expand: cap: 131072, first_mit_full: 126934
 func TestDMUExpand(t *testing.T) {
 	if !xtest.IsPropEnabled() {
 		t.Skip("skip testing, because it only needs to be run once")
@@ -73,10 +72,10 @@ func TestDMUExpand(t *testing.T) {
 	dmu, _ := New(cnt)
 	dmu.scale()
 
-	ens := generatesEntriesSlow(cnt*2, settings.MaxObjectSize)
+	ens := generatesEntriesFast(cnt * 2)
 
 	mitFull := 0
-	for i, en := range ens[:cnt] {
+	for i, en := range ens {
 		err := dmu.Insert(en.digest, en.otype, en.grains, en.addr)
 		if errors.Is(err, orpc.ErrExtentFull) {
 			mitFull = i
@@ -102,7 +101,7 @@ func TestDMUExpand(t *testing.T) {
 }
 
 // Reference:
-// load_factor: avg: 0.92, min: 0.90(n: 16777216), max: 0.96(n: 65536)
+// load_factor: avg: 0.92, min: 0.89(n: 33554432), max: 0.96(n: 65536)
 func TestMitFull(t *testing.T) {
 
 	if !xtest.IsPropEnabled() {
@@ -114,54 +113,28 @@ func TestMitFull(t *testing.T) {
 
 	rets := make(map[int]int)
 
+	ens := generatesEntriesFast(end)
+
 	for n := start; n <= end; n *= 2 {
-		okCnt := testMitFull(n, false)
+		tens := ens[:n]
+		okCnt := testMitFull(tens)
 		rets[n] = okCnt
 	}
 
 	printMitFullRets(rets)
 }
 
-// Using bytes as source of digest, try to simulate DMU with real objects digest.
-// Reference:
-// with fixed 12KiB rand bytes, [ MinCap, MaxCap ]: load_factor: avg: 0.92, min: 0.90(n: 33554432), max: 0.96(n: 65536)
-// with 4KiB - 12KiB rand bytes, [ MaxCap/4, MaxCap/2 ]: load_factor: avg: 0.91, min: 0.91(n: 16777216), max: 0.92(n: 8388608)
-func TestMitFullBytes(t *testing.T) {
-
-	if !xtest.IsPropEnabled() {
-		t.Skip("skip testing, because it may take too long time")
-	}
-
-	start := MaxCap / 4
-	end := MaxCap / 2 // We hope in the MaxCap/2 working fine, because this is extent's address number.
-
-	rets := make(map[int]int)
-
-	for n := start; n <= end; n *= 2 {
-		okCnt := testMitFull(n, true)
-		rets[n] = okCnt
-	}
-
-	printMitFullRets(rets)
-}
-
-func testMitFull(cnt int, slow bool) int {
-	dmu, _ := New(cnt)
+func testMitFull(ens []entryFields) int {
+	dmu, _ := New(len(ens))
 
 	dmu.scale()
-	var ens []entryFields
-	if slow {
-		ens = generatesEntriesSlow(cnt, 12*1024) // 12KiB object with 4KiB object_header, filling 16KiB address alignment.
-	} else {
-		ens = generatesEntriesFast(cnt)
-	}
 	for i, en := range ens {
 		err := dmu.Insert(en.digest, en.otype, en.grains, en.addr)
 		if errors.Is(err, orpc.ErrExtentFull) {
 			return i
 		}
 	}
-	return cnt
+	return len(ens)
 }
 
 func printMitFullRets(rets map[int]int) {

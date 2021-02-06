@@ -204,27 +204,45 @@ type entryFields struct {
 // generatesEntriesFast generates entries using rand number.
 func generatesEntriesFast(cnt int) []entryFields {
 
-	return generatesEntries(cnt, generatesNumberDigest, 8)
+	return generatesEntries(cnt, true)
 }
 
 // generatesEntriesSlow generates entries using rand bytes(with n length).
-// n should <= 16KiB.
-func generatesEntriesSlow(cnt, n int) []entryFields {
+func generatesEntriesSlow(cnt int) []entryFields {
 
-	return generatesEntries(cnt, generatesBytesDigest, n)
+	return generatesEntries(cnt, false)
 }
 
-func generatesEntries(cnt int, digestFunc func(buf []byte, n int) uint32, digestSrcN int) []entryFields {
+func generatesEntries(cnt int, fast bool) []entryFields {
 	rand.Seed(tsc.UnixNano())
 
 	ens := make([]entryFields, cnt)
 
 	digests := make(map[uint32]struct{})
 
-	srcBuf := make([]byte, settings.MaxObjectSize) // Max length.
+	seedBuf := make([]byte, settings.MaxObjectSize) // Max length.
+	rand.Seed(tsc.UnixNano())
+	rand.Read(seedBuf)
 	for i := range ens {
 		for {
-			digest := digestFunc(srcBuf, digestSrcN)
+
+			salt := rand.Intn(math.MaxInt64)
+
+			binary.LittleEndian.PutUint64(seedBuf[:8], uint64(salt))
+
+			var digest uint32
+			if !fast {
+				size := rand.Intn(settings.MaxObjectSize + 1)
+				if size < 8 {
+					size = 8
+				}
+
+				digest = xdigest.Sum32(seedBuf[:size])
+			} else {
+
+				digest = xdigest.Sum32(seedBuf[:8])
+			}
+
 			if _, ok := digests[digest]; ok {
 				continue
 			}
@@ -246,22 +264,6 @@ func generatesEntries(cnt int, digestFunc func(buf []byte, n int) uint32, digest
 		ens[i].addr = uint32(rand.Intn(maxAddr + 1))
 	}
 	return ens
-}
-
-func generatesNumberDigest(buf []byte, n int) uint32 {
-	src := uint64(rand.Intn(math.MaxInt64))
-	binary.LittleEndian.PutUint64(buf, src)
-	return xdigest.Sum32(buf[:n])
-}
-
-func generatesBytesDigest(buf []byte, n int) uint32 {
-
-	n = rand.Intn(n + 1)
-	if n < 4096 {
-		n = 4096
-	}
-	rand.Read(buf[:n])
-	return xdigest.Sum32(buf[:n])
 }
 
 func TestDMU_InsertSameDigest(t *testing.T) {
