@@ -38,12 +38,12 @@ func TestLZ4Compress(t *testing.T) {
 	}
 
 	cnt := 1 << 19
-	pa, _ := New(cnt)
+	dmu, _ := New(cnt)
 	ens := generatesEntriesFast(cnt / 2)
 
 	for i := 1024 * 16; i <= cnt/2; i *= 2 {
 		for _, en := range ens[:i] {
-			err := pa.Add(en.digest, en.otype, en.grains, en.addr, false)
+			err := dmu.Add(en.digest, en.otype, en.grains, en.addr, false)
 			if err == orpc.ErrObjDigestExisted {
 				continue
 			}
@@ -52,7 +52,7 @@ func TestLZ4Compress(t *testing.T) {
 			}
 		}
 		buf := bytes.NewBuffer(nil)
-		err := binary.Write(buf, binary.LittleEndian, GetTbl(pa, 0))
+		err := binary.Write(buf, binary.LittleEndian, GetTbl(dmu, 0))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -78,14 +78,14 @@ func TestDMUExpand(t *testing.T) {
 	}
 
 	cnt := 1 << 16
-	pa, _ := New(cnt)
-	pa.scale()
+	dmu, _ := New(cnt)
+	dmu.scale()
 
 	ens := generatesEntriesFast(cnt * 2)
 
 	mitFull := 0
 	for i, en := range ens[:cnt] {
-		err := pa.Add(en.digest, en.otype, en.grains, en.addr, false)
+		err := dmu.Add(en.digest, en.otype, en.grains, en.addr, false)
 		if err == ErrAddTooFast {
 			mitFull = i
 			break
@@ -154,9 +154,9 @@ func TestMitFullBytes(t *testing.T) {
 }
 
 func testMitFull(cnt int, slow bool) int {
-	pa, _ := New(cnt)
+	dmu, _ := New(cnt)
 
-	pa.scale()
+	dmu.scale()
 	var ens []entryFields
 	if slow {
 		ens = generatesEntriesSlow(cnt, 12*1024) // 12KiB object with 4KiB object_header, filling 16KiB address alignment.
@@ -164,7 +164,7 @@ func testMitFull(cnt int, slow bool) int {
 		ens = generatesEntriesFast(cnt)
 	}
 	for i, en := range ens {
-		err := pa.Add(en.digest, en.otype, en.grains, en.addr, false)
+		err := dmu.Add(en.digest, en.otype, en.grains, en.addr, false)
 		if err == ErrAddTooFast {
 			return i
 		}

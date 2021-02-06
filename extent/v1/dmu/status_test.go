@@ -45,42 +45,42 @@ func TestBitsOperator(t *testing.T) {
 
 func TestDMU_IsRunning(t *testing.T) {
 
-	pa, _ := New(0)
-	if !pa.IsRunning() {
+	dmu, _ := New(0)
+	if !dmu.IsRunning() {
 		t.Fatal("should be running")
 	}
 }
 
 func TestDMU_Close(t *testing.T) {
 
-	pa, _ := New(0)
-	pa.Close()
-	if pa.IsRunning() {
+	dmu, _ := New(0)
+	dmu.Close()
+	if dmu.IsRunning() {
 		t.Fatal("should be closed")
 	}
-	pa.close()
-	if pa.IsRunning() {
+	dmu.close()
+	if dmu.IsRunning() {
 		t.Fatal("should be closed")
 	}
 }
 
 func TestCreateStatusWritable(t *testing.T) {
 
-	pa, _ := New(0)
-	if pa.getWritableIdx() != 0 {
+	dmu, _ := New(0)
+	if dmu.getWritableIdx() != 0 {
 		t.Fatal("writable table mismatched")
 	}
 }
 
 func TestDMU_Writable(t *testing.T) {
 
-	pa, _ := New(0)
-	pa.setWritable(1)
-	if pa.getWritableIdx() != 1 {
+	dmu, _ := New(0)
+	dmu.setWritable(1)
+	if dmu.getWritableIdx() != 1 {
 		t.Fatal("writable table mismatched")
 	}
-	pa.setWritable(0)
-	if pa.getWritableIdx() != 0 {
+	dmu.setWritable(0)
+	if dmu.getWritableIdx() != 0 {
 		t.Fatal("writable table mismatched")
 	}
 }
