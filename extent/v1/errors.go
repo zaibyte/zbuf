@@ -49,7 +49,6 @@ func (e *Extenter) handleError(err error) {
 	xlog.Error(fmt.Sprintf("extent: %d is %s: %s", e.info.PbExt.Id, state.String(), err.Error()))
 
 	e.info.SetState(state, false)
-	e.cleanPendingUpdates(err, isFull)
 	if state == metapb.ExtentState_Extent_Broken || isGhost {
 		_ = e.Close()
 	}
