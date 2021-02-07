@@ -5,6 +5,8 @@ import (
 	"math/rand"
 	"path/filepath"
 
+	"g.tesamc.com/IT/zbuf/xio"
+
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/xerrors"
 
@@ -28,7 +30,7 @@ const (
 // BootSector struct:
 // 0                                       BootSectorSize
 // | version(2B) | random(4090B) | checksum(4B) |
-func CreateBootSector(fs vfs.FS, extDir string, version uint16) error {
+func CreateBootSector(fs vfs.FS, ioSched xio.Scheduler, extDir string, version uint16) error {
 
 	fp := filepath.Join(extDir, BootSectorFilename)
 	f, err := fs.Create(fp)
@@ -47,16 +49,12 @@ func CreateBootSector(fs vfs.FS, extDir string, version uint16) error {
 	cs := xdigest.Sum32(b[:BootSectorSize-4])
 	binary.LittleEndian.PutUint32(b[BootSectorSize-4:], cs)
 
-	_, err = f.Write(b)
-	if err != nil {
-		return err
-	}
-	return f.Sync()
+	return ioSched.DoSync(xio.ReqMetaWrite, f, 0, b)
 }
 
 // OpenBootSector opens boot-sector file, returns extent version.
 // Before return, it'll check the checksum.
-func OpenBootSector(fs vfs.FS, extDir string) (version uint16, err error) {
+func OpenBootSector(fs vfs.FS, ioSched xio.Scheduler, extDir string) (version uint16, err error) {
 
 	fp := filepath.Join(extDir, BootSectorFilename)
 	f, err := fs.Open(fp)
@@ -66,7 +64,8 @@ func OpenBootSector(fs vfs.FS, extDir string) (version uint16, err error) {
 	defer f.Close()
 
 	b := directio.AlignedBlock(BootSectorSize)
-	_, err = f.Read(b)
+
+	err = ioSched.DoSync(xio.ReqMetaRead, f, 0, b)
 	if err != nil {
 		return 0, err
 	}

@@ -5,6 +5,8 @@ import (
 	"os"
 	"testing"
 
+	"g.tesamc.com/IT/zbuf/xio"
+
 	"github.com/stretchr/testify/assert"
 
 	"g.tesamc.com/IT/zbuf/extent"
@@ -18,12 +20,12 @@ func TestCreateOpenBootSector(t *testing.T) {
 	}
 	defer os.RemoveAll(extPath)
 
-	err = extent.CreateBootSector(vfs.DefaultFS, extPath, extent.VersionTest)
+	err = extent.CreateBootSector(vfs.DefaultFS, &xio.NopScheduler{}, extPath, extent.VersionTest)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	over, err := extent.OpenBootSector(vfs.DefaultFS, extPath)
+	over, err := extent.OpenBootSector(vfs.DefaultFS, &xio.NopScheduler{}, extPath)
 	if err != nil {
 		t.Fatal(err)
 	}
