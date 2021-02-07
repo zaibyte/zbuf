@@ -5,7 +5,10 @@ import (
 	"math"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
+
+	"g.tesamc.com/IT/zaipkg/orpc"
 
 	"g.tesamc.com/IT/zaipkg/config"
 	"g.tesamc.com/IT/zbuf/vfs"
@@ -37,11 +40,14 @@ type Config struct {
 type Scheduler struct {
 	cfg *Config
 
+	isRunning int64
+
 	queue *Queue
 
 	workersCh chan struct{}
 
 	ctx    context.Context
+	cancel func()
 	stopWg *sync.WaitGroup
 }
 
@@ -65,9 +71,11 @@ func (s *Scheduler) DoSync(reqType uint64, f vfs.File, offset int64, d []byte) (
 }
 
 // New creates a scheduler instance.
-func New(ctx context.Context, stopWg *sync.WaitGroup, cfg *Config) *Scheduler {
+func New(ctx context.Context, cfg *Config) *Scheduler {
 
 	cfg.adjust()
+
+	ctx2, cancel := context.WithCancel(ctx)
 
 	return &Scheduler{
 		cfg: cfg,
@@ -76,8 +84,9 @@ func New(ctx context.Context, stopWg *sync.WaitGroup, cfg *Config) *Scheduler {
 
 		workersCh: make(chan struct{}, cfg.Threads),
 
-		ctx:    ctx,
-		stopWg: stopWg,
+		ctx:    ctx2,
+		cancel: cancel,
+		stopWg: new(sync.WaitGroup),
 	}
 }
 
@@ -94,6 +103,9 @@ const noReqSleep = 100 * time.Microsecond
 // FindRunnableLoop finds runnable request by scheduler rules round and round.
 func (s *Scheduler) FindRunnableLoop() {
 	defer s.stopWg.Done()
+
+	atomic.StoreInt64(&s.isRunning, 1)
+	s.stopWg.Add(1)
 
 	ctx, cancel := context.WithCancel(s.ctx)
 	defer cancel()
@@ -168,6 +180,34 @@ func (s *Scheduler) FindRunnableLoop() {
 
 		c := calcCost(int64(len(ar.Data)), ar.PTS, now, qs[idx].shares)
 		qs[idx].totalCost += c
+	}
+}
+
+// Close closes Scheduler with the error message,
+// this message will be sent to the pending requests.
+func (s *Scheduler) Close(err error) {
+	if !atomic.CompareAndSwapInt64(&s.isRunning, 1, 0) {
+		return
+	}
+
+	s.cancel()
+	s.stopWg.Wait()
+
+	if err == nil {
+		err = orpc.ErrServiceClosed
+	}
+
+	s.cleanPendingRequests(err)
+}
+
+func (s *Scheduler) cleanPendingRequests(err error) {
+
+	for _, q := range s.queue.pqs {
+		close(q.reqQueue.queue)
+		for r := range q.reqQueue.queue {
+			r.Err = err
+			close(r.Done)
+		}
 	}
 }
 
