@@ -48,6 +48,6 @@ func (e *Extenter) handleError(err error) {
 
 	e.info.SetState(state, false)
 	if state == metapb.ExtentState_Extent_Broken || isGhost {
-		_ = e.Close()
+		_ = e.Close(err)
 	}
 }

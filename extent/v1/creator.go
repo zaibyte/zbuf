@@ -36,7 +36,7 @@ func (c *Creator) GetSize() uint64 {
 	return seg + header + boot + uint64(pa)
 }
 
-func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
+func (c *Creator) Create(ctx context.Context, fs vfs.FS,
 	instanceID, diskID, extID uint32, extDir string, diskInfo *vdisk.Info) (ext extent.Extenter, err error) {
 
 	h, err := CreateHeader(c.iosched, fs, extDir, uint32(c.cfg.SegmentSize), metapb.ExtentState_Extent_ReadWrite, int(c.cfg.ReservedSeg))
@@ -88,7 +88,7 @@ func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
 // TODO if extent is broken or terminated, don't open it.
 // TODO traverse segment should first oid and its checksum, maybe dirty. If dirty, means over.
 // TODO reconstruct used, object count by snapshot & traverse.
-func (c *Creator) Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
+func (c *Creator) Open(ctx context.Context, fs vfs.FS,
 	instanceID, diskID, extID uint32, extDir string, diskInfo *vdisk.Info) (ext extent.Extenter, err error) {
 
 	h, err := LoadHeader(c.iosched, fs, extDir)

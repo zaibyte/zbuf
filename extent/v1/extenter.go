@@ -248,7 +248,7 @@ func (e *Extenter) GetInfo() *extent.Info {
 	return e.info
 }
 
-func (e *Extenter) Close() error {
+func (e *Extenter) Close(err error) error {
 
 	if !atomic.CompareAndSwapInt64(&e.isRunning, 1, 0) {
 		return nil // Already closed.
@@ -260,7 +260,7 @@ func (e *Extenter) Close() error {
 
 	close(e.dmuChan)
 	close(e.putObjChan)
-	e.cleanPendingUpdates(orpc.ErrServiceClosed)
+	e.cleanPendingUpdates(err)
 	// TODO close a buffered chan, could read/write?
 	// TODO do sync header...snap ...etc
 	panic("implement me")

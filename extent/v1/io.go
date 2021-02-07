@@ -26,7 +26,11 @@ import (
 // Includes:
 // 1. Put Object
 // 2. Delete Object
-// 3. Update Object Address
+// 3. Update Object Address(DMU)
+//
+// Deletion & DMU operations are not frequent, using one goroutine could satisfy the need,
+// and the lock inside the DMU will be just a atomic comparing. (unless there is DMU expanding,
+// it will be done soon)
 func (e *Extenter) updatesLoop() {
 	defer e.stopWg.Done()
 
@@ -62,6 +66,8 @@ func (e *Extenter) updatesLoop() {
 
 		// We must be sure loop blocking on select, otherwise the loop will do nothing & wasting the CPU.
 		select {
+		case <-ctx.Done():
+			return
 		case wr = <-e.putObjChan:
 		case mr = <-e.dmuChan:
 		default:
@@ -69,11 +75,10 @@ func (e *Extenter) updatesLoop() {
 			runtime.Gosched()
 
 			select {
-			case wr = <-e.putObjChan:
-			case mr = <-e.dmuChan:
-
 			case <-ctx.Done():
 				return
+			case wr = <-e.putObjChan:
+			case mr = <-e.dmuChan:
 			}
 		}
 
@@ -220,6 +225,10 @@ func (e *Extenter) objReadAt(reqType uint64, digest uint32, offset int64, objDat
 
 // cleanPendingUpdates cleans updates channels.
 func (e *Extenter) cleanPendingUpdates(err error) {
+
+	if err == nil {
+		err = orpc.ErrServiceClosed
+	}
 
 	for r := range e.putObjChan {
 		r.done <- err
