@@ -36,10 +36,8 @@ func (e *Extenter) handleError(err error) {
 		}
 	}
 
-	isFull := false
 	state := metapb.ExtentState_Extent_Broken
 	if errors.Is(err, orpc.ErrExtentFull) {
-		isFull = true
 		state = metapb.ExtentState_Extent_Full
 	}
 	if errors.Is(err, orpc.ErrChecksumMismatch) || isGhost {
