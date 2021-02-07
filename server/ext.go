@@ -115,7 +115,7 @@ func (s *Server) listExtents() {
 		for _, extID := range extIDs {
 			if s.verifyExtID() {
 				extDir := getExtDir(extID, diskDir)
-				ver, err2 := extent.OpenBootSector(s.fs, extDir)
+				ver, err2 := extent.LoadBootSector(s.fs, extDir)
 				if err2 != nil {
 					s.handleIOError(err2, extID, diskID)
 					continue
@@ -127,7 +127,7 @@ func (s *Server) listExtents() {
 					continue
 				}
 				creator := v.(extent.Creator)
-				ext, err3 := creator.Open(s.ctx, &s.stopWg, s.fs, s.cfg.App.InstanceID, diskID, extID, extDir)
+				ext, err3 := creator.Load(s.ctx, &s.stopWg, s.fs, s.cfg.App.InstanceID, diskID, extID, extDir)
 				if err3 != nil {
 					s.handleIOError(err3, extID, diskID)
 					continue

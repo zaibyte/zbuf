@@ -25,7 +25,7 @@ func TestCreateOpenBootSector(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	over, err := extent.OpenBootSector(vfs.DefaultFS, &xio.NopScheduler{}, extPath)
+	over, err := extent.LoadBootSector(vfs.DefaultFS, &xio.NopScheduler{}, extPath)
 	if err != nil {
 		t.Fatal(err)
 	}

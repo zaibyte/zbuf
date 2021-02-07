@@ -41,8 +41,8 @@ type Creator interface {
 	// CreateClone creates Extenter which needs to clone from source.
 	CreateClone(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
 		instanceID, diskID, extID uint32, srcExtID uint32, dir string, diskInfo *vdisk.Info) (Extenter, error)
-	// Open opens an existed Extenter.
-	Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
+	// Load loads an existed Extenter.
+	Load(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
 		instanceID, diskID, extID uint32, dir string, diskInfo *vdisk.Info) (Extenter, error)
 	// GetSize gets the space size will be taken by the extent which will be created.
 	GetSize() uint64

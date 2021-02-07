@@ -52,9 +52,9 @@ func CreateBootSector(fs vfs.FS, ioSched xio.Scheduler, extDir string, version u
 	return ioSched.DoSync(xio.ReqMetaWrite, f, 0, b)
 }
 
-// OpenBootSector opens boot-sector file, returns extent version.
+// LoadBootSector loads boot-sector file, returns extent version.
 // Before return, it'll check the checksum.
-func OpenBootSector(fs vfs.FS, ioSched xio.Scheduler, extDir string) (version uint16, err error) {
+func LoadBootSector(fs vfs.FS, ioSched xio.Scheduler, extDir string) (version uint16, err error) {
 
 	fp := filepath.Join(extDir, BootSectorFilename)
 	f, err := fs.Open(fp)
