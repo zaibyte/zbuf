@@ -9,13 +9,13 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"g.tesamc.com/IT/zaipkg/xdigest"
-
 	"g.tesamc.com/IT/zaipkg/directio"
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/uid"
+	"g.tesamc.com/IT/zaipkg/xdigest"
 	"g.tesamc.com/IT/zaipkg/xerrors"
 	"g.tesamc.com/IT/zaipkg/xlog"
+	"g.tesamc.com/IT/zbuf/extent"
 	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 
@@ -23,6 +23,10 @@ import (
 )
 
 // updatesLoop keeps trying to get new updates request and handle it.
+// Includes:
+// 1. Put Object
+// 2. Delete Object
+// 3. Update Object Address
 func (e *Extenter) updatesLoop() {
 	defer e.stopWg.Done()
 
@@ -38,6 +42,10 @@ func (e *Extenter) updatesLoop() {
 	writeBuf := directio.AlignedBlock(int(oidSizeInSeg + e.cfg.SizePerWrite))
 	segSize := int64(e.cfg.SegmentSize)
 	for {
+		if e.IsClosed() {
+			return
+		}
+
 		state := e.info.GetState()
 		if state != metapb.ExtentState_Extent_ReadWrite &&
 			state != metapb.ExtentState_Extent_Offline && // We could do clone when it's offline.
@@ -49,20 +57,20 @@ func (e *Extenter) updatesLoop() {
 			e.TryMakePhyAddrSnap(false)
 		}
 
-		var wr *writeDataRequest
-		var mr *metaUpdatesRequest
+		var wr *putObjRequest
+		var mr *dmuRequest
 
 		// We must be sure loop blocking on select, otherwise the loop will do nothing & wasting the CPU.
 		select {
-		case wr = <-e.writeDataChan:
-		case mr = <-e.metaUpdateChan:
+		case wr = <-e.putObjChan:
+		case mr = <-e.dmuChan:
 		default:
 			// Give the last chance for ready goroutines filling chan.
 			runtime.Gosched()
 
 			select {
-			case wr = <-e.writeDataChan:
-			case mr = <-e.metaUpdateChan:
+			case wr = <-e.putObjChan:
+			case mr = <-e.dmuChan:
 
 			case <-ctx.Done():
 				return
@@ -106,7 +114,7 @@ func (e *Extenter) updatesLoop() {
 
 			_, _, grains, digest, otype, _ := uid.ParseOID(wr.oid) // ignore err here, because the oid have been checked.
 
-			err = e.phyAddr.Add(digest, uint32(otype), grains, offsetToAddr(offset), wr.forceUpdate)
+			err = e.dmu.Add(digest, uint32(otype), grains, offsetToAddr(offset), wr.forceUpdate)
 			if err != nil {
 				if err == dmu.ErrIsFull {
 					err = xerrors.WithMessage(orpc.ErrExtentFull, err.Error())
@@ -126,7 +134,7 @@ func (e *Extenter) updatesLoop() {
 		// mr must not be nil
 		_, _, grains, digest, otype, _ := uid.ParseOID(mr.oid)
 		if mr.isRemove {
-			rHas, rAddr := e.phyAddr.Remove(digest)
+			rHas, rAddr := e.dmu.Remove(digest)
 			if rHas {
 				rSeg := addrToSeg(rAddr, segSize)
 				e.rwMutex.Lock()
@@ -137,7 +145,7 @@ func (e *Extenter) updatesLoop() {
 			// We don't add dirtyUpdates here, what we do care is add/reset, not remove.
 			continue
 		} else {
-			err := e.phyAddr.Add(digest, uint32(otype), grains, mr.newAddr, true)
+			err := e.dmu.Add(digest, uint32(otype), grains, mr.newAddr, true)
 			if err == nil {
 				atomic.AddInt64(&e.dirtyUpdates, 1)
 			}
@@ -156,7 +164,7 @@ func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte,
 	binary.LittleEndian.PutUint64(buf[:8], oid)
 	written := copy(buf[oidSizeInSeg:], objData)
 
-	err = e.iosched.DoSync(reqType, e.segsFile, offset, buf[:written+oidSizeInSeg])
+	err = e.ioSched.DoSync(reqType, e.segsFile, offset, buf[:written+oidSizeInSeg])
 	if err != nil {
 		return
 	}
@@ -169,7 +177,7 @@ func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte,
 		if n-written < nn {
 			nn = n - written
 		}
-		err = e.iosched.DoSync(reqType, e.segsFile, offset, objData[written:written+nn])
+		err = e.ioSched.DoSync(reqType, e.segsFile, offset, objData[written:written+nn])
 		if err != nil {
 			return
 		}
@@ -193,7 +201,7 @@ func (e *Extenter) objReadAt(reqType uint64, digest uint32, offset int64, objDat
 		if n-read < nn {
 			nn = n - read
 		}
-		err := e.iosched.DoSync(reqType, e.segsFile, offset, objData[read:read+nn])
+		err := e.ioSched.DoSync(reqType, e.segsFile, offset, objData[read:read+nn])
 		if err != nil {
 			xdigest.Release(d)
 			return err
@@ -211,30 +219,14 @@ func (e *Extenter) objReadAt(reqType uint64, digest uint32, offset int64, objDat
 }
 
 // cleanPendingUpdates cleans updates channels.
-// When extenter is broken, we should forbidden any updates,
-// but there maybe already requests sent into channel are waiting for the GC,
-// we could call cleanPendingUpdates to cancel them all, the user-facing thread will
-// get response faster.
-// Usage:
-// 1. call it inside updatesLoop(only consumer), this will help to make the unconsumed message count correct.
-func (e *Extenter) cleanPendingUpdates(err error, isFull bool) {
+func (e *Extenter) cleanPendingUpdates(err error) {
 
-	if e.writeDataChan != nil {
-		n := len(e.writeDataChan)
-		for i := 0; i < n; i++ {
-			r := <-e.writeDataChan
-			r.done <- err
-		}
+	for r := range e.putObjChan {
+		r.done <- err
 	}
 
-	if !isFull {
-		if e.metaUpdateChan != nil {
-			n := len(e.metaUpdateChan)
-			for i := 0; i < n; i++ {
-				r := <-e.metaUpdateChan
-				r.done <- err
-			}
-		}
+	for r := range e.dmuChan {
+		r.done <- err
 	}
 }
 
@@ -316,10 +308,10 @@ func shuffleSegStates(states []uint8) []stateClone {
 	return c
 }
 
-// fastDiskHealthCheck checks the disk health by load header,
+// fastDiskHealthCheck checks the disk health by load boot-sector,
 // if succeed, we think the EIO is just happens inside an extent but not the whole disk.
 func (e *Extenter) fastDiskHealthCheck() error {
-	_, err := LoadHeader(e.iosched, e.fs, e.extDir)
+	_, err := extent.LoadBootSector(e.fs, e.ioSched, e.extDir)
 	return err
 }
 
@@ -328,7 +320,7 @@ func offsetToAddr(offset int64) uint32 {
 	return uint32(offset / dmu.AlignSize)
 }
 
-type writeDataRequest struct {
+type putObjRequest struct {
 	reqType uint64
 
 	forceUpdate bool // Indicates if oid existed, updating or not.
@@ -339,28 +331,28 @@ type writeDataRequest struct {
 	done chan error
 }
 
-var writeDataRequestPool sync.Pool
+var putObjRequestPool sync.Pool
 
-func acquireWriteDataRequest() *writeDataRequest {
-	v := writeDataRequestPool.Get()
+func acquirePutObjRequest() *putObjRequest {
+	v := putObjRequestPool.Get()
 	if v == nil {
-		return &writeDataRequest{}
+		return &putObjRequest{}
 	}
-	return v.(*writeDataRequest)
+	return v.(*putObjRequest)
 }
 
-func releaseWriteDataRequest(wr *writeDataRequest) {
+func releasePutObjRequest(wr *putObjRequest) {
 	wr.reqType = 0
 	wr.forceUpdate = false
 	wr.oid = 0
 	wr.objData = nil
 	wr.done = nil
 
-	writeDataRequestPool.Put(wr)
+	putObjRequestPool.Put(wr)
 }
 
 // Including deletion & GC.
-type metaUpdatesRequest struct {
+type dmuRequest struct {
 	oid      uint64
 	isRemove bool   // Remove request, otherwise is GC.
 	newAddr  uint32 // GC will move object to a new address.
@@ -368,22 +360,22 @@ type metaUpdatesRequest struct {
 	done chan error
 }
 
-var metaUpdatesRequestPool sync.Pool
+var dmuRequestPool sync.Pool
 
-func acquireMetaUpdatesRequest() *metaUpdatesRequest {
-	v := metaUpdatesRequestPool.Get()
+func acquireDMURequest() *dmuRequest {
+	v := dmuRequestPool.Get()
 	if v == nil {
-		return &metaUpdatesRequest{}
+		return &dmuRequest{}
 	}
-	return v.(*metaUpdatesRequest)
+	return v.(*dmuRequest)
 }
 
-func releaseMetaUpdatesRequest(mr *metaUpdatesRequest) {
+func releaseDMURequest(mr *dmuRequest) {
 	mr.oid = 0
 	mr.isRemove = false
 	mr.newAddr = 0
 
 	mr.done = nil
 
-	metaUpdatesRequestPool.Put(mr)
+	dmuRequestPool.Put(mr)
 }

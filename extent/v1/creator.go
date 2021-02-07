@@ -68,12 +68,12 @@ func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
 			DiskId:     diskID,
 			InstanceId: instanceID,
 		}},
-		iosched:  c.iosched,
+		ioSched:  c.iosched,
 		segsFile: segFile,
-		phyAddr:  phyAddr,
+		dmu:      phyAddr,
 
-		writeDataChan:  make(chan *writeDataRequest, c.cfg.UpdatesPending),
-		metaUpdateChan: make(chan *metaUpdatesRequest, c.cfg.UpdatesPending), // Shares same config.
+		putObjChan: make(chan *putObjRequest, c.cfg.UpdatesPending),
+		dmuChan:    make(chan *dmuRequest, c.cfg.UpdatesPending), // Shares same config.
 
 		gcSrcSeg: -1,
 		gcDstSeg: -1,
@@ -102,10 +102,12 @@ func (c *Creator) Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
 		return nil, err
 	}
 
-	// TODO open phyAddr by snapshot & traverse writable segments
+	// TODO open dmu by snapshot & traverse writable segments
 	// TODO traverse gc seg first for release slot in phy_addr, then writable seg
 	// TODO if seg is gc_src, skip writable replay(in writable history too)
 	phyAddr, _ := dmu.New(dmu.MinCap)
+
+	ctx2, cancel := context.WithCancel(ctx)
 
 	ext = &Extenter{
 		cfg:      c.cfg,
@@ -124,17 +126,18 @@ func (c *Creator) Open(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
 			DiskId:     diskID,
 			InstanceId: instanceID,
 		}},
-		iosched:  c.iosched,
+		ioSched:  c.iosched,
 		segsFile: segFile,
-		phyAddr:  phyAddr,
+		dmu:      phyAddr,
 
-		writeDataChan:  make(chan *writeDataRequest, c.cfg.UpdatesPending),
-		metaUpdateChan: make(chan *metaUpdatesRequest, c.cfg.UpdatesPending), // Shares same config.
+		putObjChan: make(chan *putObjRequest, c.cfg.UpdatesPending),
+		dmuChan:    make(chan *dmuRequest, c.cfg.UpdatesPending), // Shares same config.
 
 		gcSrcSeg: -1,
 		gcDstSeg: -1,
 
-		ctx:    ctx,
+		ctx:    ctx2,
+		cancel: cancel,
 		stopWg: wg,
 	}
 

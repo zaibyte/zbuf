@@ -60,12 +60,12 @@ type Extenter struct {
 	extDir   string
 	info     *extent.Info
 	diskInfo *vdisk.Info
-	iosched  xio.Scheduler
+	ioSched  xio.Scheduler
 	segsFile vfs.File
 
 	header *Header
 
-	phyAddr *dmu.PhyAddr
+	dmu *dmu.DMU
 
 	// TODO init it if there is existed extent and a snap
 	writableSeg    int64
@@ -83,17 +83,18 @@ type Extenter struct {
 	gcSrcCursor uint32
 	gcDstCursor uint32
 
-	writeDataChan  chan *writeDataRequest
-	metaUpdateChan chan *metaUpdatesRequest
-	forceGC        chan float64
+	putObjChan chan *putObjRequest
+	dmuChan    chan *dmuRequest
+	forceGC    chan float64
 
 	ctx    context.Context
+	cancel func()
 	stopWg *sync.WaitGroup
 }
 
 func (e *Extenter) PutObj(_reqid, oid uint64, _extID uint32, objData []byte) error {
 
-	wr := acquireWriteDataRequest()
+	wr := acquirePutObjRequest()
 
 	wr.reqType = xio.ReqObjWrite
 	wr.forceUpdate = false
@@ -102,31 +103,37 @@ func (e *Extenter) PutObj(_reqid, oid uint64, _extID uint32, objData []byte) err
 	wr.done = make(chan error)
 
 	select {
-	case e.writeDataChan <- wr:
+	case <-e.ctx.Done():
+		return orpc.ErrServiceClosed
+	case e.putObjChan <- wr:
 	default:
 		// Try substituting the oldest async request by the new one
 		// on requests' queue overflow.
 		// This increases the chances for new request to succeed
 		// without timeout.
 		select {
-		case wr2 := <-e.writeDataChan:
+		case <-e.ctx.Done():
+			return orpc.ErrServiceClosed
+		case wr2 := <-e.putObjChan:
 			wr2.done <- orpc.ErrRequestQueueOverflow
-			releaseWriteDataRequest(wr2)
+			releasePutObjRequest(wr2)
 		default:
 		}
 
 		// After pop, try to put again.
 		select {
-		case e.writeDataChan <- wr:
+		case <-e.ctx.Done():
+			return orpc.ErrServiceClosed
+		case e.putObjChan <- wr:
 		default:
 			// RequestsChan is filled, release it since wr wasn't exposed to the caller yet.
-			releaseWriteDataRequest(wr)
+			releasePutObjRequest(wr)
 			return orpc.ErrRequestQueueOverflow
 		}
 	}
 
 	err := <-wr.done
-	releaseWriteDataRequest(wr)
+	releasePutObjRequest(wr)
 	return err
 }
 
@@ -179,7 +186,7 @@ func (e *Extenter) GetObj(reqid, oid uint64, _extID uint32) (objData []byte, err
 
 func (e *Extenter) getObjOffsetSize(oid uint64) (has bool, digest uint32, offset int64, size int) {
 	_, _, _, digest, _, _ = uid.ParseOID(oid)
-	entry, ok := e.phyAddr.Search(digest)
+	entry, ok := e.dmu.Search(digest)
 	if !ok {
 
 		return false, 0, 0, 0
@@ -192,44 +199,44 @@ func (e *Extenter) getObjOffsetSize(oid uint64) (has bool, digest uint32, offset
 }
 
 func (e *Extenter) DeleteObj(_reqid, oid uint64, _extID uint32) error {
-	mr := acquireMetaUpdatesRequest()
+	mr := acquireDMURequest()
 
 	mr.oid = oid
 	mr.isRemove = true
 	mr.done = make(chan error)
 
 	select {
-	case e.metaUpdateChan <- mr:
+	case e.dmuChan <- mr:
 	default:
 		// Try substituting the oldest async request by the new one
 		// on requests' queue overflow.
 		// This increases the chances for new request to succeed
 		// without timeout.
 		select {
-		case mr2 := <-e.metaUpdateChan:
+		case mr2 := <-e.dmuChan:
 			mr2.done <- orpc.ErrRequestQueueOverflow
-			releaseMetaUpdatesRequest(mr2)
+			releaseDMURequest(mr2)
 		default:
 		}
 
 		// After pop, try to put again.
 		select {
-		case e.metaUpdateChan <- mr:
+		case e.dmuChan <- mr:
 		default:
 			// RequestsChan is filled, release it since mr wasn't exposed to the caller yet.
-			releaseMetaUpdatesRequest(mr)
+			releaseDMURequest(mr)
 			return orpc.ErrRequestQueueOverflow
 		}
 	}
 
 	err := <-mr.done
-	releaseMetaUpdatesRequest(mr)
+	releaseDMURequest(mr)
 	return err
 }
 
 func (e *Extenter) gcUpdatesAddr(digest, otype, grains, newAddr uint32) error {
 
-	err := e.phyAddr.Add(digest, otype, grains, newAddr, true)
+	err := e.dmu.Add(digest, otype, grains, newAddr, true)
 	if err == nil {
 		atomic.AddInt64(&e.dirtyUpdates, 1)
 	}
@@ -247,12 +254,19 @@ func (e *Extenter) Close() error {
 		return nil // Already closed.
 	}
 
+	e.cancel()
+
+	e.stopWg.Wait()
+
+	close(e.dmuChan)
+	close(e.putObjChan)
+	e.cleanPendingUpdates(orpc.ErrServiceClosed)
 	// TODO close a buffered chan, could read/write?
 	// TODO do sync header...snap ...etc
 	panic("implement me")
 }
 
-func (e *Extenter) isClosed() bool {
+func (e *Extenter) IsClosed() bool {
 	return atomic.LoadInt64(&e.isRunning) != 1
 }
 
@@ -306,7 +320,7 @@ func (e *Extenter) TryMakePhyAddrSnap(force bool) {
 	e.rwMutex.RUnlock()
 
 	// TODO after init snap, make a new goroutine to do snap
-	pa := e.phyAddr
+	pa := e.dmu
 
 	t0 := dmu.GetTbl(pa, 0)
 	t1 := dmu.GetTbl(pa, 1)

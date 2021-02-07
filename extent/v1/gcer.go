@@ -162,7 +162,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 				break
 			}
 			readOffset := segCursorToOffset(e.gcSrcSeg, int64(e.gcSrcCursor), int64(segSize))
-			err := e.iosched.DoSync(xio.ReqGCRead, e.segsFile, readOffset, oidBuf)
+			err := e.ioSched.DoSync(xio.ReqGCRead, e.segsFile, readOffset, oidBuf)
 			if err != nil {
 				e.rwMutex.Lock()
 				e.handleError(err)
@@ -180,7 +180,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			_, _, grains, digest, _, _ := uid.ParseOID(oid)
 			objSize := grains * uid.GrainSize
 
-			entry, has := e.phyAddr.Search(digest)
+			entry, has := e.dmu.Search(digest)
 			if !has {
 				e.rwMutex.Lock()
 				e.gcSrcCursor += uint32(alignSize(int64(objSize+oidSizeInSeg), dmu.AlignSize))
@@ -189,7 +189,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			}
 
 			if dmu.IsRemoved(entry) {
-				e.phyAddr.Remove(digest)
+				e.dmu.Remove(digest)
 				e.rwMutex.Lock()
 				e.gcSrcCursor += uint32(alignSize(int64(objSize+oidSizeInSeg), dmu.AlignSize))
 				e.rwMutex.Unlock()
@@ -234,7 +234,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 				return deadInterval, false
 			}
 
-			err = e.iosched.DoSync(xio.ReqGCWrite, e.segsFile, readOffset, blankOID)
+			err = e.ioSched.DoSync(xio.ReqGCWrite, e.segsFile, readOffset, blankOID)
 			if err != nil {
 				e.rwMutex.Lock()
 				e.handleError(err)
