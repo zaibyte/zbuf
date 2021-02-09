@@ -7,6 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"g.tesamc.com/IT/zbuf/vdisk"
+	"g.tesamc.com/IT/zproto/pkg/metapb"
+
 	"github.com/templexxx/tsc"
 
 	"g.tesamc.com/IT/zaipkg/xtest"
@@ -85,7 +88,9 @@ func testSchedulerIsFairWithPriority(vfsSpeed, threads, reqSize int, reqCnts []r
 	s := New(ctx, wg, &Config{
 		Threads:     threads,
 		QueueConfig: &QueueConfig{},
-	})
+	}, &vdisk.Info{PbDisk: &metapb.Disk{
+		State: metapb.DiskState_Disk_ReadWrite,
+	}})
 	wg.Add(1)
 	go s.FindRunnableLoop()
 

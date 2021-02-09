@@ -5,10 +5,12 @@ import (
 	"math"
 	"sort"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"g.tesamc.com/IT/zaipkg/orpc"
+	"g.tesamc.com/IT/zproto/pkg/metapb"
+
+	"g.tesamc.com/IT/zbuf/vdisk"
 
 	"g.tesamc.com/IT/zaipkg/config"
 	"g.tesamc.com/IT/zbuf/vfs"
@@ -40,14 +42,13 @@ type Config struct {
 type Scheduler struct {
 	cfg *Config
 
-	isRunning int64
+	diskInfo *vdisk.Info
 
 	queue *Queue
 
 	workersCh chan struct{}
 
 	ctx    context.Context
-	cancel func()
 	stopWg *sync.WaitGroup
 }
 
@@ -71,22 +72,20 @@ func (s *Scheduler) DoSync(reqType uint64, f vfs.File, offset int64, d []byte) (
 }
 
 // New creates a scheduler instance.
-func New(ctx context.Context, cfg *Config) *Scheduler {
+func New(ctx context.Context, wg *sync.WaitGroup, cfg *Config, di *vdisk.Info) *Scheduler {
 
 	cfg.adjust()
-
-	ctx2, cancel := context.WithCancel(ctx)
 
 	return &Scheduler{
 		cfg: cfg,
 
-		queue: NewQueue(cfg.QueueConfig),
+		diskInfo: di,
+		queue:    NewQueue(cfg.QueueConfig),
 
 		workersCh: make(chan struct{}, cfg.Threads),
 
-		ctx:    ctx2,
-		cancel: cancel,
-		stopWg: new(sync.WaitGroup),
+		ctx:    ctx,
+		stopWg: wg,
 	}
 }
 
@@ -103,9 +102,6 @@ const noReqSleep = 100 * time.Microsecond
 // FindRunnableLoop finds runnable request by scheduler rules round and round.
 func (s *Scheduler) FindRunnableLoop() {
 	defer s.stopWg.Done()
-
-	atomic.StoreInt64(&s.isRunning, 1)
-	s.stopWg.Add(1)
 
 	ctx, cancel := context.WithCancel(s.ctx)
 	defer cancel()
@@ -138,6 +134,12 @@ func (s *Scheduler) FindRunnableLoop() {
 		}
 
 		if ar == nil {
+			continue
+		}
+
+		if err := s.preproc(ar.Type); err != nil {
+			ar.Err = err
+			close(ar.Done)
 			continue
 		}
 
@@ -183,32 +185,24 @@ func (s *Scheduler) FindRunnableLoop() {
 	}
 }
 
-// Close closes Scheduler with the error message,
-// this message will be sent to the pending requests.
-func (s *Scheduler) Close(err error) {
-	if !atomic.CompareAndSwapInt64(&s.isRunning, 1, 0) {
-		return
+// preproc preprocess the request.
+// Returns error if this request cannot be executed in present.
+func (s *Scheduler) preproc(reqType uint64) error {
+	state := s.diskInfo.GetState()
+	isRead := xio.IsReqRead(reqType)
+	if state == metapb.DiskState_Disk_Broken {
+		return orpc.ErrDiskBroken
 	}
-
-	s.cancel()
-	s.stopWg.Wait()
-
-	if err == nil {
-		err = orpc.ErrServiceClosed
+	if state == metapb.DiskState_Disk_Tombstone {
+		return orpc.ErrDiskTombstone
 	}
-
-	s.cleanPendingRequests(err)
-}
-
-func (s *Scheduler) cleanPendingRequests(err error) {
-
-	for _, q := range s.queue.pqs {
-		close(q.reqQueue.queue)
-		for r := range q.reqQueue.queue {
-			r.Err = err
-			close(r.Done)
-		}
+	if state == metapb.DiskState_Disk_Offline && !isRead {
+		return orpc.ErrDiskOffline
 	}
+	if state == metapb.DiskState_Disk_Full && !isRead {
+		return orpc.ErrDiskFull
+	}
+	return nil
 }
 
 // calcCost calculates the cost of a request.
