@@ -59,14 +59,21 @@ func (s *Scheduler) DoAsync(reqType uint64, f vfs.File, offset int64, d []byte) 
 
 func (s *Scheduler) DoSync(reqType uint64, f vfs.File, offset int64, d []byte) (err error) {
 
+	ctx, cancel := context.WithCancel(s.ctx)
+	defer cancel()
+
 	var ar *xio.AsyncRequest
 	if ar, err = s.DoAsync(reqType, f, offset, d); err != nil {
 		return err
 	}
 
-	<-ar.Done
-	err = ar.Err
-	xio.ReleaseAsyncRequest(ar)
+	select {
+	case <-ar.Done:
+		err = ar.Err
+		xio.ReleaseAsyncRequest(ar)
+	case <-ctx.Done():
+		err = orpc.ErrServiceClosed
+	}
 
 	return
 }
