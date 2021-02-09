@@ -120,6 +120,12 @@ func (e *Extenter) updatesLoop() {
 		}
 
 		// mr must not be nil
+
+		if err := e.preprocDMUReq(); err != nil {
+			mr.done <- err
+			continue
+		}
+
 		_, _, grains, digest, _, _ := uid.ParseOID(mr.oid)
 		if mr.isRemove {
 			rHas, rAddr := e.dmu.Remove(digest)
@@ -142,7 +148,7 @@ func (e *Extenter) updatesLoop() {
 	}
 }
 
-// preprocWriteReq preprocess write request.
+// preprocWriteReq preprocesses write request.
 // Return error if cannot execute the request.
 func (e *Extenter) preprocWriteReq() error {
 
@@ -161,8 +167,21 @@ func (e *Extenter) preprocWriteReq() error {
 	return nil
 }
 
-func (e *Extenter) preprocDMU() error {
+// preprocDMUReq preprocesses DMU request.
+// Return error if cannot execute the request.
+func (e *Extenter) preprocDMUReq() error {
 
+	state := e.info.GetState()
+
+	switch state {
+	case metapb.ExtentState_Extent_Broken:
+		return orpc.ErrExtentBroken
+	case metapb.ExtentState_Extent_Tombstone:
+		return orpc.ErrExtentTombstone
+	case metapb.ExtentState_Extent_Ghost:
+		return orpc.ErrExtentGhost
+	}
+	return nil
 }
 
 // objWriteAt writes with a buffer in a certain offset.
