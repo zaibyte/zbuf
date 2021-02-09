@@ -71,7 +71,7 @@ func (e *Extenter) updatesLoop() {
 		}
 
 		if wr != nil {
-			if err := e.preprocWrite(); err != nil {
+			if err := e.preprocWriteReq(); err != nil {
 				wr.done <- err
 				continue
 			}
@@ -142,9 +142,9 @@ func (e *Extenter) updatesLoop() {
 	}
 }
 
-// preprocWrite preprocess write request.
+// preprocWriteReq preprocess write request.
 // Return error if cannot execute the request.
-func (e *Extenter) preprocWrite() error {
+func (e *Extenter) preprocWriteReq() error {
 
 	state := e.info.GetState()
 
@@ -159,6 +159,10 @@ func (e *Extenter) preprocWrite() error {
 		return orpc.ErrExtentGhost
 	}
 	return nil
+}
+
+func (e *Extenter) preprocDMU() error {
+
 }
 
 // objWriteAt writes with a buffer in a certain offset.
@@ -319,8 +323,6 @@ func offsetToAddr(offset int64) uint32 {
 type putObjRequest struct {
 	reqType uint64
 
-	forceUpdate bool // Indicates if oid existed, updating or not.
-
 	oid     uint64
 	objData []byte
 
@@ -339,7 +341,6 @@ func acquirePutObjRequest() *putObjRequest {
 
 func releasePutObjRequest(wr *putObjRequest) {
 	wr.reqType = 0
-	wr.forceUpdate = false
 	wr.oid = 0
 	wr.objData = nil
 	wr.done = nil

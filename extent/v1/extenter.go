@@ -95,7 +95,6 @@ func (e *Extenter) PutObj(_reqid, oid uint64, _extID uint32, objData []byte) err
 	wr := acquirePutObjRequest()
 
 	wr.reqType = xio.ReqObjWrite
-	wr.forceUpdate = false
 	wr.oid = oid
 	wr.objData = objData
 	wr.done = make(chan error)
