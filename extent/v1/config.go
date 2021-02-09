@@ -29,7 +29,7 @@ const (
 	// e.g. header.
 	segmentCnt = 256
 	// There are 48 segments are reserved for GC:
-	// 1. The load factor is 0.8125 at most, suitable for the phy_addr algorithm.
+	// 1. The load factor is 0.8125 at most, suitable for the DMU algorithm.
 	// 2. 81.25% usable storage is quite good for NVMe drivers:
 	// NVMe drivers need to scrub before writing when there is a new writing if there is no free space,
 	// that's why it's getting slow when the disk is more than 50% full.
@@ -71,7 +71,7 @@ type Config struct {
 	// Size of write buffer per reads in bytes.
 	SizePerRead typeutil.ByteSize `toml:"size_per_read"`
 
-	// MaxDirtyCount is the maximum dirty updates in phy_addr(memory) which we could tolerate,
+	// MaxDirtyCount is the maximum dirty updates in DMU(memory) which we could tolerate,
 	// if the dirty_count > MaxDirtyCount we should trigger a snapshot making event.
 	// It should < Min_Objects_Count_in_Segment / 2,
 	// e.g. the max size of object is 4MB, and segments size is 1GB,

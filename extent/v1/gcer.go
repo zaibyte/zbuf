@@ -85,7 +85,7 @@ func (e *Extenter) DoGC(ratio float64) {
 }
 
 const (
-	// When we want to set new GC src /dst but meet inconsistent between GC process & phy_addr snapshot,
+	// When we want to set new GC src /dst but meet inconsistent between GC process & DMU snapshot,
 	// wait for a while and check it again.
 	// GC will update Extenter.dirtyUpdates, and if (hasCheckedSnap), tryGC will call make snapshot forcely.
 	// so it won't block unless extent un-writable.
@@ -95,7 +95,7 @@ const (
 	deadInterval = time.Hour
 )
 
-// checkSnapCatchGC checks phy_addr snapshot has caught the newest updates of GC.
+// checkSnapCatchGC checks DMU snapshot has caught the newest updates of GC.
 // Every time we want to change src/dst should check it.
 // Return false if snapshot is behind.
 func (e *Extenter) checkSnapCatchGC() bool {
@@ -365,7 +365,7 @@ func (e *Extenter) getGCSrcCandidates(ratio float64) []gcCandidate {
 	cnt := 0
 	cs := make([]gcCandidate, 0, segmentCnt)
 
-	// At the beginning, the Extenter will load last unfinished GC job from phy_addr snapshot.
+	// At the beginning, the Extenter will load last unfinished GC job from DMU snapshot.
 	if e.gcSrcSeg != -1 { // There is one unfinished GC source segment.
 		cnt++
 		cs = append(cs, gcCandidate{

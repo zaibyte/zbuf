@@ -25,7 +25,7 @@ func NewCreator(cfg *Config, iosched xio.Scheduler) *Creator {
 }
 
 // GetSize returns the space allocation of an extent.v1, including:
-// segments_file + header + boot_sector + max_phy_addr_snap * 4
+// segments_file + header + boot_sector + max_DMU_snap * 4
 // 4 for keeping space enough, actually it won't use that much, so it includes extra space taken by file system or others.
 func (c *Creator) GetSize() uint64 {
 
@@ -106,7 +106,7 @@ func (c *Creator) Open(ctx context.Context, fs vfs.FS,
 	}
 
 	// TODO open dmu by snapshot & traverse writable segments
-	// TODO traverse gc seg first for release slot in phy_addr, then writable seg
+	// TODO traverse gc seg first for release slot in DMU, then writable seg
 	// TODO if seg is gc_src, skip writable replay(in writable history too)
 	phyAddr, _ := dmu.New(dmu.MinCap)
 
@@ -144,7 +144,7 @@ func (c *Creator) Open(ctx context.Context, fs vfs.FS,
 		stopWg: wg,
 	}
 
-	// TODO after open, write down happen and phy_addr snapshot
+	// TODO after open, write down happen and DMU snapshot
 	// TODO open snapshot
 	return ext, err
 	// TODO start clone job in a goroutine before return

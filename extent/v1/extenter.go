@@ -69,10 +69,10 @@ type Extenter struct {
 	writableSeg    int64
 	writableCursor int64
 
-	dirtyUpdates        int64 // dirtyUpdates is the count of phy_addr changes haven't flushed to disk.
-	isMakingPhyAddrSnap int64 // 1 is true.
-	// lastPhyAddrSnap is the last Phy_Addr snapshot.
-	lastPhyAddrSnap unsafe.Pointer
+	dirtyUpdates    int64 // dirtyUpdates is the count of DMU changes haven't flushed to disk.
+	isMakingDMUSnap int64 // 1 is true.
+	// lastDMUSnap is the last DMU snapshot.
+	lastDMUSnap unsafe.Pointer
 
 	// After GC done, must be set to -1.
 	gcSrcSeg int64
@@ -262,23 +262,23 @@ func (e *Extenter) LoadPhyAddr() {
 }
 
 func (e *Extenter) getLastPhyAddrSnap() *colf.PhyAddrSnap {
-	p := atomic.LoadPointer(&e.lastPhyAddrSnap)
+	p := atomic.LoadPointer(&e.lastDMUSnap)
 	if p == nil {
 		return nil
 	}
 	return (*colf.PhyAddrSnap)(p)
 }
 
-// TryMakePhyAddrSnap makes phy_addr snapshot.
+// TryMakePhyAddrSnap makes DMU snapshot.
 //
 // Warning:
 // Extenter should be locked already.
 func (e *Extenter) TryMakePhyAddrSnap(force bool) {
 
-	if atomic.LoadInt64(&e.isMakingPhyAddrSnap) == 1 {
+	if atomic.LoadInt64(&e.isMakingDMUSnap) == 1 {
 		return
 	}
-	if !atomic.CompareAndSwapInt64(&e.isMakingPhyAddrSnap, 0, 1) {
+	if !atomic.CompareAndSwapInt64(&e.isMakingDMUSnap, 0, 1) {
 		return
 	}
 
@@ -313,7 +313,7 @@ func (e *Extenter) TryMakePhyAddrSnap(force bool) {
 	t1 := dmu.GetTbl(pa, 1)
 
 	// TODO could I use mfence, then copy the whole table?
-	// TODO I could make table aligned to cache line when create phy_addr, then allocate dst align to cache line,
+	// TODO I could make table aligned to cache line when create DMU, then allocate dst align to cache line,
 	// because after/include skylake(in Tesamc, surely has), no loading will be not atomic in memmove.
 	// In memmove, even the biggest operation won't cross the cacheline, if we already make the slice aligned to cache line.
 	// But I think, the Go race detection will fail if I just use copy.
@@ -333,7 +333,7 @@ func (e *Extenter) TryMakePhyAddrSnap(force bool) {
 		}
 	}
 
-	atomic.StoreInt64(&e.isMakingPhyAddrSnap, 0)
+	atomic.StoreInt64(&e.isMakingDMUSnap, 0)
 	// TODO after flushing, clean old snapshot
 }
 

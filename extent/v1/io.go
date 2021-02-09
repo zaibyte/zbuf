@@ -226,7 +226,7 @@ func (e *Extenter) objReadAt(reqType uint64, digest uint32, offset int64, objDat
 	return nil
 }
 
-// isPhyAddrSnapBehind checks phy_addr snapshot is too far behind new writable segment.
+// isPhyAddrSnapBehind checks DMU snapshot is too far behind new writable segment.
 func (e *Extenter) isPhyAddrSnapBehind() bool {
 
 	lastSnap := e.getLastPhyAddrSnap()
@@ -254,7 +254,7 @@ func (e *Extenter) isPhyAddrSnapBehind() bool {
 func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 
 	if e.isPhyAddrSnapBehind() {
-		err := xerrors.WithMessage(orpc.ErrExtentBroken, "phy_addr snapshot flushing too slow")
+		err := xerrors.WithMessage(orpc.ErrExtentBroken, "DMU snapshot flushing too slow")
 		xlog.Warn(err.Error())
 		return -1, err
 	}
@@ -311,7 +311,7 @@ func (e *Extenter) fastDiskHealthCheck() error {
 	return err
 }
 
-// offsetToAddr transfers offset in segments file to address in phy_addr.
+// offsetToAddr transfers offset in segments file to address in DMU.
 func offsetToAddr(offset int64) uint32 {
 	return uint32(offset / dmu.AlignSize)
 }
