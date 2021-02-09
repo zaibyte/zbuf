@@ -78,8 +78,10 @@ func (e *Extenter) updatesLoop() {
 
 			_, _, grains, digest, otype, _ := uid.ParseOID(wr.oid) // ignore err here, because the oid should have been checked.
 
-			e.dmu.Search()
-			// TODO before writing check existed or not, if true, return indicates Zai to choose another group
+			if e.dmu.Search(digest) != 0 {
+				wr.done <- orpc.ErrObjDigestExisted
+				continue
+			}
 
 			if e.writableCursor+int64(len(wr.objData))+oidSizeInSeg > segSize {
 				e.rwMutex.Lock()
