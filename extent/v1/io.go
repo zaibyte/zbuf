@@ -226,10 +226,10 @@ func (e *Extenter) objReadAt(reqType uint64, digest uint32, offset int64, objDat
 	return nil
 }
 
-// isPhyAddrSnapBehind checks DMU snapshot is too far behind new writable segment.
-func (e *Extenter) isPhyAddrSnapBehind() bool {
+// isDMUSnapBehind checks DMU snapshot is too far behind new writable segment.
+func (e *Extenter) isDMUSnapBehind() bool {
 
-	lastSnap := e.getLastPhyAddrSnap()
+	lastSnap := e.getLastDMUSnap()
 
 	nvh := e.header.nvh
 
@@ -253,7 +253,7 @@ func (e *Extenter) isPhyAddrSnapBehind() bool {
 // Sync if there is new changes.
 func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 
-	if e.isPhyAddrSnapBehind() {
+	if e.isDMUSnapBehind() {
 		err := xerrors.WithMessage(orpc.ErrExtentBroken, "DMU snapshot flushing too slow")
 		xlog.Warn(err.Error())
 		return -1, err
@@ -284,15 +284,15 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 	return -1, err
 }
 
-type stateClone struct {
+type segStateClone struct {
 	originSeg int
 	state     uint8
 }
 
 // shuffleSegStates shuffles segments states for reducing the rate of always picking up segments which
 // position is in the beginning of segments when both of writing and deletion are frequent.
-func shuffleSegStates(states []uint8) []stateClone {
-	c := make([]stateClone, segmentCnt)
+func shuffleSegStates(states []uint8) []segStateClone {
+	c := make([]segStateClone, segmentCnt)
 	for i := range states {
 		c[i].originSeg = i
 		c[i].state = states[i]

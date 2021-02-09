@@ -102,7 +102,7 @@ func (e *Extenter) checkSnapCatchGC() bool {
 	lastSrc, lastDst := e.gcSrcSeg, e.gcDstSeg
 	lastSrcCursor, lastDstCursor := e.gcSrcCursor, e.gcDstCursor
 
-	lastSnap := e.getLastPhyAddrSnap()
+	lastSnap := e.getLastDMUSnap()
 	var lastSrcInSnap, lastDstInSanp int64 = -1, -1
 	var lastSrcCursorInSnap, lastDstCursorInSnap uint32 = 0, 0
 	if lastSnap != nil {

@@ -261,7 +261,7 @@ func (e *Extenter) LoadPhyAddr() {
 
 }
 
-func (e *Extenter) getLastPhyAddrSnap() *colf.PhyAddrSnap {
+func (e *Extenter) getLastDMUSnap() *colf.PhyAddrSnap {
 	p := atomic.LoadPointer(&e.lastDMUSnap)
 	if p == nil {
 		return nil
@@ -282,7 +282,7 @@ func (e *Extenter) TryMakePhyAddrSnap(force bool) {
 		return
 	}
 
-	last := e.getLastPhyAddrSnap()
+	last := e.getLastDMUSnap()
 
 	if !force {
 		acceptable := false
