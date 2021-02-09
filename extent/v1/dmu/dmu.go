@@ -245,7 +245,7 @@ func (u *DMU) Search(digest uint32) (entry uint64) {
 }
 
 // Remove sets the entry's slot 0, free the slot.
-func (u *DMU) Remove(digest uint32) {
+func (u *DMU) Remove(digest uint32) (has bool, addr uint32) {
 	if !u.IsRunning() {
 		return
 	}
@@ -253,9 +253,12 @@ func (u *DMU) Remove(digest uint32) {
 	u.Lock()
 	defer u.Unlock()
 
-	if u.tryRemove(digest) {
+	has, addr = u.tryRemove(digest)
+
+	if has {
 		u.delCnt()
 	}
+	return
 }
 
 // Update updates existed entry with new address,
@@ -394,7 +397,7 @@ func (u *DMU) expand(ri int) {
 	}
 }
 
-func (u *DMU) tryRemove(digest uint32) (has bool) {
+func (u *DMU) tryRemove(digest uint32) (has bool, addr uint32) {
 
 	for i := 0; i < 2; i++ {
 		tbl := GetTbl(u, i)
@@ -413,10 +416,11 @@ func (u *DMU) tryRemove(digest uint32) (has bool) {
 			if e == 0 {
 				continue
 			}
-			tag, neighOff, _, _, _ := ParseEntry(e)
+			tag, neighOff, _, _, eaddr := ParseEntry(e)
 			if digest == BackToDigest(tag, uint32(slotCnt), uint32(slot+j), neighOff) {
 				atomic.StoreUint64(&tbl[slot+j], 0)
 				has = true
+				addr = eaddr // If both of two tables have the digest, the address must be the same.
 				break
 			}
 		}
