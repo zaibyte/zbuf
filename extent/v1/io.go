@@ -87,9 +87,9 @@ func (e *Extenter) updatesLoop() {
 				e.rwMutex.Lock()
 				nextSeg, err := e.getNextWritableSeg(e.writableSeg)
 				if err != nil {
-					e.handleError(err)
 					wr.done <- err
 					e.rwMutex.Unlock()
+					e.handleError(err)
 					continue
 				}
 				e.writableSeg = nextSeg
@@ -102,22 +102,15 @@ func (e *Extenter) updatesLoop() {
 
 			written, err := e.objWriteAt(wr.reqType, wr.oid, offset, wr.objData, writeBuf)
 			if err != nil {
-				e.rwMutex.Lock()
-				e.handleError(err)
-				e.rwMutex.Unlock()
 				wr.done <- err
+				e.handleError(err)
 				continue
 			}
 
-			err = e.dmu.Add(digest, uint32(otype), grains, offsetToAddr(offset), wr.forceUpdate)
+			err = e.dmu.Insert(digest, uint32(otype), grains, offsetToAddr(offset))
 			if err != nil {
-				if err == dmu.ErrIsFull {
-					err = xerrors.WithMessage(orpc.ErrExtentFull, err.Error())
-					e.rwMutex.Lock()
-					e.handleError(err)
-					e.rwMutex.Unlock()
-				}
 				wr.done <- err
+				e.handleError(err)
 				continue
 			}
 
@@ -127,7 +120,7 @@ func (e *Extenter) updatesLoop() {
 		}
 
 		// mr must not be nil
-		_, _, grains, digest, otype, _ := uid.ParseOID(mr.oid)
+		_, _, grains, digest, _, _ := uid.ParseOID(mr.oid)
 		if mr.isRemove {
 			rHas, rAddr := e.dmu.Remove(digest)
 			if rHas {
@@ -140,11 +133,10 @@ func (e *Extenter) updatesLoop() {
 			// We don't add dirtyUpdates here, what we do care is add/reset, not remove.
 			continue
 		} else {
-			err := e.dmu.Add(digest, uint32(otype), grains, mr.newAddr, true)
-			if err == nil {
+			if e.dmu.Update(digest, mr.newAddr) {
 				atomic.AddInt64(&e.dirtyUpdates, 1)
-			}
-			mr.done <- err
+			} // Actually it's only used for GC process, couldn't be false.
+			mr.done <- nil
 			continue
 		}
 	}
