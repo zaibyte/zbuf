@@ -46,16 +46,6 @@ func (e *Extenter) updatesLoop() {
 	writeBuf := directio.AlignedBlock(int(oidSizeInSeg + e.cfg.SizePerWrite))
 	segSize := int64(e.cfg.SegmentSize)
 	for {
-		if e.IsClosed() {
-			return
-		}
-
-		state := e.info.GetState()
-		if state != metapb.ExtentState_Extent_ReadWrite &&
-			state != metapb.ExtentState_Extent_Offline && // We could do clone when it's offline.
-			state != metapb.ExtentState_Extent_Full { // We could do meta updates when it's full.
-			return
-		}
 
 		if atomic.LoadInt64(&e.dirtyUpdates) > e.cfg.MaxDirtyCount {
 			e.TryMakePhyAddrSnap(false)
@@ -83,10 +73,8 @@ func (e *Extenter) updatesLoop() {
 		}
 
 		if wr != nil {
-			// Although we will reject new data request if extent is full,
-			// we may still have some request already put into request chan.
-			if e.info.GetState() == metapb.ExtentState_Extent_Full {
-				wr.done <- orpc.ErrExtentFull
+			if err := e.preprocWrite(); err != nil {
+				wr.done <- err
 				continue
 			}
 			// TODO before writing check existed or not, if true, return indicates Zai to choose another group
@@ -158,6 +146,25 @@ func (e *Extenter) updatesLoop() {
 			continue
 		}
 	}
+}
+
+// preprocWrite preprocess write request.
+// Return error if cannot execute the request.
+func (e *Extenter) preprocWrite() error {
+
+	state := e.info.GetState()
+
+	switch state {
+	case metapb.ExtentState_Extent_Broken:
+		return orpc.ErrExtentBroken
+	case metapb.ExtentState_Extent_Full:
+		return orpc.ErrExtentFull
+	case metapb.ExtentState_Extent_Tombstone:
+		return orpc.ErrExtentTombstone
+	case metapb.ExtentState_Extent_Ghost:
+		return orpc.ErrExtentGhost
+	}
+	return nil
 }
 
 // objWriteAt writes with a buffer in a certain offset.
