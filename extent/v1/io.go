@@ -56,8 +56,6 @@ func (e *Extenter) updatesLoop() {
 
 		// We must be sure loop blocking on select, otherwise the loop will do nothing & wasting the CPU.
 		select {
-		case <-ctx.Done():
-			return
 		case wr = <-e.putObjChan:
 		case mr = <-e.dmuChan:
 		default:
@@ -77,6 +75,10 @@ func (e *Extenter) updatesLoop() {
 				wr.done <- err
 				continue
 			}
+
+			_, _, grains, digest, otype, _ := uid.ParseOID(wr.oid) // ignore err here, because the oid should have been checked.
+
+			e.dmu.Search()
 			// TODO before writing check existed or not, if true, return indicates Zai to choose another group
 
 			if e.writableCursor+int64(len(wr.objData))+oidSizeInSeg > segSize {
@@ -104,8 +106,6 @@ func (e *Extenter) updatesLoop() {
 				wr.done <- err
 				continue
 			}
-
-			_, _, grains, digest, otype, _ := uid.ParseOID(wr.oid) // ignore err here, because the oid have been checked.
 
 			err = e.dmu.Add(digest, uint32(otype), grains, offsetToAddr(offset), wr.forceUpdate)
 			if err != nil {
@@ -174,6 +174,8 @@ func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte,
 
 	n := len(objData)
 	binary.LittleEndian.PutUint64(buf[:8], oid)
+	oidSum := xdigest.Sum32(buf[:8])
+	binary.LittleEndian.PutUint32(buf[8:12], oidSum)
 	written := copy(buf[oidSizeInSeg:], objData)
 
 	err = e.ioSched.DoSync(reqType, e.segsFile, offset, buf[:written+oidSizeInSeg])
