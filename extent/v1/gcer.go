@@ -87,8 +87,9 @@ func (e *Extenter) DoGC(ratio float64) {
 const (
 	// When we want to set new GC src /dst but meet inconsistent between GC process & DMU snapshot,
 	// wait for a while and check it again.
-	// GC will update Extenter.dirtyUpdates, and if (hasCheckedSnap), tryGC will call make snapshot forcely.
-	// so it won't block unless extent un-writable.
+	// GC will update Extenter.dirtyUpdates, and if (hasCheckedSnap) == true, tryGC will call make snapshot by force.
+	// so it won't block on checking forever unless extent unhealthy.
+	// If it's unhealthy, tryGC will break the loop and return.
 	checkSnapSyncGCInterval = 16 * time.Second
 	// deadInterval is the interval when Extenter meets unexpected error and the Extenter need to be closed.
 	// Using time.Hour to ensure the ctx.Done() will be selected firstly.(caused by Extenter.Close())
@@ -164,7 +165,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 
 			select {
 			case <-ctx.Done():
-				return
+				return // TODO will it break down process?
 			default:
 			}
 
