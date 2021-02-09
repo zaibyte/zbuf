@@ -226,22 +226,6 @@ func (e *Extenter) objReadAt(reqType uint64, digest uint32, offset int64, objDat
 	return nil
 }
 
-// cleanPendingUpdates cleans updates channels.
-func (e *Extenter) cleanPendingUpdates(err error) {
-
-	if err == nil {
-		err = orpc.ErrServiceClosed
-	}
-
-	for r := range e.putObjChan {
-		r.done <- err
-	}
-
-	for r := range e.dmuChan {
-		r.done <- err
-	}
-}
-
 // isPhyAddrSnapBehind checks phy_addr snapshot is too far behind new writable segment.
 func (e *Extenter) isPhyAddrSnapBehind() bool {
 

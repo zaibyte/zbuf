@@ -252,9 +252,6 @@ func (e *Extenter) Close(err error) error {
 
 	e.stopWg.Wait()
 
-	close(e.dmuChan)
-	close(e.putObjChan)
-	e.cleanPendingUpdates(err)
 	// TODO close a buffered chan, could read/write?
 	// TODO do sync header...snap ...etc
 	panic("implement me")
