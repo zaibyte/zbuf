@@ -2,6 +2,7 @@ package extent
 
 import (
 	"context"
+	"sync"
 
 	"g.tesamc.com/IT/zaipkg/orpc"
 
@@ -35,13 +36,13 @@ var AvailVersions = []uint16{Version1, VersionTest}
 type Creator interface {
 	// Create creates Extenter which not existed.
 	// dir is extent dir.
-	Create(ctx context.Context, fs vfs.FS,
+	Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
 		instanceID, diskID, extID uint32, dir string, diskInfo *vdisk.Info) (Extenter, error)
 	// CreateClone creates Extenter which needs to clone from source.
-	CreateClone(ctx context.Context, fs vfs.FS,
+	CreateClone(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
 		instanceID, diskID, extID uint32, srcExtID uint32, dir string, diskInfo *vdisk.Info) (Extenter, error)
 	// Load loads an existed Extenter.
-	Load(ctx context.Context, fs vfs.FS,
+	Load(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
 		instanceID, diskID, extID uint32, dir string, diskInfo *vdisk.Info) (Extenter, error)
 	// GetSize gets the space size will be taken by the extent which will be created.
 	GetSize() uint64
