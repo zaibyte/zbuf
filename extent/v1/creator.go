@@ -88,6 +88,8 @@ func (c *Creator) Create(ctx context.Context, fs vfs.FS,
 // TODO if extent is broken or terminated, don't open it.
 // TODO traverse segment should first oid and its checksum, maybe dirty. If dirty, means over.
 // TODO reconstruct used, object count by snapshot & traverse.
+// Traverse start at the write_cursor, if meet checksum mismatched, stopping but not regard as broken,
+// because it may caused by power off, and because of we wouldn't return ok in this situation, the consistence won't be broken.
 func (c *Creator) Open(ctx context.Context, fs vfs.FS,
 	instanceID, diskID, extID uint32, extDir string, diskInfo *vdisk.Info) (ext extent.Extenter, err error) {
 
