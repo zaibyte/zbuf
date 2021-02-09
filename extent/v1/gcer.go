@@ -121,6 +121,9 @@ func (e *Extenter) checkSnapCatchGC() bool {
 
 func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duration, hasCheckedSnap bool) {
 
+	ctx, cancel := context.WithCancel(e.ctx)
+	defer cancel()
+
 	state := e.info.GetState()
 	if state == metapb.ExtentState_Extent_Offline {
 		return e.cfg.GCScanInterval.Duration, false
@@ -158,6 +161,13 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 		e.rwMutex.Unlock()
 
 		for {
+
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
 			if e.gcSrcCursor >= segSize { // Meet src end.
 				break
 			}
