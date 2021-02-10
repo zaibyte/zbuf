@@ -95,10 +95,10 @@ const (
 	gcDeadInterval = time.Hour
 )
 
-// checkSnapCatchGC checks DMU snapshot has caught the newest updates of GC.
+// isSnapCatchGC checks DMU snapshot has caught the newest updates of GC.
 // Every time we want to change src/dst should check it.
 // Return false if snapshot is behind.
-func (e *Extenter) checkSnapCatchGC() bool {
+func (e *Extenter) isSnapCatchGC() bool {
 	lastSrc, lastDst := e.gcSrcSeg, e.gcDstSeg
 	lastSrcCursor, lastDstCursor := e.gcSrcCursor, e.gcDstCursor
 
@@ -164,7 +164,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 	for _, c := range cs { // Deal with candidates one by one.
 
 		// Source will be changed, checking the snapshot.
-		if !e.checkSnapCatchGC() {
+		if !e.isSnapCatchGC() {
 			if !checkedSnap {
 				return checkSnapSyncGCInterval, true
 			}
@@ -216,9 +216,22 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 				continue
 			}
 
+			_, _, _, _, eaddr := dmu.ParseEntry(entry)
+			// It must be GC already,
+			// See https://g.tesamc.com/IT/zbuf/issues/142 for details.
+			if eaddr*dmu.AlignSize != uint32(readOffset) {
+				e.rwMutex.Lock()
+				e.gcSrcCursor += uint32(alignSize(int64(objSize+oidSizeInSeg), dmu.AlignSize))
+				if eaddr*dmu.AlignSize > e.gcDstCursor {
+					e.gcDstCursor = uint32(alignSize(int64(eaddr*dmu.AlignSize+objSize+oidSizeInSeg), dmu.AlignSize))
+				}
+				e.rwMutex.Unlock()
+				continue
+			}
+
 			if oidSizeInSeg+objSize > segSize-e.gcDstCursor || e.gcDstSeg == -1 { // Dst has no enough space or haven't had any GC job.
 				// Destination will be changed, checking the snapshot.
-				if !e.checkSnapCatchGC() {
+				if !e.isSnapCatchGC() {
 					if !checkedSnap {
 						return checkSnapSyncGCInterval, true
 					}
