@@ -218,7 +218,25 @@ func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte,
 	return written + oidSizeInSeg, nil
 }
 
-// objReadAt reads Extent's segments file from a certain offset.
+// oidReadAt reads oid from disk at offset.
+func (e *Extenter) oidReadAt(reqType uint64, offset int64, oidBuf []byte) (oid uint64, err error) {
+
+	if err = e.ioSched.DoSync(reqType, e.segsFile, offset, oidBuf); err != nil {
+		return 0, err
+	}
+	oid = binary.LittleEndian.Uint64(oidBuf[:8])
+	if oid == 0 {
+		return 0, nil
+	}
+
+	if xdigest.Sum32(oidBuf[:8]) != binary.LittleEndian.Uint32(oidBuf[8:12]) {
+		return 0, xerrors.WithMessage(orpc.ErrChecksumMismatch, fmt.Sprintf("read oid: %d", oid))
+	}
+
+	return oid, nil
+}
+
+// objReadAt reads Extent's segments file from a certain offset(its the oid offset).
 func (e *Extenter) objReadAt(reqType uint64, digest uint32, offset int64, objData []byte) error {
 
 	offset += oidSizeInSeg

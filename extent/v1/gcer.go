@@ -2,7 +2,6 @@ package v1
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
 	"sort"
 	"time"
@@ -193,11 +192,12 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			}
 
 			readOffset := segCursorToOffset(e.gcSrcSeg, int64(e.gcSrcCursor), int64(segSize))
-			if err2 := e.ioSched.DoSync(xio.ReqGCRead, e.segsFile, readOffset, oidBuf); err2 != nil {
+			oid, err2 := e.oidReadAt(xio.ReqGCRead, readOffset, oidBuf)
+			if err2 != nil {
 				e.handleError(err2)
-				return gcDeadInterval, false // Ghost or broken.
+				return gcDeadInterval, false
 			}
-			oid := binary.LittleEndian.Uint64(oidBuf[:8])
+
 			if oid == 0 { // Objects are written sequentially, if meet 0, means reaching the end.
 				e.rwMutex.Lock()
 				e.gcSrcCursor = segSize
