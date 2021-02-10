@@ -222,7 +222,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			if eaddr*dmu.AlignSize != uint32(readOffset) {
 				e.rwMutex.Lock()
 				e.gcSrcCursor += uint32(alignSize(int64(objSize+oidSizeInSeg), dmu.AlignSize))
-				if eaddr*dmu.AlignSize > e.gcDstCursor {
+				if eaddr*dmu.AlignSize > e.gcDstCursor && addrToSeg(eaddr, int64(segSize)) == int(e.gcDstSeg) {
 					e.gcDstCursor = uint32(alignSize(int64(eaddr*dmu.AlignSize+objSize+oidSizeInSeg), dmu.AlignSize))
 				}
 				e.rwMutex.Unlock()
