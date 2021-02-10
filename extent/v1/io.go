@@ -48,7 +48,7 @@ func (e *Extenter) updatesLoop() {
 	for {
 
 		if atomic.LoadInt64(&e.dirtyUpdates) > e.cfg.MaxDirtyCount {
-			e.TryMakePhyAddrSnap(false)
+			e.TryMakeDMUSnap(false)
 		}
 
 		var wr *putObjRequest
