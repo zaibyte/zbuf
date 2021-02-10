@@ -51,16 +51,16 @@ func (e *Extenter) gcLoop() {
 			tryChan = xtime.GetTimerEvent(t, interval)
 		}
 		select {
-		case ratio = <-e.forceGC:
 
+		case <-ctx.Done():
+			return
+		case ratio = <-e.forceGC:
+			continue
 		case <-tryChan:
 			interval, hasCheckedSnap = e.tryGC(ratio, hasCheckedSnap)
 			tryChan = nil
 			ratio = e.cfg.GCRatio // After force GC once, reset the ratio back.
 			continue
-
-		case <-ctx.Done():
-			return
 		}
 	}
 }
@@ -91,9 +91,9 @@ const (
 	// so it won't block on checking forever unless extent unhealthy.
 	// If it's unhealthy, tryGC will break the loop and return.
 	checkSnapSyncGCInterval = 16 * time.Second
-	// deadInterval is the interval when Extenter meets unexpected error and the Extenter need to be closed.
+	// gcDeadInterval is the interval when Extenter meets unexpected error and the Extenter need to be closed.
 	// Using time.Hour to ensure the ctx.Done() will be selected firstly.(caused by Extenter.Close())
-	deadInterval = time.Hour
+	gcDeadInterval = time.Hour
 )
 
 // checkSnapCatchGC checks DMU snapshot has caught the newest updates of GC.
@@ -120,16 +120,36 @@ func (e *Extenter) checkSnapCatchGC() bool {
 	return true
 }
 
+// preprocGC preprocesses GC operation.
+// Return error if cannot execute GC.
+func (e *Extenter) preprocGC() error {
+	state := e.info.GetState()
+
+	switch state {
+	case metapb.ExtentState_Extent_Broken:
+		return orpc.ErrExtentBroken
+	case metapb.ExtentState_Extent_Tombstone:
+		return orpc.ErrExtentTombstone
+	case metapb.ExtentState_Extent_Ghost:
+		return orpc.ErrExtentGhost
+	}
+	return nil
+}
+
 func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duration, hasCheckedSnap bool) {
 
 	ctx, cancel := context.WithCancel(e.ctx)
 	defer cancel()
 
+	err := e.preprocGC()
+	if err != nil {
+		return gcDeadInterval, false
+	}
+
 	state := e.info.GetState()
 	if state == metapb.ExtentState_Extent_Offline {
-		return e.cfg.GCScanInterval.Duration, false
+		return e.cfg.GCScanInterval.Duration, false // May in Clone process.
 	}
-	// TODO after GC will check is full or not, if it was full, and there is ready seg after GC, change the full state
 	cs := e.getGCSrcCandidates(ratio)
 	if len(cs) == 0 {
 		return e.cfg.GCScanInterval.Duration, false
@@ -143,7 +163,6 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 	blankOID := directio.AlignedBlock(oidSizeInSeg) // For reset OID in segment.
 
 	for _, c := range cs { // Deal with candidates one by one.
-		// TODO how to sync cursor
 
 		// Source will be changed, checking the snapshot.
 		if !e.checkSnapCatchGC() {
@@ -165,7 +184,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 
 			select {
 			case <-ctx.Done():
-				return // TODO will it break down process?
+				return
 			default:
 			}
 
@@ -178,7 +197,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 				e.rwMutex.Lock()
 				e.handleError(err)
 				e.rwMutex.Unlock()
-				return deadInterval, false // Ghost or broken.
+				return gcDeadInterval, false // Ghost or broken.
 			}
 			oid := binary.LittleEndian.Uint64(oidBuf[:8])
 			if oid == 0 { // Objects are written sequentially, if meet 0, means reaching the end.
@@ -220,7 +239,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 				newDst := e.findGCDst()
 				if newDst == -1 {
 					e.rwMutex.Unlock()
-					return deadInterval, false
+					return gcDeadInterval, false
 				}
 				e.header.nvh.SegStates[e.gcDstSeg] = segSealed
 				e.gcDstSeg = newDst
@@ -233,7 +252,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 				e.rwMutex.Lock()
 				e.handleError(err)
 				e.rwMutex.Unlock()
-				return deadInterval, false
+				return gcDeadInterval, false
 			}
 
 			writeOffset := segCursorToOffset(e.gcDstSeg, int64(e.gcDstCursor), int64(segSize))
@@ -242,7 +261,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 				e.rwMutex.Lock()
 				e.handleError(err)
 				e.rwMutex.Unlock()
-				return deadInterval, false
+				return gcDeadInterval, false
 			}
 
 			err = e.ioSched.DoSync(xio.ReqGCWrite, e.segsFile, readOffset, blankOID)
@@ -250,7 +269,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 				e.rwMutex.Lock()
 				e.handleError(err)
 				e.rwMutex.Unlock()
-				return deadInterval, false
+				return gcDeadInterval, false
 			}
 
 			// Updates result could be ignored here.
@@ -266,9 +285,12 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 
 		e.rwMutex.Lock()
 		e.header.nvh.Removed[e.gcSrcSeg] = 0
-		srcNewState := segReady
-		if !e.isReservedEnough() {
-			srcNewState = segReserved
+		srcNewState := segReserved
+		if e.isReservedEnough() {
+			srcNewState = segReady
+			if e.info.GetState() == metapb.ExtentState_Extent_Full {
+				e.info.SetState(metapb.ExtentState_Extent_ReadWrite, false)
+			}
 		}
 		e.header.nvh.SegStates[e.gcSrcSeg] = srcNewState
 		e.rwMutex.Unlock()
