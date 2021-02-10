@@ -191,12 +191,10 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			if e.gcSrcCursor >= segSize { // Meet src end.
 				break
 			}
+
 			readOffset := segCursorToOffset(e.gcSrcSeg, int64(e.gcSrcCursor), int64(segSize))
-			err := e.ioSched.DoSync(xio.ReqGCRead, e.segsFile, readOffset, oidBuf)
-			if err != nil {
-				e.rwMutex.Lock()
-				e.handleError(err)
-				e.rwMutex.Unlock()
+			if err2 := e.ioSched.DoSync(xio.ReqGCRead, e.segsFile, readOffset, oidBuf); err2 != nil {
+				e.handleError(err2)
 				return gcDeadInterval, false // Ghost or broken.
 			}
 			oid := binary.LittleEndian.Uint64(oidBuf[:8])
@@ -210,16 +208,8 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			_, _, grains, digest, _, _ := uid.ParseOID(oid)
 			objSize := grains * uid.GrainSize
 
-			entry, has := e.dmu.Search(digest)
-			if !has {
-				e.rwMutex.Lock()
-				e.gcSrcCursor += uint32(alignSize(int64(objSize+oidSizeInSeg), dmu.AlignSize))
-				e.rwMutex.Unlock()
-				continue
-			}
-
-			if dmu.IsRemoved(entry) {
-				e.dmu.Remove(digest)
+			entry := e.dmu.Search(digest)
+			if entry == 0 {
 				e.rwMutex.Lock()
 				e.gcSrcCursor += uint32(alignSize(int64(objSize+oidSizeInSeg), dmu.AlignSize))
 				e.rwMutex.Unlock()
