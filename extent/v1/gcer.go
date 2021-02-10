@@ -237,7 +237,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 				e.rwMutex.Unlock()
 			}
 
-			err = e.objReadAt(xio.ReqGCRead, digest, readOffset+oidSizeInSeg, gcObjBuf[:objSize])
+			err = e.objReadAt(xio.ReqGCRead, digest, readOffset, gcObjBuf[:objSize])
 			if err != nil {
 				e.rwMutex.Lock()
 				e.handleError(err)
