@@ -231,15 +231,6 @@ func (e *Extenter) DeleteObj(_reqid, oid uint64, _extID uint32) error {
 	return err
 }
 
-func (e *Extenter) gcUpdatesAddr(digest, otype, grains, newAddr uint32) error {
-
-	err := e.dmu.Add(digest, otype, grains, newAddr, true)
-	if err == nil {
-		atomic.AddInt64(&e.dirtyUpdates, 1)
-	}
-	return err
-}
-
 func (e *Extenter) GetInfo() *extent.Info {
 
 	return e.info

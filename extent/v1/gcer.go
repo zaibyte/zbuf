@@ -239,33 +239,25 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 
 			err = e.objReadAt(xio.ReqGCRead, digest, readOffset, gcObjBuf[:objSize])
 			if err != nil {
-				e.rwMutex.Lock()
 				e.handleError(err)
-				e.rwMutex.Unlock()
 				return gcDeadInterval, false
 			}
 
 			writeOffset := segCursorToOffset(e.gcDstSeg, int64(e.gcDstCursor), int64(segSize))
 			totalWritten, werr := e.objWriteAt(xio.ReqGCWrite, oid, writeOffset, gcObjBuf[:objSize], gcWriteBuf[:objSize+oidSizeInSeg])
 			if werr != nil {
-				e.rwMutex.Lock()
 				e.handleError(err)
-				e.rwMutex.Unlock()
 				return gcDeadInterval, false
 			}
 
+			// Set origin oid address to empty.
 			err = e.ioSched.DoSync(xio.ReqGCWrite, e.segsFile, readOffset, blankOID)
 			if err != nil {
-				e.rwMutex.Lock()
 				e.handleError(err)
-				e.rwMutex.Unlock()
 				return gcDeadInterval, false
 			}
 
-			// Updates result could be ignored here.
-			// The oid must be existed, no actually insert will happen, so it must be succeed.
-			// TODO cannot overflow here, it's hard to deal with it.
-			_ = e.gcUpdatesAddr(oid, uint32(writeOffset))
+			e.dmu.Update(digest, uint32(writeOffset))
 
 			e.rwMutex.Lock()
 			e.gcSrcCursor += uint32(alignSize(int64(objSize+oidSizeInSeg), dmu.AlignSize))
@@ -278,11 +270,11 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 		srcNewState := segReserved
 		if e.isReservedEnough() {
 			srcNewState = segReady
-			if e.info.GetState() == metapb.ExtentState_Extent_Full {
-				e.info.SetState(metapb.ExtentState_Extent_ReadWrite, false)
-			}
 		}
 		e.header.nvh.SegStates[e.gcSrcSeg] = srcNewState
+		if e.info.GetState() == metapb.ExtentState_Extent_Full && srcNewState == segReady {
+			e.info.SetState(metapb.ExtentState_Extent_ReadWrite, false)
+		}
 		e.rwMutex.Unlock()
 	}
 	return e.cfg.GCInterval.Duration, false
