@@ -259,11 +259,15 @@ func (e *Extenter) getLastDMUSnap() *colf.PhyAddrSnap {
 	return (*colf.PhyAddrSnap)(p)
 }
 
-// TryMakePhyAddrSnap makes DMU snapshot.
+func (e *Extenter) makeDMUSnap() {
+
+}
+
+// TryMakeDMUSnap makes DMU snapshot.
 //
 // Warning:
 // Extenter should be locked already.
-func (e *Extenter) TryMakePhyAddrSnap(force bool) {
+func (e *Extenter) TryMakeDMUSnap(force bool) {
 
 	if atomic.LoadInt64(&e.isMakingDMUSnap) == 1 {
 		return
