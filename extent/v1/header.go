@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"path/filepath"
 
+	"g.tesamc.com/IT/zbuf/extent"
+
 	"g.tesamc.com/IT/zaipkg/directio"
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/xdigest"
@@ -30,11 +32,10 @@ type Header struct {
 
 // CreateHeader creates a new Header with a new writable segment(segment[0]),
 // and persist it on local file system.
-func CreateHeader(sched xio.Scheduler, fs vfs.FS, extDir string, segSize uint32, state metapb.ExtentState,
-	reservedSeg int) (*Header, error) {
+func (c *Creator) CreateHeader(fs vfs.FS, extDir string, params extent.CreateParams) (*Header, error) {
 	h := new(Header)
 
-	h.iosched = sched
+	h.iosched = c.iosched
 	f, err := fs.Create(filepath.Join(extDir, HeaderFileName))
 	if err != nil {
 		return nil, err
@@ -48,9 +49,14 @@ func CreateHeader(sched xio.Scheduler, fs vfs.FS, extDir string, segSize uint32,
 	h.f = f
 
 	h.nvh = new(NVHeader)
+	state := metapb.ExtentState_Extent_ReadWrite
+	if params.CloneJob != nil {
+		state = metapb.ExtentState_Extent_Clone // Only two states the Create will have.
+	}
 	h.nvh.State = int32(state)
-	h.nvh.SegSize = segSize
-	h.nvh.ReservedSeg = uint8(reservedSeg)
+	h.nvh.SegSize = uint32(c.cfg.SegmentSize)
+	reservedSeg := c.cfg.ReservedSeg
+	h.nvh.ReservedSeg = uint8(c.cfg.ReservedSeg)
 	h.nvh.SegStates = make([]byte, segmentCnt)
 	for i := range h.nvh.SegStates {
 		if i < segmentCnt-reservedSeg {
@@ -67,7 +73,7 @@ func CreateHeader(sched xio.Scheduler, fs vfs.FS, extDir string, segSize uint32,
 
 	h.nvh.Removed = make([]uint32, segmentCnt)
 
-	h.nvh.CloneJobState = int32(metapb.CloneJobState_CloneJob_Terminated)
+	h.nvh.CloneJob = params.CloneJob
 
 	err = h.Store(state)
 	if err != nil {
