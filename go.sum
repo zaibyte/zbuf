@@ -11,6 +11,8 @@ g.tesamc.com/IT/zproto v0.0.0-20210114071438-1018be4c55d3 h1:T9uNHqRS9Bf0KtAOmVE
 g.tesamc.com/IT/zproto v0.0.0-20210114071438-1018be4c55d3/go.mod h1:cOpEEu7RT7ocVlcIh/c4JmLSyIFQoPGbzU+77RVg1NE=
 g.tesamc.com/IT/zproto v0.0.0-20210131020900-3b4196b509ed h1:5uUkgE2GhE+eaO+I1zcT+ZQ0zTxEC54HS8jtt68Gioc=
 g.tesamc.com/IT/zproto v0.0.0-20210131020900-3b4196b509ed/go.mod h1:unN6cXdfgSoM/q2tYIk+JcEF5cxsYY18b587H7k0QYo=
+g.tesamc.com/IT/zproto v0.0.0-20210211082341-6fcd74a55a8c h1:EyLERxnS2ObZVP5IVJQTN4VGmfgoPBZnroyGwTwJTKw=
+g.tesamc.com/IT/zproto v0.0.0-20210211082341-6fcd74a55a8c/go.mod h1:unN6cXdfgSoM/q2tYIk+JcEF5cxsYY18b587H7k0QYo=
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
