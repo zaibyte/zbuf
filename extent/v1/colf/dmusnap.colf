@@ -1,7 +1,7 @@
 package colf
 
-// Non-Volatile PhyAddrSnap is a part of Physical Address Snapshot using colfer to serialize.
-type PhyAddrSnap struct {
+// DMUSnap is a part of DMU Snapshot using colfer to serialize.
+type DMUSnap struct {
     // CreatTS is the snapshot starting creating timestamp.
     CreatTS    int64
 
