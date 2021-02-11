@@ -111,7 +111,7 @@ func LoadHeader(sched xio.Scheduler, fs vfs.FS, extDir string) (*Header, error) 
 
 	nvHLen := binary.LittleEndian.Uint32(b[:4])
 	nvh := new(NVHeader)
-	_, err = nvh.Unmarshal(b[4 : 4+nvHLen])
+	err = nvh.Unmarshal(b[4 : 4+nvHLen])
 	if err != nil {
 		_ = f.Close()
 		return nil, err
@@ -138,7 +138,10 @@ func (h *Header) Store(state metapb.ExtentState) error {
 
 	h.nvh.State = int32(state)
 
-	n := h.nvh.MarshalTo(b[4 : headerSize-4])
+	n, err := h.nvh.MarshalTo(b[4 : headerSize-4])
+	if err != nil {
+		return err
+	}
 	binary.LittleEndian.PutUint32(b[:4], uint32(n))
 
 	checksum := xdigest.Sum32(b[:headerSize-4])
