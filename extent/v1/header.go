@@ -129,13 +129,16 @@ func LoadHeader(sched xio.Scheduler, fs vfs.FS, extDir string) (*Header, error) 
 // extra header files is ok.
 //
 // state is passed by caller.
+//
+// On disk:
+// [NVHeader_Len(4), NVHeader, checksum(4)]
 func (h *Header) Store(state metapb.ExtentState) error {
 
 	b := directio.AlignedBlock(headerSize)
 
 	h.nvh.State = int32(state)
 
-	n := h.nvh.MarshalTo(b[4:])
+	n := h.nvh.MarshalTo(b[4 : headerSize-4])
 	binary.LittleEndian.PutUint32(b[:4], uint32(n))
 
 	checksum := xdigest.Sum32(b[:headerSize-4])
