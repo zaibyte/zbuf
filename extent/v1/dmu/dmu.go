@@ -66,9 +66,13 @@ const (
 	// Start with a MinCap, saving memory.
 	// The minimum capacity, DMU must have MinCap slots, otherwise the tag in entry will not have
 	// the ability to reconstruct the digest back.
+	//
+	// MinCap = default_segment_size / max_object_size
 	MinCap = 1 << 16
 	// MaxCap is the maximum capacity of DMU.
 	// The real max number of keys may be around 0.9 * MaxCap.
+	//
+	// MaxCap = (default_segment_size / AlignSize) * 2
 	MaxCap = 1 << 25 // In case collision.
 )
 
