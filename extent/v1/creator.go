@@ -5,8 +5,6 @@ import (
 	"path/filepath"
 	"sync"
 
-	"g.tesamc.com/IT/zbuf/vdisk"
-
 	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
 
 	"g.tesamc.com/IT/zbuf/extent"
@@ -36,8 +34,7 @@ func (c *Creator) GetSize() uint64 {
 	return seg + header + boot + uint64(pa)
 }
 
-func (c *Creator) Create(ctx context.Context, fs vfs.FS,
-	instanceID, diskID, extID uint32, extDir string, diskInfo *vdisk.Info) (ext extent.Extenter, err error) {
+func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, dir string, params extent.CreateParams) (extent.Extenter, error) {
 
 	h, err := CreateHeader(c.iosched, fs, extDir, uint32(c.cfg.SegmentSize), metapb.ExtentState_Extent_ReadWrite, int(c.cfg.ReservedSeg))
 	if err != nil {
@@ -91,8 +88,7 @@ func (c *Creator) Create(ctx context.Context, fs vfs.FS,
 // Traverse start at the write_cursor, if meet checksum mismatched, stopping but not regard as broken,
 // because it may caused by power off, and because of we wouldn't return ok in this situation, the consistence won't be broken.
 // Traverse should check oid checksum
-func (c *Creator) Open(ctx context.Context, fs vfs.FS,
-	instanceID, diskID, extID uint32, extDir string, diskInfo *vdisk.Info) (ext extent.Extenter, err error) {
+func (c *Creator) Load(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, dir string, params extent.CreateParams) (extent.Extenter, error) {
 
 	h, err := LoadHeader(c.iosched, fs, extDir)
 	if err != nil {
