@@ -19,6 +19,8 @@ type NVHeader struct {
 	// Helping GC greedy algorithm working.
 	Removed []uint32 // 256 * 4B = 1024B
 
+	CloneJobID          uint64
+	CloneJobSize        uint64
 	CloneJobState       int32
 	CloneJobParentId    uint64
 	CloneJobSourceExtId uint32
