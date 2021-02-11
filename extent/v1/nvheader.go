@@ -1,5 +1,7 @@
 package v1
 
+import "g.tesamc.com/IT/zproto/pkg/metapb"
+
 // Non-Volatile Header is the part of Header will be synced to non-volatile device.
 // <= 4KB.
 type NVHeader struct {
@@ -19,10 +21,7 @@ type NVHeader struct {
 	// Helping GC greedy algorithm working.
 	Removed []uint32 // 256 * 4B = 1024B
 
-	CloneJobID       uint64
-	CloneJobSize     uint64
-	CloneJobState    int32
-	CloneJobParentId uint64
+	CloneJob *metapb.CloneJob
 }
 
 // Unmarshal decodes data as NVHeader and returns the number of bytes read.
