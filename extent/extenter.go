@@ -32,18 +32,23 @@ const (
 // TODO interface of migrate
 var AvailVersions = []uint16{Version1, VersionTest}
 
+// CreateParams are the params for creating an extent.
+type CreateParams struct {
+	InstanceID uint32
+	DiskID     uint32
+	ExtID      uint32
+	DiskInfo   *vdisk.Info
+	State      metapb.ExtentState
+	ObjCount   uint32 // Hint clone extent DMU capacity.
+}
+
 // Creator could create/open extenter.
 type Creator interface {
 	// Create creates Extenter which not existed.
 	// dir is extent dir.
-	Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
-		instanceID, diskID, extID uint32, dir string, diskInfo *vdisk.Info) (Extenter, error)
-	// CreateClone creates Extenter which needs to clone from source.
-	CreateClone(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
-		instanceID, diskID, extID uint32, srcExtID uint32, dir string, diskInfo *vdisk.Info) (Extenter, error)
+	Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, dir string, params CreateParams) (Extenter, error)
 	// Load loads an existed Extenter.
-	Load(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS,
-		instanceID, diskID, extID uint32, dir string, diskInfo *vdisk.Info) (Extenter, error)
+	Load(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, dir string, params CreateParams) (Extenter, error)
 	// GetSize gets the space size will be taken by the extent which will be created.
 	GetSize() uint64
 }
