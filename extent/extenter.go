@@ -18,7 +18,6 @@ type Extenter interface {
 
 	orpc.ServerHandler
 	GCer
-	Cloner
 
 	Close() error
 }
