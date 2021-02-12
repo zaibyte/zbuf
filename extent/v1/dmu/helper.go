@@ -34,7 +34,7 @@ func backToOriginCap(c int) int {
 }
 
 func (u *DMU) getWritableTable() []uint64 {
-	idx := u.getWritableIdx()
+	idx := u.GetWritableIdx()
 	p := atomic.LoadPointer(&u.cycle[idx])
 	return *(*[]uint64)(p)
 }

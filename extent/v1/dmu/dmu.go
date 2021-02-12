@@ -167,7 +167,7 @@ func (u *DMU) Insert(digest, otype, grains, addr uint32) error {
 		}
 
 		// Last writable table is full, try to expand to new table.
-		idx := u.getWritableIdx()
+		idx := u.GetWritableIdx()
 		p := atomic.LoadPointer(&u.cycle[idx])
 		tbl := *(*[]uint64)(p)
 		oc := backToOriginCap(len(tbl))
@@ -193,7 +193,7 @@ func (u *DMU) Insert(digest, otype, grains, addr uint32) error {
 // Return 0 if not found.
 func (u *DMU) Search(digest uint32) (entry uint64) {
 
-	widx := u.getWritableIdx()
+	widx := u.GetWritableIdx()
 	next := widx ^ 1
 	wt := GetTbl(u, int(widx))
 	nt := GetTbl(u, int(next))
@@ -274,7 +274,7 @@ func (u *DMU) Update(digest, newAddr uint32) bool {
 	defer u.Unlock()
 
 	// Must be succeed, because this operation doesn't need new slot.
-	widx := u.getWritableIdx()
+	widx := u.GetWritableIdx()
 	next := widx ^ 1
 	wt := GetTbl(u, int(widx))
 	nt := GetTbl(u, int(next))
@@ -434,7 +434,7 @@ func (u *DMU) tryRemove(digest uint32) (has bool, addr uint32) {
 // before invoking tryInsert, must be locked and have checked the digest been unique.
 func (u *DMU) tryInsert(digest, otype, grains, addr uint32) error {
 
-	idx := u.getWritableIdx()
+	idx := u.GetWritableIdx()
 	tbl := GetTbl(u, int(idx))
 
 	// 1. Try to find free slot within neighbourhood.

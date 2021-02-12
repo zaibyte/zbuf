@@ -67,7 +67,7 @@ func TestDMU_Close(t *testing.T) {
 func TestCreateStatusWritable(t *testing.T) {
 
 	dmu, _ := New(0)
-	if dmu.getWritableIdx() != 0 {
+	if dmu.GetWritableIdx() != 0 {
 		t.Fatal("writable table mismatched")
 	}
 }
@@ -76,11 +76,11 @@ func TestDMU_Writable(t *testing.T) {
 
 	dmu, _ := New(0)
 	dmu.setWritable(1)
-	if dmu.getWritableIdx() != 1 {
+	if dmu.GetWritableIdx() != 1 {
 		t.Fatal("writable table mismatched")
 	}
 	dmu.setWritable(0)
-	if dmu.getWritableIdx() != 0 {
+	if dmu.GetWritableIdx() != 0 {
 		t.Fatal("writable table mismatched")
 	}
 }

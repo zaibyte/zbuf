@@ -299,11 +299,11 @@ func TestDMU_Expand(t *testing.T) {
 	}
 
 	dmu.unScale()
-	widx := dmu.getWritableIdx()
+	widx := dmu.GetWritableIdx()
 	// Cannot expand because the digest is existed.
 	err := dmu.Insert(ens[0].digest, ens[0].otype, ens[0].grains, ens[0].addr)
 	assert.EqualError(t, err, orpc.ErrObjDigestExisted.Error())
-	nwidx := dmu.getWritableIdx()
+	nwidx := dmu.GetWritableIdx()
 	assert.Equal(t, widx, nwidx)
 
 	// Trigger expand.

@@ -55,9 +55,9 @@ func (u *DMU) unScale() {
 	atomic.StoreUint64(&u.status, sa)
 }
 
-// getWritableIdx gets writable table in DMU.
+// GetWritableIdx gets writable table in DMU.
 // 0 or 1.
-func (u *DMU) getWritableIdx() uint8 {
+func (u *DMU) GetWritableIdx() uint8 {
 	sa := atomic.LoadUint64(&u.status)
 	return uint8((sa >> 59) & 1)
 }
