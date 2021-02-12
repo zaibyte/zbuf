@@ -168,8 +168,8 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			if !checkedSnap {
 				return checkSnapSyncGCInterval, true
 			}
-			e.TryMakeDMUSnap(true)
-			return checkSnapSyncGCInterval, false // Reset checked, avoiding TryMakeDMUSnap too frequently.
+			e.makeDMUSnapAsync(true)
+			return checkSnapSyncGCInterval, false // Reset checked, avoiding makeDMUSnapAsync too frequently.
 		}
 
 		e.rwMutex.Lock()
@@ -235,8 +235,8 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 					if !checkedSnap {
 						return checkSnapSyncGCInterval, true
 					}
-					e.TryMakeDMUSnap(true)
-					return checkSnapSyncGCInterval, false // Reset checked, avoiding TryMakeDMUSnap too frequently.
+					e.makeDMUSnapAsync(true)
+					return checkSnapSyncGCInterval, false // Reset checked, avoiding makeDMUSnapAsync too frequently.
 				}
 				e.rwMutex.Lock()
 				newDst := e.findGCDst()

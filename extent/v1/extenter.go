@@ -246,6 +246,8 @@ func (e *Extenter) GetInfo() *extent.Info {
 
 func (e *Extenter) Close() error {
 
+	e.dmu.Close()
+
 	e.cancel()
 
 	e.stopWg.Wait()
@@ -267,21 +269,18 @@ func (e *Extenter) getLastDMUSnap() *colf.DMUSnap {
 	return (*colf.DMUSnap)(p)
 }
 
-func (e *Extenter) makeDMUSnap() {
+func (e *Extenter) makeDMUSnapSync(force bool) error {
 
 }
 
-// TryMakeDMUSnap makes DMU snapshot.
+// makeDMUSnapAsync makes DMU snapshot.
 //
 // Warning:
 // Extenter should be locked already.
-func (e *Extenter) TryMakeDMUSnap(force bool) {
+func (e *Extenter) makeDMUSnapAsync(force bool) <-chan error {
 
-	if atomic.LoadInt64(&e.isMakingDMUSnap) == 1 {
-		return
-	}
 	if !atomic.CompareAndSwapInt64(&e.isMakingDMUSnap, 0, 1) {
-		return
+		return nil
 	}
 
 	last := e.getLastDMUSnap()
@@ -295,11 +294,14 @@ func (e *Extenter) TryMakeDMUSnap(force bool) {
 		}
 
 		if !acceptable {
-			return
+			return nil
 		}
 	}
 
-	snap := new(colf.PhyAddrSnap)
+	// For many cases, there is no receiver for makeDMUSnapAsync, using buffered chan for avoiding blocking.
+	done := make(chan error, 1)
+
+	snap := new(colf.DMUSnap)
 	snap.CreatTS = tsc.UnixNano()
 	e.rwMutex.RLock()
 	snap.WritableHistoryIdx = e.header.nvh.WritableHistoryNextIdx - 1
@@ -337,6 +339,18 @@ func (e *Extenter) TryMakeDMUSnap(force bool) {
 
 	atomic.StoreInt64(&e.isMakingDMUSnap, 0)
 	// TODO after flushing, clean old snapshot
+}
+
+func (e *Extenter) loadDMUSnap() error {
+
+}
+
+func (e *Extenter) traverseWritableSeg() error {
+
+}
+
+func (e *Extenter) traverseGCDst() error {
+
 }
 
 // cleanDirtyUpdates set dirtyUpdates 0 directly.
