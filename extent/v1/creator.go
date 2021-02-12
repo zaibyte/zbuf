@@ -42,7 +42,7 @@ func (c *Creator) GetSize() uint64 {
 	return seg + header + boot + uint64(pa)
 }
 
-func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, extDir string, params extent.CreateParams) (extent.Extenter, error) {
+func (c *Creator) Create(ctx context.Context, extDir string, params extent.CreateParams) (extent.Extenter, error) {
 
 	fs := c.fs
 	h, err := c.CreateHeader(fs, extDir, params)
@@ -101,7 +101,7 @@ func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, extDir string,
 // Traverse start at the write_cursor, if meet checksum mismatched, stopping but not regard as broken,
 // because it may caused by power off, and because of we wouldn't return ok in this situation, the consistence won't be broken.
 // Traverse should check oid checksum
-func (c *Creator) Load(ctx context.Context, wg *sync.WaitGroup, extDir string, params extent.CreateParams) (extent.Extenter, error) {
+func (c *Creator) Load(ctx context.Context, extDir string, params extent.CreateParams) (extent.Extenter, error) {
 
 	fs := c.fs
 

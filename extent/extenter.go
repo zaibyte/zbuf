@@ -2,7 +2,6 @@ package extent
 
 import (
 	"context"
-	"sync"
 
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zbuf/vdisk"
@@ -41,9 +40,9 @@ type CreateParams struct {
 type Creator interface {
 	// Create creates Extenter which not existed.
 	// dir is extent dir.
-	Create(ctx context.Context, wg *sync.WaitGroup, extDir string, params CreateParams) (Extenter, error)
+	Create(ctx context.Context, extDir string, params CreateParams) (Extenter, error)
 	// Load loads an existed Extenter.
-	Load(ctx context.Context, wg *sync.WaitGroup, extDir string, params CreateParams) (Extenter, error)
+	Load(ctx context.Context, extDir string, params CreateParams) (Extenter, error)
 	// GetSize gets the space size will be taken by the extent which will be created.
 	GetSize() uint64
 }
