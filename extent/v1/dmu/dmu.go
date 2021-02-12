@@ -128,9 +128,6 @@ func (u *DMU) Close() {
 	defer u.Unlock()
 
 	u.close()
-
-	atomic.StorePointer(&u.cycle[0], nil)
-	atomic.StorePointer(&u.cycle[1], nil)
 }
 
 var (
