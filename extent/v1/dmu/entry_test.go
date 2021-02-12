@@ -43,7 +43,7 @@ func TestEntryMakeParse(t *testing.T) {
 		entry := MakeEntry(digest, neighOff, otype, grains, addr)
 
 		tag, _ := makeTag(digest)
-		slot := getSlot(slotCnt, digest)
+		slot := CalcSlot(slotCnt, digest)
 
 		tagAct, neighOffAct, otypeAct, grainsAct, addrAct := ParseEntry(entry)
 		digestAct := BackToDigest(tag, uint32(slotCnt), uint32(slot)+neighOff, neighOff)

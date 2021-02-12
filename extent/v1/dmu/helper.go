@@ -39,7 +39,8 @@ func (u *DMU) getWritableTable() []uint64 {
 	return *(*[]uint64)(p)
 }
 
-func getSlot(slotCnt int, digest uint32) int {
+// CalcSlot calculates digest's slot in this table with slotCnt length.
+func CalcSlot(slotCnt int, digest uint32) int {
 	return int(digest & (calcMask(uint32(slotCnt))))
 }
 

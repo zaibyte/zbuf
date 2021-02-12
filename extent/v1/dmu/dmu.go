@@ -201,7 +201,7 @@ func (u *DMU) Search(digest uint32) (entry uint64) {
 	// 1. Search writable table first. Statistically speaking, the newer, the requests more.
 	if wt != nil {
 		slotCnt := len(wt)
-		slot := getSlot(slotCnt, digest)
+		slot := CalcSlot(slotCnt, digest)
 		n := neighbour
 		if slot+neighbour >= slotCnt {
 			n = slotCnt - slot
@@ -223,7 +223,7 @@ func (u *DMU) Search(digest uint32) (entry uint64) {
 	// 2. If is scaling, searching next table.
 	if nt != nil {
 		slotCnt := len(nt)
-		slot := getSlot(slotCnt, digest)
+		slot := CalcSlot(slotCnt, digest)
 		n := neighbour
 		if slot+neighbour >= slotCnt {
 			n = slotCnt - slot
@@ -283,7 +283,7 @@ func (u *DMU) Update(digest, newAddr uint32) bool {
 	// 1. Update writable table first
 	if wt != nil {
 		slotCnt := len(wt)
-		slot := getSlot(slotCnt, digest)
+		slot := CalcSlot(slotCnt, digest)
 		n := neighbour
 		if slot+neighbour >= slotCnt {
 			n = slotCnt - slot
@@ -307,7 +307,7 @@ func (u *DMU) Update(digest, newAddr uint32) bool {
 	// 2. If is scaling, searching next table.
 	if nt != nil {
 		slotCnt := len(nt)
-		slot := getSlot(slotCnt, digest)
+		slot := CalcSlot(slotCnt, digest)
 		n := neighbour
 		if slot+neighbour >= slotCnt {
 			n = slotCnt - slot
@@ -406,7 +406,7 @@ func (u *DMU) tryRemove(digest uint32) (has bool, addr uint32) {
 			continue
 		}
 		slotCnt := len(tbl)
-		slot := getSlot(slotCnt, digest)
+		slot := CalcSlot(slotCnt, digest)
 		n := neighbour
 		if slot+neighbour >= slotCnt {
 			n = slotCnt - slot
@@ -440,7 +440,7 @@ func (u *DMU) tryInsert(digest, otype, grains, addr uint32) error {
 	// 1. Try to find free slot within neighbourhood.
 	slotOff := neighbour // slotOff is the distance between avail slot from hashed slot.
 	slotCnt := len(tbl)
-	slot := getSlot(slotCnt, digest)
+	slot := CalcSlot(slotCnt, digest)
 	n := neighbour
 	if slot+neighbour >= slotCnt {
 		n = slotCnt - slot
@@ -496,7 +496,7 @@ func (u *DMU) swap(start, slotCnt int, tbl []uint64) (int, uint8) {
 				e := atomic.LoadUint64(&tbl[j])
 				tag, neighOff, otype, grains, addr := ParseEntry(e)
 				digest := BackToDigest(tag, uint32(slotCnt), uint32(j), neighOff)
-				jslot := getSlot(slotCnt, digest)
+				jslot := CalcSlot(slotCnt, digest)
 				if i-jslot < neighbour {
 					e = MakeEntry(digest,
 						uint32(i)-uint32(jslot), otype, grains, addr)
