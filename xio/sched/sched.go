@@ -2,10 +2,13 @@ package sched
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"sort"
 	"sync"
 	"time"
+
+	"g.tesamc.com/IT/zaipkg/xlog"
 
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
@@ -49,6 +52,7 @@ type Scheduler struct {
 	workersCh chan struct{}
 
 	ctx    context.Context
+	cancel func()
 	stopWg *sync.WaitGroup
 }
 
@@ -79,9 +83,11 @@ func (s *Scheduler) DoSync(reqType uint64, f vfs.File, offset int64, d []byte) (
 }
 
 // New creates a scheduler instance.
-func New(ctx context.Context, wg *sync.WaitGroup, cfg *Config, di *vdisk.Info) *Scheduler {
+func New(ctx context.Context, cfg *Config, di *vdisk.Info) *Scheduler {
 
 	cfg.adjust()
+
+	ctx2, cancel := context.WithCancel(ctx)
 
 	return &Scheduler{
 		cfg: cfg,
@@ -91,9 +97,22 @@ func New(ctx context.Context, wg *sync.WaitGroup, cfg *Config, di *vdisk.Info) *
 
 		workersCh: make(chan struct{}, cfg.Threads),
 
-		ctx:    ctx,
-		stopWg: wg,
+		ctx:    ctx2,
+		cancel: cancel,
+		stopWg: new(sync.WaitGroup),
 	}
+}
+
+func (s *Scheduler) Start() {
+	s.stopWg.Add(1)
+	go s.FindRunnableLoop()
+	xlog.Info(fmt.Sprintf("disk: %d scheduler is running", s.diskInfo.PbDisk.Id))
+}
+
+func (s *Scheduler) Close() {
+	s.cancel()
+	s.stopWg.Wait()
+	xlog.Info(fmt.Sprintf("disk: %d scheduler is closed", s.diskInfo.PbDisk.Id))
 }
 
 func (c *Config) adjust() {
