@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 	"unsafe"
 
 	zai "g.tesamc.com/IT/zai/client"
@@ -247,6 +248,9 @@ func (e *Extenter) GetInfo() *extent.Info {
 func (e *Extenter) Close() error {
 
 	e.dmu.Close()
+	// Far away from enough for DMU finishing all operation.
+	// Enough DMU is stable.
+	time.Sleep(time.Millisecond)
 
 	e.cancel()
 
