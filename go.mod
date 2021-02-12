@@ -3,6 +3,7 @@ module g.tesamc.com/IT/zbuf
 go 1.15
 
 require (
+	g.tesamc.com/IT/zai v0.0.0-20210211214729-073e9b119c52
 	g.tesamc.com/IT/zaipkg v0.0.0-20210209052751-d8e7bb3c07f6
 	g.tesamc.com/IT/zproto v0.0.0-20210211215311-bcd38e3c16c4
 	github.com/VictoriaMetrics/metrics v1.12.3
@@ -15,7 +16,7 @@ require (
 	github.com/templexxx/cpu v0.0.8-0.20200904080713-862a179c181c
 	github.com/templexxx/fnc v1.0.1
 	github.com/templexxx/tsc v0.0.2-0.20201016082558-86c1143c3415
-	github.com/templexxx/xhex v0.0.0-20200614015412-aed53437177b
+	github.com/templexxx/xhex v0.0.0-20200614015412-aed53437177b // indirect
 	golang.org/x/mod v0.4.1 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 )
