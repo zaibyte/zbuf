@@ -1,8 +1,6 @@
 package dmu
 
 import (
-	"bytes"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"testing"
@@ -10,53 +8,7 @@ import (
 	"g.tesamc.com/IT/zaipkg/orpc"
 	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
 	"g.tesamc.com/IT/zaipkg/xtest"
-
-	"github.com/pierrec/lz4/v4"
 )
-
-// Try to test the ratio of compression of LZ4 for compressing sparse DMU.
-// Results:
-// lz4 is good enough.
-//
-// 16Ki entry with 512Ki cap table: traverse: 160KB, lz4: 227KB, copy: 4096KB
-// 32Ki entry with 512Ki cap table: traverse: 320KB, lz4: 429KB, copy: 4096KB
-// 64Ki entry with 512Ki cap table: traverse: 640KB, lz4: 806KB, copy: 4096KB
-// 128Ki entry with 512Ki cap table: traverse: 1280KB, lz4: 1464KB, copy: 4096KB
-// 256Ki entry with 512Ki cap table: traverse: 2560KB, lz4: 2538KB, copy: 4096KB
-func TestLZ4Compress(t *testing.T) {
-	if !xtest.IsPropEnabled() {
-		t.Skip("skip testing, because it only needs to be run once")
-	}
-
-	cnt := 1 << 19
-	dmu, _ := New(cnt)
-	ens := generatesEntriesFast(cnt / 2)
-
-	for i := 1024 * 16; i <= cnt/2; i *= 2 {
-		for _, en := range ens[:i] {
-			err := dmu.Insert(en.digest, en.otype, en.grains, en.addr)
-			if err == orpc.ErrObjDigestExisted {
-				continue
-			}
-			if err != nil {
-				t.Fatal(err)
-			}
-		}
-		buf := bytes.NewBuffer(nil)
-		err := binary.Write(buf, binary.LittleEndian, GetTbl(dmu, 0))
-		if err != nil {
-			t.Fatal(err)
-		}
-		w := bytes.NewBuffer(nil)
-		lw := lz4.NewWriter(w)
-		_, err2 := lw.Write(buf.Bytes())
-		if err2 != nil {
-			t.Fatal(err2)
-		}
-		fmt.Printf("%dKi entry with %dKi cap table: traverse: %dKB, lz4: %dKB, copy: %dKB\n",
-			i/1024, cnt/1024, i*10/1024, w.Len()/1024, cnt*8/1024)
-	}
-}
 
 // Both of two tables are using same hash function(actually using digest directly), I want to know just make table
 // capacity grow 2x could make the expanding work as expecting or not.

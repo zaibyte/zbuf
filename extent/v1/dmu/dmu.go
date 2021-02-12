@@ -72,7 +72,7 @@ const (
 	// MaxCap is the maximum capacity of DMU.
 	// The real max number of keys may be around 0.9 * MaxCap.
 	//
-	// MaxCap = (default_segment_size / AlignSize) * 2
+	// MaxCap = (default_segment_size*256 / AlignSize) * 2
 	MaxCap = 1 << 25 // In case collision.
 )
 
