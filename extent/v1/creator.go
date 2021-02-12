@@ -5,9 +5,10 @@ import (
 	"path/filepath"
 	"sync"
 
-	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
+	zai "g.tesamc.com/IT/zai/client"
 
 	"g.tesamc.com/IT/zbuf/extent"
+	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
 	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zbuf/xio"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
@@ -16,10 +17,17 @@ import (
 type Creator struct {
 	cfg     *Config
 	iosched xio.Scheduler
+	fs      vfs.FS
+	zai     zai.Client
 }
 
-func NewCreator(cfg *Config, iosched xio.Scheduler) *Creator {
-	return &Creator{cfg: cfg, iosched: iosched}
+func NewCreator(cfg *Config, iosched xio.Scheduler, fs vfs.FS, zai zai.Client) *Creator {
+	return &Creator{
+		cfg:     cfg,
+		iosched: iosched,
+		fs:      fs,
+		zai:     zai,
+	}
 }
 
 // GetSize returns the space allocation of an extent.v1, including:
@@ -34,9 +42,10 @@ func (c *Creator) GetSize() uint64 {
 	return seg + header + boot + uint64(pa)
 }
 
-func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, dir string, params extent.CreateParams) (extent.Extenter, error) {
+func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, extDir string, params extent.CreateParams) (extent.Extenter, error) {
 
-	h, err := CreateHeader(c.iosched, fs, extDir, uint32(c.cfg.SegmentSize), metapb.ExtentState_Extent_ReadWrite, int(c.cfg.ReservedSeg))
+	fs := c.fs
+	h, err := c.CreateHeader(fs, extDir, params)
 	if err != nil {
 		return nil, err
 	}
@@ -47,9 +56,13 @@ func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, dir
 		return nil, err
 	}
 
-	phyAddr, _ := dmu.New(dmu.MinCap)
+	dmuCap := dmu.MinCap
+	if params.CloneJob != nil {
+		dmuCap = int(params.CloneJob.ObjCnt)
+	}
+	phyAddr, _ := dmu.New(dmuCap)
 
-	ext = &Extenter{
+	ext := &Extenter{
 		cfg:      c.cfg,
 		fs:       fs,
 		diskInfo: diskInfo,
@@ -88,7 +101,9 @@ func (c *Creator) Create(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, dir
 // Traverse start at the write_cursor, if meet checksum mismatched, stopping but not regard as broken,
 // because it may caused by power off, and because of we wouldn't return ok in this situation, the consistence won't be broken.
 // Traverse should check oid checksum
-func (c *Creator) Load(ctx context.Context, wg *sync.WaitGroup, fs vfs.FS, dir string, params extent.CreateParams) (extent.Extenter, error) {
+func (c *Creator) Load(ctx context.Context, wg *sync.WaitGroup, extDir string, params extent.CreateParams) (extent.Extenter, error) {
+
+	fs := c.fs
 
 	h, err := LoadHeader(c.iosched, fs, extDir)
 	if err != nil {
