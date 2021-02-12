@@ -10,6 +10,8 @@ import (
 
 // Extenter is the collection of extent methods.
 type Extenter interface {
+	Start() error
+
 	GetInfo() *Info
 
 	orpc.ServerHandler

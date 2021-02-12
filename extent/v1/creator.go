@@ -62,34 +62,46 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 	}
 	phyAddr, _ := dmu.New(dmuCap)
 
+	ctx2, cancel := context.WithCancel(ctx)
+
 	ext := &Extenter{
-		cfg:      c.cfg,
-		fs:       fs,
-		diskInfo: diskInfo,
-		rwMutex:  new(sync.RWMutex),
-		header:   h,
+		cfg:     c.cfg,
+		rwMutex: new(sync.RWMutex),
+		fs:      fs,
+		extDir:  extDir,
 		info: &extent.Info{PbExt: &metapb.Extent{
 			State:      metapb.ExtentState(h.nvh.State),
-			Id:         extID,
-			Size_:      uint64(c.cfg.SegmentSize * uint32(segmentCnt)),
+			Id:         params.ExtID,
+			Size_:      uint64(c.cfg.SegmentSize) * uint64(segmentCnt),
 			Used:       0,
 			Avail:      (segmentCnt - uint64(c.cfg.ReservedSeg)) * uint64(c.cfg.SegmentSize),
 			Version:    uint32(extent.Version1),
-			DiskId:     diskID,
-			InstanceId: instanceID,
+			DiskId:     params.DiskID,
+			InstanceId: params.InstanceID,
 		}},
+		diskInfo: params.DiskInfo,
 		ioSched:  c.iosched,
 		segsFile: segFile,
-		dmu:      phyAddr,
 
-		putObjChan: make(chan *putObjRequest, c.cfg.UpdatesPending),
-		dmuChan:    make(chan *dmuRequest, c.cfg.UpdatesPending), // Shares same config.
+		header: h,
+
+		dmu: phyAddr,
+
+		writableSeg:    -1,
+		writableCursor: -1,
 
 		gcSrcSeg: -1,
 		gcDstSeg: -1,
 
-		ctx:    ctx,
-		stopWg: wg,
+		putObjChan: make(chan *putObjRequest, c.cfg.UpdatesPending),
+		dmuChan:    make(chan *dmuRequest, c.cfg.UpdatesPending), // Shares same config.
+		forceGC:    make(chan float64, 1),
+
+		zai: c.zai,
+
+		ctx:    ctx2,
+		cancel: cancel,
+		stopWg: new(sync.WaitGroup),
 	}
 
 	return ext, err

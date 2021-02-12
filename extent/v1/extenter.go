@@ -23,6 +23,8 @@ import (
 	"sync/atomic"
 	"unsafe"
 
+	zai "g.tesamc.com/IT/zai/client"
+
 	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zaipkg/xlog"
 
@@ -85,9 +87,15 @@ type Extenter struct {
 	dmuChan    chan *dmuRequest
 	forceGC    chan float64
 
+	zai zai.Client
+
 	ctx    context.Context
 	cancel func()
 	stopWg *sync.WaitGroup
+}
+
+func (e *Extenter) Start() error {
+	panic("implement me")
 }
 
 func (e *Extenter) PutObj(_reqid, oid uint64, _extID uint32, objData []byte) error {
@@ -236,7 +244,7 @@ func (e *Extenter) GetInfo() *extent.Info {
 	return e.info
 }
 
-func (e *Extenter) Close(err error) error {
+func (e *Extenter) Close() error {
 
 	e.cancel()
 
@@ -251,12 +259,12 @@ func (e *Extenter) LoadPhyAddr() {
 
 }
 
-func (e *Extenter) getLastDMUSnap() *colf.PhyAddrSnap {
+func (e *Extenter) getLastDMUSnap() *colf.DMUSnap {
 	p := atomic.LoadPointer(&e.lastDMUSnap)
 	if p == nil {
 		return nil
 	}
-	return (*colf.PhyAddrSnap)(p)
+	return (*colf.DMUSnap)(p)
 }
 
 func (e *Extenter) makeDMUSnap() {
