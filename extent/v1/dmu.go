@@ -1,19 +1,37 @@
 package v1
 
 import (
+	"encoding/binary"
+	"path/filepath"
+	"strconv"
 	"sync/atomic"
+	"unsafe"
 
-	"g.tesamc.com/IT/zbuf/extent/v1/colf"
+	"g.tesamc.com/IT/zaipkg/xerrors"
+
+	"g.tesamc.com/IT/zbuf/xio"
+
+	"g.tesamc.com/IT/zaipkg/xdigest"
+
+	"g.tesamc.com/IT/zaipkg/directio"
+
+	"g.tesamc.com/IT/zbuf/vfs"
+
 	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
 	"github.com/templexxx/tsc"
 )
 
-// DMUSnapHeader is the header of DMU Snapshot.
-type DMUSnapHeader struct {
-	// CreateTS is the snapshot starting creating timestamp.
-	CreateTS int64
+// dmuSnapHeader is the header of DMU Snapshot.
+type dmuSnapHeader struct {
+	f vfs.File
+
+	// createTS is the snapshot starting creating timestamp.
+	// It'll be the snapshot file name too.
+	createTS int64
 	// Total objects count, indicating DMU capacity.
-	ObjCnt uint32
+	objCnt uint32
+	// Snapshot's blocks count, indicating the I/O cost of snapshot.
+	blocksCnt uint32
 
 	WritableHistoryIdx int64
 	WritableSeg        int64
@@ -31,16 +49,25 @@ type DMUSnapHeader struct {
 	CloneJobDoneCnt uint32
 }
 
-func (e *Extenter) getLastDMUSnap() *colf.DMUSnap {
+const (
+	dmuSnapHeaderSize = 4096
+	dmuSnapBlockSize  = 32 * 1024
+	// maxObjCntInSnapBlk = (dmuSnapBlockSize - objCntInBlk - checksum_size - table_slot_cnt) / entry_size
+	maxObjCntInSnapBlk = (dmuSnapBlockSize - 2 - 4 - 4) / 8
+)
+
+func (e *Extenter) getLastDMUSnap() *dmuSnapHeader {
 	p := atomic.LoadPointer(&e.lastDMUSnap)
 	if p == nil {
 		return nil
 	}
-	return (*colf.DMUSnap)(p)
+	return (*dmuSnapHeader)(p)
 }
 
 func (e *Extenter) makeDMUSnapSync(force bool) error {
-
+	done := e.makeDMUSnapAsync(force)
+	err := <-done
+	return err
 }
 
 // makeDMUSnapAsync makes DMU snapshot.
@@ -60,7 +87,7 @@ func (e *Extenter) makeDMUSnapAsync(force bool) <-chan error {
 		if last == nil {
 			acceptable = true
 		} else {
-			acceptable = isSnapCostAcceptable(last.TablesSize, last.CreatTS)
+			acceptable = isSnapCostAcceptable(int64(last.blocksCnt*dmuSnapBlockSize), last.createTS)
 		}
 
 		if !acceptable {
@@ -71,32 +98,95 @@ func (e *Extenter) makeDMUSnapAsync(force bool) <-chan error {
 	// For many cases, there is no receiver for makeDMUSnapAsync, using buffered chan for avoiding blocking.
 	done := make(chan error, 1)
 
-	snap := new(colf.DMUSnap)
-	snap.CreatTS = tsc.UnixNano()
+	go e.writeDMUSnap(done)
+
+	return done
+}
+
+func (e *Extenter) writeDMUTblSnap(f vfs.File, offset int64, tbl []uint64,
+	blockBuf []byte, di *xdigest.Digest) (newOffset int64, err error) {
+	if tbl != nil {
+		binary.LittleEndian.PutUint32(blockBuf[:4], uint32(len(tbl)))
+		objCntInBlk := 0
+		for i := range tbl {
+
+			en := atomic.LoadUint64(&tbl[i])
+			if en != 0 {
+				objCntInBlk++
+				binary.LittleEndian.PutUint64(blockBuf[6+objCntInBlk*8:14+objCntInBlk*8], en)
+			}
+
+			if objCntInBlk == maxObjCntInSnapBlk || i == len(tbl)-1 {
+				binary.LittleEndian.PutUint16(blockBuf[4:6], uint16(objCntInBlk))
+				_, _ = di.Write(blockBuf)
+				digest := di.Sum32()
+				binary.LittleEndian.PutUint32(blockBuf[dmuSnapBlockSize-4:], digest)
+				di.Reset()
+				err := e.ioSched.DoSync(xio.ReqMetaWrite, f, offset, blockBuf)
+				if err != nil {
+					return 0, err
+				}
+				offset += dmuSnapBlockSize
+				objCntInBlk = 0
+			}
+		}
+	}
+	return offset, nil
+}
+
+func (e *Extenter) writeDMUSnap(done chan<- error) {
+	var err error
+	snap := new(dmuSnapHeader)
+
+	defer func() {
+		e.handleError(err)
+		done <- err
+		if err == nil {
+			atomic.StorePointer((*unsafe.Pointer)(e.lastDMUSnap), unsafe.Pointer(snap))
+		}
+		atomic.StoreInt64(&e.isMakingDMUSnap, 0)
+	}()
+
+	createTS := tsc.UnixNano()
+
+	f, err2 := e.fs.Create(filepath.Join(e.extDir, strconv.Itoa(int(createTS))+".dmu_snap"))
+	if err2 != nil {
+		err = err2
+		return
+	}
+	defer f.Close()
+
+	snap.createTS = createTS
+
 	e.rwMutex.RLock()
 	snap.WritableHistoryIdx = e.header.nvh.WritableHistoryNextIdx - 1
 	snap.WritableSeg = e.writableSeg
 	snap.WritableCursor = e.writableCursor
-	// TODO read GC
+	snap.GcSrcSeg = e.gcSrcSeg
+	snap.GcDstSeg = e.gcDstSeg
+	snap.GcSrcCursor = e.gcSrcCursor
+	snap.GcDstCursor = e.gcDstCursor
+	snap.CloneJobDoneCnt = uint32(e.header.nvh.CloneJob.DoneCnt)
 	e.rwMutex.RUnlock()
 
-	// TODO after init snap, make a new goroutine to do snap
-	pa := e.dmu
+	d := e.dmu
 
-	t0 := dmu.GetTbl(pa, 0)
-	t1 := dmu.GetTbl(pa, 1)
+	t0 := dmu.GetTbl(d, 0)
+	t1 := dmu.GetTbl(d, 1)
 
-	// TODO could I use mfence, then copy the whole table?
-	// TODO I could make table aligned to cache line when create DMU, then allocate dst align to cache line,
-	// because after/include skylake(in Tesamc, surely has), no loading will be not atomic in memmove.
-	// In memmove, even the biggest operation won't cross the cacheline, if we already make the slice aligned to cache line.
-	// But I think, the Go race detection will fail if I just use copy.
-	var t0dst []uint64
-	if t0 != nil {
-		t0dst = make([]uint64, len(t0))
-		for i := range t0 {
-			t0dst[i] = atomic.LoadUint64(&t0[i])
-		}
+	blockBuf := directio.AlignedBlock(dmuSnapBlockSize)
+	offset := int64(dmuSnapHeaderSize)
+	di := xdigest.New()
+
+	offset, err = e.writeDMUTblSnap(f, offset, t0, blockBuf, di)
+	if err != nil {
+		err = xerrors.WithMessage(err, "failed to write DMU snapshot")
+		return
+	}
+	_, err = e.writeDMUTblSnap(f, offset, t1, blockBuf, di)
+	if err != nil {
+		err = xerrors.WithMessage(err, "failed to write DMU snapshot")
+		return
 	}
 
 	var t1dst []uint64
@@ -106,9 +196,6 @@ func (e *Extenter) makeDMUSnapAsync(force bool) <-chan error {
 			t1dst[i] = atomic.LoadUint64(&t1[i])
 		}
 	}
-
-	atomic.StoreInt64(&e.isMakingDMUSnap, 0)
-	// TODO after flushing, clean old snapshot
 }
 
 func (e *Extenter) loadDMUSnap() error {
