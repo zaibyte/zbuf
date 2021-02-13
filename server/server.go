@@ -106,6 +106,10 @@ func (s *Server) Run() error {
 	return nil
 }
 
+func (s *Server) isClosed() bool {
+	return atomic.LoadInt64(&s.isRunning) == 0
+}
+
 // startBgLoops starts Server background jobs which running in loops.
 func (s *Server) startBgLoops() {
 	s.stopWg.Add(1)

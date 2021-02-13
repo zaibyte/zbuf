@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"g.tesamc.com/IT/zaipkg/orpc"
+
 	"g.tesamc.com/IT/zaipkg/xerrors"
 	"g.tesamc.com/IT/zaipkg/xlog"
 
@@ -18,13 +20,19 @@ import (
 )
 
 func (s *Server) addOpHandlers() {
-	s.opSvr.AddHandler(http.MethodPut, "/v1/extent/create/:version/:disk_id/:ext_id", s.createExtentHandler)
+	s.opSvr.AddHandler(http.MethodPut, "/v1/extent/create/:version/:disk_id/:ext_id/:state/:obj_cnt", s.createExtentHandler)
 }
 
-// Path: /v1/extent/create/:version/:disk_id/:ext_id
+// Path: /v1/extent/create/:version/:disk_id/:ext_id/:state/:obj_cnt
 func (s *Server) createExtentHandler(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
 
 	reqid := xhttp.GetReqID(req)
+
+	if s.isClosed() {
+		xlog.ErrorID(reqid, orpc.ErrServiceClosed.Error())
+		xhttp.ReplyError(w, orpc.ErrServiceClosed.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	var version uint16
 	xhttp.ParsePath(p, "version", &version)
@@ -48,7 +56,13 @@ func (s *Server) createExtentHandler(w http.ResponseWriter, req *http.Request, p
 	var extID uint32
 	xhttp.ParsePath(p, "ext_id", &extID)
 
-	err := s.createExtent(version, extID, diskID)
+	var state uint32
+	xhttp.ParsePath(p, "state", &state)
+
+	var objCount uint32
+	xhttp.ParsePath(p, "obj_cnt", &objCount)
+
+	err := s.createExtent(version, extID, diskID, state, objCount)
 	if err != nil {
 		err = xerrors.WithMessage(err, fmt.Sprintf("create extent: %d failed", extID))
 		xlog.ErrorID(reqid, err.Error())
