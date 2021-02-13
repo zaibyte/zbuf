@@ -25,7 +25,7 @@ func TestDMU_Search(t *testing.T) {
 	for n := start; n <= MinCap*2; n *= 2 {
 
 		ens := generatesEntriesFast(int(float64(n) * 2))
-		dmu, _ := New(n)
+		dmu := New(n)
 
 		wg := new(sync.WaitGroup)
 
@@ -70,7 +70,7 @@ func TestDMU_Remove(t *testing.T) {
 	start := MinCap
 	for n := start; n <= MinCap*2; n *= 2 {
 		ens := generatesEntriesFast(n / 2)
-		dmu, _ := New(n)
+		dmu := New(n)
 		for _, en := range ens {
 			err := dmu.Insert(en.digest, en.otype, en.grains, en.addr)
 			if err != nil {
@@ -97,7 +97,7 @@ func TestDMU_Update(t *testing.T) {
 	start := MinCap
 	for n := start; n <= MinCap*2; n *= 2 {
 		ens := generatesEntriesFast(n)
-		dmu, _ := New(n)
+		dmu := New(n)
 
 		wg := new(sync.WaitGroup)
 		wg.Add(1)
@@ -133,7 +133,7 @@ func TestDMU_Update(t *testing.T) {
 func TestDMU_Concurrent(t *testing.T) {
 
 	n := MinCap
-	dmu, _ := New(n)
+	dmu := New(n)
 	ens := generatesEntriesFast(n * 2)
 	for i := range ens[:n] {
 		err := dmu.Insert(ens[i].digest, ens[i].otype, ens[i].grains, ens[i].addr)
@@ -268,7 +268,7 @@ func generatesEntries(cnt int, fast bool) []entryFields {
 
 func TestDMU_InsertSameDigest(t *testing.T) {
 	n := MinCap
-	dmu, _ := New(n)
+	dmu := New(n)
 	ens := generatesEntriesFast(1)
 	err := dmu.Insert(ens[0].digest, ens[0].otype, ens[0].grains, ens[0].addr)
 	if err != nil {
@@ -281,7 +281,7 @@ func TestDMU_InsertSameDigest(t *testing.T) {
 // Trigger expand.
 func TestDMU_Expand(t *testing.T) {
 	n := MinCap
-	dmu, _ := New(n)
+	dmu := New(n)
 	ens := generatesEntriesFast(n)
 
 	dmu.scale()

@@ -21,7 +21,7 @@ func TestDMUExpand(t *testing.T) {
 	}
 
 	cnt := 1 << 16
-	dmu, _ := New(cnt)
+	dmu := New(cnt)
 	dmu.scale()
 
 	ens := generatesEntriesFast(cnt * 2)
@@ -35,7 +35,7 @@ func TestDMUExpand(t *testing.T) {
 		}
 	}
 
-	dmu2, _ := New(cnt * 2)
+	dmu2 := New(cnt * 2)
 	dmu2.scale()
 
 	mitFull2 := 0
@@ -77,7 +77,7 @@ func TestMitFull(t *testing.T) {
 }
 
 func testMitFull(ens []entryFields) int {
-	dmu, _ := New(len(ens))
+	dmu := New(len(ens))
 
 	dmu.scale()
 	for i, en := range ens {

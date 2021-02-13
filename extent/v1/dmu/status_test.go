@@ -45,7 +45,7 @@ func TestBitsOperator(t *testing.T) {
 
 func TestDMU_IsRunning(t *testing.T) {
 
-	dmu, _ := New(0)
+	dmu := New(0)
 	if !dmu.IsRunning() {
 		t.Fatal("should be running")
 	}
@@ -53,7 +53,7 @@ func TestDMU_IsRunning(t *testing.T) {
 
 func TestDMU_Close(t *testing.T) {
 
-	dmu, _ := New(0)
+	dmu := New(0)
 	dmu.Close()
 	if dmu.IsRunning() {
 		t.Fatal("should be closed")
@@ -66,7 +66,7 @@ func TestDMU_Close(t *testing.T) {
 
 func TestCreateStatusWritable(t *testing.T) {
 
-	dmu, _ := New(0)
+	dmu := New(0)
 	if dmu.GetWritableIdx() != 0 {
 		t.Fatal("writable table mismatched")
 	}
@@ -74,7 +74,7 @@ func TestCreateStatusWritable(t *testing.T) {
 
 func TestDMU_Writable(t *testing.T) {
 
-	dmu, _ := New(0)
+	dmu := New(0)
 	dmu.setWritable(1)
 	if dmu.GetWritableIdx() != 1 {
 		t.Fatal("writable table mismatched")
@@ -87,31 +87,31 @@ func TestDMU_Writable(t *testing.T) {
 
 func TestDMU_Scale(t *testing.T) {
 
-	ix, _ := New(0)
-	ix.scale()
-	if !ix.isScaling() {
+	d := New(0)
+	d.scale()
+	if !d.isScaling() {
 		t.Fatal("should be scaling")
 	}
-	ix.unScale()
-	if ix.isScaling() {
+	d.unScale()
+	if d.isScaling() {
 		t.Fatal("should be scalable")
 	}
 }
 
 func TestDMU_Cnt(t *testing.T) {
 
-	ix, _ := New(0)
+	d := New(0)
 	for i := 0; i < MaxCap; i++ {
-		if ix.getCnt() != uint64(i) {
+		if d.getCnt() != uint64(i) {
 			t.Fatal("add count mismatch")
 		}
-		ix.addCnt()
+		d.addCnt()
 	}
 
 	for i := MaxCap; i > 0; i-- {
-		if ix.getCnt() != uint64(i) {
+		if d.getCnt() != uint64(i) {
 			t.Fatal("del count mismatch")
 		}
-		ix.delCnt()
+		d.delCnt()
 	}
 }

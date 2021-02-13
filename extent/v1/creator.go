@@ -60,7 +60,7 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 	if params.CloneJob != nil {
 		dmuCap = int(params.CloneJob.ObjCnt)
 	}
-	phyAddr, _ := dmu.New(dmuCap)
+	phyAddr := dmu.New(dmuCap)
 
 	ctx2, cancel := context.WithCancel(ctx)
 
@@ -131,7 +131,7 @@ func (c *Creator) Load(ctx context.Context, extDir string, params extent.CreateP
 	// TODO open dmu by snapshot & traverse writable segments
 	// TODO traverse gc seg first for release slot in DMU, then writable seg
 	// TODO if seg is gc_src, skip writable replay(in writable history too)
-	phyAddr, _ := dmu.New(dmu.MinCap)
+	phyAddr := dmu.New(dmu.MinCap)
 
 	ctx2, cancel := context.WithCancel(ctx)
 

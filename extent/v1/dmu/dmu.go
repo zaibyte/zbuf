@@ -101,7 +101,7 @@ type DMU struct {
 // DMU will grow if no bucket to add until meet MaxCap.
 //
 // If cap is zero, using MinCap.
-func New(cap int) (*DMU, error) {
+func New(cap int) *DMU {
 
 	cap = int(nextPower2(uint64(cap)))
 
@@ -118,7 +118,7 @@ func New(cap int) (*DMU, error) {
 	return &DMU{
 		status: createStatus(),
 		cycle:  [2]unsafe.Pointer{unsafe.Pointer(&tbl0)},
-	}, nil
+	}
 }
 
 // Close closes DMU and release the resource.
