@@ -3,24 +3,18 @@ package v1
 import (
 	"encoding/binary"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/spf13/cast"
-
+	"g.tesamc.com/IT/zaipkg/directio"
+	"g.tesamc.com/IT/zaipkg/xdigest"
 	"g.tesamc.com/IT/zaipkg/xerrors"
-
+	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
+	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zbuf/xio"
 
-	"g.tesamc.com/IT/zaipkg/xdigest"
-
-	"g.tesamc.com/IT/zaipkg/directio"
-
-	"g.tesamc.com/IT/zbuf/vfs"
-
-	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
+	"github.com/spf13/cast"
 	"github.com/templexxx/tsc"
 )
 
@@ -144,6 +138,10 @@ func (e *Extenter) writeDMUTblSnap(f vfs.File, offset int64, tbl []uint64,
 	return offset, totalObjCnt, nil
 }
 
+func makeDMUSnapFp(extDir string, createTS int64) string {
+	return filepath.Join(extDir, cast.ToString(createTS)+dumSnapSuffix)
+}
+
 func (e *Extenter) writeDMUSnap(done chan<- error, lastFn string) {
 	var err error
 	snap := new(dmuSnapHeader)
@@ -160,7 +158,7 @@ func (e *Extenter) writeDMUSnap(done chan<- error, lastFn string) {
 
 	createTS := tsc.UnixNano()
 
-	fn := filepath.Join(e.extDir, strconv.Itoa(int(createTS))+dumSnapSuffix)
+	fn := makeDMUSnapFp(e.extDir, createTS)
 	f, err2 := e.fs.Create(fn)
 	if err2 != nil {
 		err = err2
@@ -222,6 +220,7 @@ func (h *dmuSnapHeader) writeDown(iosched xio.Scheduler, buf []byte, di *xdigest
 	binary.LittleEndian.PutUint32(buf[48:52], h.GcSrcCursor)
 	binary.LittleEndian.PutUint32(buf[52:56], h.GcDstCursor)
 	binary.LittleEndian.PutUint32(buf[56:60], h.CloneJobDoneCnt)
+	binary.LittleEndian.PutUint64(buf[60:68], uint64(h.createTS))
 
 	_, _ = di.Write(buf[:dmuSnapHeaderSize-4])
 	binary.LittleEndian.PutUint32(buf[dmuSnapHeaderSize-4:], di.Sum32())
@@ -243,6 +242,10 @@ func (e *Extenter) loadDMUSnap() error {
 		if strings.HasSuffix(fn, dumSnapSuffix) {
 			ct := cast.ToInt64(strings.TrimSuffix(fn, dumSnapSuffix))
 			if ct > createTS {
+				if createTS != 0 {
+					deprecatedFp := makeDMUSnapFp(e.extDir, createTS)
+					_ = e.fs.Remove(deprecatedFp)
+				}
 				createTS = ct
 			}
 		}
