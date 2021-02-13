@@ -7,6 +7,8 @@ import (
 	"sync/atomic"
 	"unsafe"
 
+	"g.tesamc.com/IT/zaipkg/orpc"
+
 	"g.tesamc.com/IT/zaipkg/directio"
 	"g.tesamc.com/IT/zaipkg/xdigest"
 	"g.tesamc.com/IT/zaipkg/xerrors"
@@ -106,7 +108,7 @@ func (e *Extenter) makeDMUSnapAsync(force bool) <-chan error {
 	return done
 }
 
-func (e *Extenter) writeDMUTblSnap(f vfs.File, offset int64, tbl []uint64,
+func writeDMUTblSnap(iosched xio.Scheduler, f vfs.File, offset int64, tbl []uint64,
 	blockBuf []byte, di *xdigest.Digest) (newOffset int64, totalObjCnt uint32, err error) {
 	if tbl != nil {
 		binary.LittleEndian.PutUint32(blockBuf[:4], uint32(len(tbl)))
@@ -119,13 +121,13 @@ func (e *Extenter) writeDMUTblSnap(f vfs.File, offset int64, tbl []uint64,
 				binary.LittleEndian.PutUint64(blockBuf[6+objCntInBlk*8:14+objCntInBlk*8], en)
 			}
 
-			if objCntInBlk == maxObjCntInSnapBlk || i == len(tbl)-1 {
+			if objCntInBlk == maxObjCntInSnapBlk || ((i == len(tbl)-1) && (objCntInBlk > 0)) {
 				binary.LittleEndian.PutUint16(blockBuf[4:6], uint16(objCntInBlk))
 				_, _ = di.Write(blockBuf[:dmuSnapBlockSize-4])
 				digest := di.Sum32()
 				binary.LittleEndian.PutUint32(blockBuf[dmuSnapBlockSize-4:], digest)
 				di.Reset()
-				err := e.ioSched.DoSync(xio.ReqMetaWrite, f, offset, blockBuf)
+				err := iosched.DoSync(xio.ReqMetaWrite, f, offset, blockBuf)
 				if err != nil {
 					return 0, 0, err
 				}
@@ -138,19 +140,23 @@ func (e *Extenter) writeDMUTblSnap(f vfs.File, offset int64, tbl []uint64,
 	return offset, totalObjCnt, nil
 }
 
+func loadDMUSnapBlock(buf []byte, di *xdigest.Digest) {
+
+}
+
 func makeDMUSnapFp(extDir string, createTS int64) string {
 	return filepath.Join(extDir, cast.ToString(createTS)+dumSnapSuffix)
 }
 
 func (e *Extenter) writeDMUSnap(done chan<- error, lastFn string) {
 	var err error
-	snap := new(dmuSnapHeader)
+	header := new(dmuSnapHeader)
 
 	defer func() {
 		e.handleError(err)
 		done <- err
 		if err == nil {
-			atomic.StorePointer((*unsafe.Pointer)(e.lastDMUSnap), unsafe.Pointer(snap))
+			atomic.StorePointer((*unsafe.Pointer)(e.lastDMUSnap), unsafe.Pointer(header))
 			_ = e.fs.Remove(lastFn)
 		}
 		atomic.StoreInt64(&e.isMakingDMUSnap, 0)
@@ -166,18 +172,18 @@ func (e *Extenter) writeDMUSnap(done chan<- error, lastFn string) {
 	}
 	defer f.Close()
 
-	snap.fn = fn
-	snap.createTS = createTS
+	header.fn = fn
+	header.createTS = createTS
 
 	e.rwMutex.RLock()
-	snap.WritableHistoryIdx = e.header.nvh.WritableHistoryNextIdx - 1
-	snap.WritableSeg = e.writableSeg
-	snap.WritableCursor = e.writableCursor
-	snap.GcSrcSeg = e.gcSrcSeg
-	snap.GcDstSeg = e.gcDstSeg
-	snap.GcSrcCursor = e.gcSrcCursor
-	snap.GcDstCursor = e.gcDstCursor
-	snap.CloneJobDoneCnt = uint32(e.header.nvh.CloneJob.DoneCnt)
+	header.WritableHistoryIdx = e.header.nvh.WritableHistoryNextIdx - 1
+	header.WritableSeg = e.writableSeg
+	header.WritableCursor = e.writableCursor
+	header.GcSrcSeg = e.gcSrcSeg
+	header.GcDstSeg = e.gcDstSeg
+	header.GcSrcCursor = e.gcSrcCursor
+	header.GcDstCursor = e.gcDstCursor
+	header.CloneJobDoneCnt = uint32(e.header.nvh.CloneJob.DoneCnt)
 	e.rwMutex.RUnlock()
 
 	d := e.dmu
@@ -190,21 +196,21 @@ func (e *Extenter) writeDMUSnap(done chan<- error, lastFn string) {
 	di := xdigest.New()
 	var t0oc, t1oc uint32
 
-	offset, t0oc, err = e.writeDMUTblSnap(f, offset, t0, blockBuf, di)
+	offset, t0oc, err = writeDMUTblSnap(e.ioSched, f, offset, t0, blockBuf, di)
 	if err != nil {
 		err = xerrors.WithMessage(err, "failed to write DMU snapshot")
 		return
 	}
-	offset, t1oc, err = e.writeDMUTblSnap(f, offset, t1, blockBuf, di)
+	offset, t1oc, err = writeDMUTblSnap(e.ioSched, f, offset, t1, blockBuf, di)
 	if err != nil {
 		err = xerrors.WithMessage(err, "failed to write DMU snapshot")
 		return
 	}
 
-	snap.objCnt = t0oc + t1oc
-	snap.blocksCnt = uint32((offset - dmuSnapHeaderSize) / dmuSnapBlockSize)
+	header.objCnt = t0oc + t1oc
+	header.blocksCnt = uint32((offset - dmuSnapHeaderSize) / dmuSnapBlockSize)
 
-	err = snap.writeDown(e.ioSched, blockBuf[:dmuSnapHeaderSize], di)
+	err = header.writeDown(e.ioSched, blockBuf[:dmuSnapHeaderSize], di)
 	return
 }
 
@@ -227,6 +233,35 @@ func (h *dmuSnapHeader) writeDown(iosched xio.Scheduler, buf []byte, di *xdigest
 	di.Reset()
 
 	return iosched.DoSync(xio.ReqMetaWrite, h.f, 0, buf)
+}
+
+func (h *dmuSnapHeader) load(iosched xio.Scheduler, buf []byte, di *xdigest.Digest) error {
+
+	err := iosched.DoSync(xio.ReqMetaRead, h.f, 0, buf)
+	if err != nil {
+		return err
+	}
+
+	_, _ = di.Write(buf[:dmuSnapHeaderSize-4])
+	if di.Sum32() != binary.LittleEndian.Uint32(buf[dmuSnapHeaderSize-4:]) {
+		err := xerrors.WithMessage(orpc.ErrChecksumMismatch, "failed to load dmu snapshot header")
+		return err
+	}
+	di.Reset()
+
+	h.objCnt = binary.LittleEndian.Uint32(buf[:4])
+	h.blocksCnt = binary.LittleEndian.Uint32(buf[4:8])
+	h.WritableHistoryIdx = int64(binary.LittleEndian.Uint64(buf[8:16]))
+	h.WritableSeg = int64(binary.LittleEndian.Uint64(buf[16:24]))
+	h.WritableCursor = int64(binary.LittleEndian.Uint64(buf[24:32]))
+	h.GcSrcSeg = int64(binary.LittleEndian.Uint64(buf[32:40]))
+	h.GcDstSeg = int64(binary.LittleEndian.Uint64(buf[40:48]))
+	h.GcSrcCursor = binary.LittleEndian.Uint32(buf[48:52])
+	h.GcSrcCursor = binary.LittleEndian.Uint32(buf[52:56])
+	h.CloneJobDoneCnt = binary.LittleEndian.Uint32(buf[56:60])
+	h.createTS = int64(binary.LittleEndian.Uint64(buf[60:68]))
+
+	return nil
 }
 
 func (e *Extenter) loadDMUSnap() error {
@@ -253,6 +288,29 @@ func (e *Extenter) loadDMUSnap() error {
 
 	if createTS == 0 {
 		return nil
+	}
+
+	fn := makeDMUSnapFp(e.extDir, createTS)
+	f, err := e.fs.Open(fn)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	h := new(dmuSnapHeader)
+	h.f = f
+	di := xdigest.New()
+	buf := directio.AlignedBlock(dmuSnapBlockSize)
+	err = h.load(e.ioSched, buf, di)
+	if err != nil {
+		return err
+	}
+
+	d := dmu.New(int(h.objCnt))
+
+	var i uint32
+	for i = 0; i < h.blocksCnt; i++ {
+
 	}
 
 }
