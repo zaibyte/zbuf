@@ -32,6 +32,7 @@ const (
 	maxTag      = (1 << tagBits) - 1
 )
 
+// ParseEntry parses entry.
 func ParseEntry(entry uint64) (tag, neighOff, otype, grains, addr uint32) {
 	addr = uint32(entry & maxAddr)
 	grains = uint32(entry>>(addrBits+paddingBits)) & maxGrains
@@ -47,6 +48,8 @@ func makeTag(digest uint32) (tag uint32, lowBits uint32) {
 	return
 }
 
+// BackToDigest calculates digest by entry elements & tables' slotCnt.
+// slot is calculated by CalcSlot().
 func BackToDigest(tag, slotCnt, slot, neighOff uint32) uint32 {
 
 	mask := calcMask(slotCnt)
