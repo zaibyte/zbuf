@@ -127,7 +127,7 @@ func (e *Extenter) writeDMUTblSnap(f vfs.File, offset int64, tbl []uint64,
 
 			if objCntInBlk == maxObjCntInSnapBlk || i == len(tbl)-1 {
 				binary.LittleEndian.PutUint16(blockBuf[4:6], uint16(objCntInBlk))
-				_, _ = di.Write(blockBuf)
+				_, _ = di.Write(blockBuf[:dmuSnapBlockSize-4])
 				digest := di.Sum32()
 				binary.LittleEndian.PutUint32(blockBuf[dmuSnapBlockSize-4:], digest)
 				di.Reset()
@@ -197,13 +197,37 @@ func (e *Extenter) writeDMUSnap(done chan<- error, lastFn string) {
 		err = xerrors.WithMessage(err, "failed to write DMU snapshot")
 		return
 	}
-	_, t1oc, err = e.writeDMUTblSnap(f, offset, t1, blockBuf, di)
+	offset, t1oc, err = e.writeDMUTblSnap(f, offset, t1, blockBuf, di)
 	if err != nil {
 		err = xerrors.WithMessage(err, "failed to write DMU snapshot")
 		return
 	}
 
 	snap.objCnt = t0oc + t1oc
+	snap.blocksCnt = uint32((offset - dmuSnapHeaderSize) / dmuSnapBlockSize)
+
+	err = snap.writeDown(e.ioSched, blockBuf[:dmuSnapHeaderSize], di)
+	return
+}
+
+func (h *dmuSnapHeader) writeDown(iosched xio.Scheduler, buf []byte, di *xdigest.Digest) error {
+
+	binary.LittleEndian.PutUint32(buf[:4], h.objCnt)
+	binary.LittleEndian.PutUint32(buf[4:8], h.blocksCnt)
+	binary.LittleEndian.PutUint64(buf[8:16], uint64(h.WritableHistoryIdx))
+	binary.LittleEndian.PutUint64(buf[16:24], uint64(h.WritableSeg))
+	binary.LittleEndian.PutUint64(buf[24:32], uint64(h.WritableCursor))
+	binary.LittleEndian.PutUint64(buf[32:40], uint64(h.GcSrcSeg))
+	binary.LittleEndian.PutUint64(buf[40:48], uint64(h.GcDstSeg))
+	binary.LittleEndian.PutUint32(buf[48:52], h.GcSrcCursor)
+	binary.LittleEndian.PutUint32(buf[52:56], h.GcDstCursor)
+	binary.LittleEndian.PutUint32(buf[56:60], h.CloneJobDoneCnt)
+
+	_, _ = di.Write(buf[:dmuSnapHeaderSize-4])
+	binary.LittleEndian.PutUint32(buf[dmuSnapHeaderSize-4:], di.Sum32())
+	di.Reset()
+
+	return iosched.DoSync(xio.ReqMetaWrite, h.f, 0, buf)
 }
 
 func (e *Extenter) loadDMUSnap() error {
