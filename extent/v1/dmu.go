@@ -23,7 +23,8 @@ import (
 
 // dmuSnapHeader is the header of DMU Snapshot.
 type dmuSnapHeader struct {
-	f vfs.File
+	f  vfs.File
+	fn string
 
 	// createTS is the snapshot starting creating timestamp.
 	// It'll be the snapshot file name too.
@@ -81,13 +82,14 @@ func (e *Extenter) makeDMUSnapAsync(force bool) <-chan error {
 	}
 
 	last := e.getLastDMUSnap()
-
+	var lastFn string
 	if !force {
 		acceptable := false
 		if last == nil {
 			acceptable = true
 		} else {
 			acceptable = isSnapCostAcceptable(int64(last.blocksCnt*dmuSnapBlockSize), last.createTS)
+			lastFn = last.fn
 		}
 
 		if !acceptable {
@@ -98,7 +100,7 @@ func (e *Extenter) makeDMUSnapAsync(force bool) <-chan error {
 	// For many cases, there is no receiver for makeDMUSnapAsync, using buffered chan for avoiding blocking.
 	done := make(chan error, 1)
 
-	go e.writeDMUSnap(done)
+	go e.writeDMUSnap(done, lastFn)
 
 	return done
 }
@@ -134,7 +136,7 @@ func (e *Extenter) writeDMUTblSnap(f vfs.File, offset int64, tbl []uint64,
 	return offset, nil
 }
 
-func (e *Extenter) writeDMUSnap(done chan<- error) {
+func (e *Extenter) writeDMUSnap(done chan<- error, lastFn string) {
 	var err error
 	snap := new(dmuSnapHeader)
 
@@ -143,19 +145,22 @@ func (e *Extenter) writeDMUSnap(done chan<- error) {
 		done <- err
 		if err == nil {
 			atomic.StorePointer((*unsafe.Pointer)(e.lastDMUSnap), unsafe.Pointer(snap))
+			_ = e.fs.Remove(lastFn)
 		}
 		atomic.StoreInt64(&e.isMakingDMUSnap, 0)
 	}()
 
 	createTS := tsc.UnixNano()
 
-	f, err2 := e.fs.Create(filepath.Join(e.extDir, strconv.Itoa(int(createTS))+".dmu_snap"))
+	fn := filepath.Join(e.extDir, strconv.Itoa(int(createTS))+".dmu_snap")
+	f, err2 := e.fs.Create(fn)
 	if err2 != nil {
 		err = err2
 		return
 	}
 	defer f.Close()
 
+	snap.fn = fn
 	snap.createTS = createTS
 
 	e.rwMutex.RLock()
