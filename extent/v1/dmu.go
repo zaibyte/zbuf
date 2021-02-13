@@ -4,8 +4,11 @@ import (
 	"encoding/binary"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"unsafe"
+
+	"github.com/spf13/cast"
 
 	"g.tesamc.com/IT/zaipkg/xerrors"
 
@@ -57,6 +60,10 @@ const (
 	maxObjCntInSnapBlk = (dmuSnapBlockSize - 2 - 4 - 4) / 8
 )
 
+const (
+	dumSnapSuffix = ".dmu_snap"
+)
+
 func (e *Extenter) getLastDMUSnap() *dmuSnapHeader {
 	p := atomic.LoadPointer(&e.lastDMUSnap)
 	if p == nil {
@@ -106,7 +113,7 @@ func (e *Extenter) makeDMUSnapAsync(force bool) <-chan error {
 }
 
 func (e *Extenter) writeDMUTblSnap(f vfs.File, offset int64, tbl []uint64,
-	blockBuf []byte, di *xdigest.Digest) (newOffset int64, err error) {
+	blockBuf []byte, di *xdigest.Digest) (newOffset int64, totalObjCnt uint32, err error) {
 	if tbl != nil {
 		binary.LittleEndian.PutUint32(blockBuf[:4], uint32(len(tbl)))
 		objCntInBlk := 0
@@ -126,14 +133,15 @@ func (e *Extenter) writeDMUTblSnap(f vfs.File, offset int64, tbl []uint64,
 				di.Reset()
 				err := e.ioSched.DoSync(xio.ReqMetaWrite, f, offset, blockBuf)
 				if err != nil {
-					return 0, err
+					return 0, 0, err
 				}
 				offset += dmuSnapBlockSize
+				totalObjCnt += uint32(objCntInBlk)
 				objCntInBlk = 0
 			}
 		}
 	}
-	return offset, nil
+	return offset, totalObjCnt, nil
 }
 
 func (e *Extenter) writeDMUSnap(done chan<- error, lastFn string) {
@@ -152,7 +160,7 @@ func (e *Extenter) writeDMUSnap(done chan<- error, lastFn string) {
 
 	createTS := tsc.UnixNano()
 
-	fn := filepath.Join(e.extDir, strconv.Itoa(int(createTS))+".dmu_snap")
+	fn := filepath.Join(e.extDir, strconv.Itoa(int(createTS))+dumSnapSuffix)
 	f, err2 := e.fs.Create(fn)
 	if err2 != nil {
 		err = err2
@@ -182,27 +190,42 @@ func (e *Extenter) writeDMUSnap(done chan<- error, lastFn string) {
 	blockBuf := directio.AlignedBlock(dmuSnapBlockSize)
 	offset := int64(dmuSnapHeaderSize)
 	di := xdigest.New()
+	var t0oc, t1oc uint32
 
-	offset, err = e.writeDMUTblSnap(f, offset, t0, blockBuf, di)
+	offset, t0oc, err = e.writeDMUTblSnap(f, offset, t0, blockBuf, di)
 	if err != nil {
 		err = xerrors.WithMessage(err, "failed to write DMU snapshot")
 		return
 	}
-	_, err = e.writeDMUTblSnap(f, offset, t1, blockBuf, di)
+	_, t1oc, err = e.writeDMUTblSnap(f, offset, t1, blockBuf, di)
 	if err != nil {
 		err = xerrors.WithMessage(err, "failed to write DMU snapshot")
 		return
 	}
 
-	var t1dst []uint64
-	if t1 != nil {
-		t1dst = make([]uint64, len(t1))
-		for i := range t1 {
-			t1dst[i] = atomic.LoadUint64(&t1[i])
-		}
-	}
+	snap.objCnt = t0oc + t1oc
 }
 
 func (e *Extenter) loadDMUSnap() error {
+
+	fs := e.fs
+	extFns, err := fs.List(e.extDir)
+	if err != nil {
+		return err
+	}
+
+	var createTS int64 = 0
+	for _, fn := range extFns {
+		if strings.HasSuffix(fn, dumSnapSuffix) {
+			ct := cast.ToInt64(strings.TrimSuffix(fn, dumSnapSuffix))
+			if ct > createTS {
+				createTS = ct
+			}
+		}
+	}
+
+	if createTS == 0 {
+		return nil
+	}
 
 }
