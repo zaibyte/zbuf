@@ -12,6 +12,7 @@ import (
 	"g.tesamc.com/IT/zaipkg/directio"
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/uid"
+	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zaipkg/xdigest"
 	"g.tesamc.com/IT/zaipkg/xerrors"
 	"g.tesamc.com/IT/zaipkg/xlog"
@@ -114,7 +115,7 @@ func (e *Extenter) updatesLoop() {
 				continue
 			}
 
-			atomic.AddInt64(&e.writableCursor, alignSize(int64(written), dmu.AlignSize))
+			atomic.AddInt64(&e.writableCursor, xbytes.AlignSize(int64(written), dmu.AlignSize))
 			atomic.AddInt64(&e.dirtyUpdates, 1)
 			continue // Write updates request done, go back to the top of loop.
 		}

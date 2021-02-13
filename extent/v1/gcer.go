@@ -9,6 +9,7 @@ import (
 	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
 
 	"g.tesamc.com/IT/zaipkg/directio"
+	"g.tesamc.com/IT/zaipkg/xbytes"
 
 	"g.tesamc.com/IT/zbuf/xio"
 
@@ -211,7 +212,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			entry := e.dmu.Search(digest)
 			if entry == 0 {
 				e.rwMutex.Lock()
-				e.gcSrcCursor += uint32(alignSize(int64(objSize+oidSizeInSeg), dmu.AlignSize))
+				e.gcSrcCursor += uint32(xbytes.AlignSize(int64(objSize+oidSizeInSeg), dmu.AlignSize))
 				e.rwMutex.Unlock()
 				continue
 			}
@@ -221,9 +222,9 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			// See https://g.tesamc.com/IT/zbuf/issues/142 for details.
 			if eaddr*dmu.AlignSize != uint32(readOffset) {
 				e.rwMutex.Lock()
-				e.gcSrcCursor += uint32(alignSize(int64(objSize+oidSizeInSeg), dmu.AlignSize))
+				e.gcSrcCursor += uint32(xbytes.AlignSize(int64(objSize+oidSizeInSeg), dmu.AlignSize))
 				if eaddr*dmu.AlignSize > e.gcDstCursor && addrToSeg(eaddr, int64(segSize)) == int(e.gcDstSeg) {
-					e.gcDstCursor = uint32(alignSize(int64(eaddr*dmu.AlignSize+objSize+oidSizeInSeg), dmu.AlignSize))
+					e.gcDstCursor = uint32(xbytes.AlignSize(int64(eaddr*dmu.AlignSize+objSize+oidSizeInSeg), dmu.AlignSize))
 				}
 				e.rwMutex.Unlock()
 				continue
@@ -273,8 +274,8 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			e.dmu.Update(digest, uint32(writeOffset))
 
 			e.rwMutex.Lock()
-			e.gcSrcCursor += uint32(alignSize(int64(objSize+oidSizeInSeg), dmu.AlignSize))
-			e.gcDstCursor += uint32(alignSize(int64(totalWritten), dmu.AlignSize))
+			e.gcSrcCursor += uint32(xbytes.AlignSize(int64(objSize+oidSizeInSeg), dmu.AlignSize))
+			e.gcDstCursor += uint32(xbytes.AlignSize(int64(totalWritten), dmu.AlignSize))
 			e.rwMutex.Unlock()
 		}
 
