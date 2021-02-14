@@ -110,9 +110,18 @@ func (e *Extenter) makeDMUSnapAsync(force bool) <-chan error {
 	return done
 }
 
+func makeDMUSnapEntry(dmuEntry uint64, slotCnt, slot uint32) (e0 uint64, e1 uint8) {
+	tag, neighOff, otype, grains, addr := dmu.ParseEntry(dmuEntry)
+	digest := dmu.BackToDigest(tag, slotCnt, slot, neighOff)
+	e0 = uint64(digest)<<32 | uint64(otype)<<30 | uint64(grains)<<19 | uint64(addr&dmu.MaxAddr)>>8
+	e1 = uint8(addr & 255)
+	return
+}
+
 func writeDMUTblSnap(iosched xio.Scheduler, f vfs.File, offset int64, tbl []uint64,
 	blockBuf []byte, di *xdigest.Digest) (newOffset int64, totalObjCnt uint32, err error) {
 	if tbl != nil {
+		slotCnt := len(tbl)
 		binary.LittleEndian.PutUint32(blockBuf[:4], uint32(len(tbl)))
 		objCntInBlk := 0
 		for i := range tbl {
@@ -120,11 +129,13 @@ func writeDMUTblSnap(iosched xio.Scheduler, f vfs.File, offset int64, tbl []uint
 			en := atomic.LoadUint64(&tbl[i])
 			if en != 0 {
 				objCntInBlk++
-				binary.LittleEndian.PutUint64(blockBuf[6+objCntInBlk*8:14+objCntInBlk*8], en)
+				e0, e1 := makeDMUSnapEntry(en, uint32(slotCnt), uint32(i))
+				binary.LittleEndian.PutUint64(blockBuf[objCntInBlk*9+8:objCntInBlk*9+16], e0)
+				blockBuf[objCntInBlk*9+16] = e1
 			}
 
 			if objCntInBlk == maxObjCntInSnapBlk || ((i == len(tbl)-1) && (objCntInBlk > 0)) {
-				binary.LittleEndian.PutUint16(blockBuf[4:6], uint16(objCntInBlk))
+				binary.LittleEndian.PutUint32(blockBuf[4:8], uint32(objCntInBlk))
 				_, _ = di.Write(blockBuf[:dmuSnapBlockSize-4])
 				digest := di.Sum32()
 				binary.LittleEndian.PutUint32(blockBuf[dmuSnapBlockSize-4:], digest)
@@ -142,8 +153,28 @@ func writeDMUTblSnap(iosched xio.Scheduler, f vfs.File, offset int64, tbl []uint
 	return offset, totalObjCnt, nil
 }
 
-func loadDMUSnapBlock(buf []byte, di *xdigest.Digest) {
+func (e *Extenter) loadDMUSnapBlock(f vfs.File, offset int64, buf []byte, di *xdigest.Digest) (err error) {
 
+	iosched := e.ioSched
+
+	err = iosched.DoSync(xio.ReqMetaRead, f, offset, buf)
+	if err != nil {
+		return
+	}
+
+	_, _ = di.Write(buf[:dmuSnapBlockSize-4])
+	if di.Sum32() != binary.LittleEndian.Uint32(buf[dmuSnapBlockSize-4:]) {
+		return orpc.ErrChecksumMismatch
+	}
+
+	d := e.dmu
+	slotCnt := binary.LittleEndian.Uint32(buf[:4])
+	objCntInBlk := binary.LittleEndian.Uint32(buf[4:8])
+	for i := 0; i < int(objCntInBlk); i++ {
+		en := binary.LittleEndian.Uint64(buf[i*8+8 : i*8+16])
+		tag, neighOff, otype, grains, addr := dmu.ParseEntry(en)
+		dmu.BackToDigest()
+	}
 }
 
 func makeDMUSnapFp(extDir string, createTS int64) string {
@@ -308,7 +339,8 @@ func (e *Extenter) loadDMUSnap() error {
 		return err
 	}
 
-	d := dmu.New(int(h.objCnt))
+	d := dmu.New(int(float64(h.objCnt) / 0.8)) // Try to make a bit larger capacity for satisfying load-factor.
+	e.dmu = d
 
 	var i uint32
 	for i = 0; i < h.blocksCnt; i++ {
