@@ -96,11 +96,14 @@ func (e *Extenter) Start() error {
 	panic("implement me")
 }
 
-func (e *Extenter) PutObj(_reqid, oid uint64, _extID uint32, objData []byte) error {
+func (e *Extenter) PutObj(_reqid, oid uint64, _extID uint32, objData []byte, isClone bool) error {
 
 	wr := acquirePutObjRequest()
 
 	wr.reqType = xio.ReqObjWrite
+	if isClone {
+		wr.reqType = xio.ReqChunkWrite
+	}
 	wr.oid = oid
 	wr.objData = objData
 	wr.done = make(chan error)
@@ -140,7 +143,7 @@ func (e *Extenter) PutObj(_reqid, oid uint64, _extID uint32, objData []byte) err
 	return err
 }
 
-func (e *Extenter) GetObj(reqid, oid uint64, _extID uint32) (objData []byte, err error) {
+func (e *Extenter) GetObj(reqid, oid uint64, _extID uint32, isClone bool) (objData []byte, err error) {
 
 	has, digest, offset, size := e.getObjOffsetSize(oid)
 	if !has {
@@ -150,7 +153,11 @@ func (e *Extenter) GetObj(reqid, oid uint64, _extID uint32) (objData []byte, err
 	}
 
 	objData = xbytes.GetAlignedBytes(size)
-	err = e.objReadAt(xio.ReqObjRead, digest, offset, objData)
+	reqType := xio.ReqObjRead
+	if isClone {
+		reqType = xio.ReqChunkRead
+	}
+	err = e.objReadAt(uint64(reqType), digest, offset, objData)
 	if err != nil {
 		// May meet GC segments could be write again: https://g.tesamc.com/IT/zbuf/issues/124
 		if err == orpc.ErrChecksumMismatch {
@@ -168,7 +175,7 @@ func (e *Extenter) GetObj(reqid, oid uint64, _extID uint32) (objData []byte, err
 				xbytes.PutAlignedBytes(objData)
 				return nil, err
 			}
-			err = e.objReadAt(xio.ReqObjRead, digest, newOffset, objData)
+			err = e.objReadAt(uint64(reqType), digest, newOffset, objData)
 			if err != nil {
 				e.rwMutex.Lock()
 				e.handleError(err)

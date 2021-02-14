@@ -9,6 +9,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"g.tesamc.com/IT/zbuf/xio"
+
 	"g.tesamc.com/IT/zaipkg/directio"
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/uid"
@@ -151,7 +153,7 @@ func (e *Extenter) updatesLoop() {
 
 // preprocWriteReq preprocesses write request.
 // Return error if cannot execute the request.
-func (e *Extenter) preprocWriteReq() error {
+func (e *Extenter) preprocWriteReq(reqType uint64) error {
 
 	state := e.info.GetState()
 
@@ -165,7 +167,9 @@ func (e *Extenter) preprocWriteReq() error {
 	case metapb.ExtentState_Extent_Ghost:
 		return orpc.ErrExtentGhost
 	case metapb.ExtentState_Extent_Clone:
-		return orpc.ErrExtentClone
+		if reqType != xio.ReqChunkWrite { // Else, it'll be a clone write.
+			return orpc.ErrExtentClone
+		}
 	case metapb.ExtentState_Extent_Sealed:
 		return orpc.ErrExtentSealed
 	}
