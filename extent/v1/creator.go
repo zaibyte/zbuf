@@ -60,7 +60,6 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 	if params.CloneJob != nil {
 		dmuCap = int(params.CloneJob.ObjCnt)
 	}
-	phyAddr := dmu.New(dmuCap)
 
 	ctx2, cancel := context.WithCancel(ctx)
 
@@ -85,7 +84,7 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 
 		header: h,
 
-		dmu: phyAddr,
+		dmu: dmu.New(dmuCap),
 
 		writableSeg:    -1,
 		writableCursor: -1,
@@ -107,7 +106,6 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 	return ext, err
 }
 
-// TODO if extent is broken or terminated, don't open it.
 // TODO traverse segment should first oid and its checksum, maybe dirty. If dirty, means over.
 // TODO reconstruct used, object count by snapshot & traverse.
 // Traverse start at the write_cursor, if meet checksum mismatched, stopping but not regard as broken,
@@ -139,7 +137,7 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 
 	h, err := LoadHeader(c.iosched, fs, extDir)
 	if err != nil {
-		return createBrokenExt(), err
+		return nil, err
 	}
 
 	segFile, err := fs.Open(filepath.Join(extDir, SegmentsFileName))
@@ -148,44 +146,55 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 		return nil, err
 	}
 
-	// TODO open dmu by snapshot & traverse writable segments
-	// TODO traverse gc seg first for release slot in DMU, then writable seg
-	// TODO if seg is gc_src, skip writable replay(in writable history too)
-	phyAddr := dmu.New(dmu.MinCap)
-
 	ctx2, cancel := context.WithCancel(ctx)
 
-	ext = &Extenter{
-		cfg:      c.cfg,
-		rwMutex:  new(sync.RWMutex),
-		fs:       fs,
-		diskInfo: diskInfo,
-		header:   h,
+	ext := &Extenter{
+		cfg:     c.cfg,
+		rwMutex: new(sync.RWMutex),
+		fs:      fs,
+		extDir:  extDir,
 		info: &extent.Info{PbExt: &metapb.Extent{
 			State: metapb.ExtentState(h.nvh.State),
-			Id:    extID,
-			Size_: uint64(c.cfg.SegmentSize * uint32(segmentCnt)),
-			// TODO traverse ready & writable segs
+			Id:    params.ExtID,
+			Size_: uint64(c.cfg.SegmentSize) * uint64(segmentCnt),
+			// TODO recalcute used & avail by header
 			Used:       0,
 			Avail:      (segmentCnt - uint64(c.cfg.ReservedSeg)) * uint64(c.cfg.SegmentSize),
 			Version:    uint32(extent.Version1),
-			DiskId:     diskID,
-			InstanceId: instanceID,
+			DiskId:     params.DiskID,
+			InstanceId: params.InstanceID,
 		}},
+		diskInfo: params.DiskInfo,
 		ioSched:  c.iosched,
 		segsFile: segFile,
-		dmu:      phyAddr,
 
-		putObjChan: make(chan *putObjRequest, c.cfg.UpdatesPending),
-		dmuChan:    make(chan *dmuRequest, c.cfg.UpdatesPending), // Shares same config.
+		header: h,
+
+		writableSeg:    -1,
+		writableCursor: -1,
 
 		gcSrcSeg: -1,
 		gcDstSeg: -1,
 
+		putObjChan: make(chan *putObjRequest, c.cfg.UpdatesPending),
+		dmuChan:    make(chan *dmuRequest, c.cfg.UpdatesPending), // Shares same config.
+		forceGC:    make(chan float64, 1),
+
+		zai: c.zai,
+
 		ctx:    ctx2,
 		cancel: cancel,
-		stopWg: wg,
+		stopWg: new(sync.WaitGroup),
 	}
+
+	err = ext.loadDMUSnap()
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO open dmu by snapshot & traverse writable segments
+	// TODO traverse gc seg first for release slot in DMU, then writable seg
+	// TODO if seg is gc_src, skip writable replay(in writable history too)
 
 	// TODO after open, write down happen and DMU snapshot
 	// TODO open snapshot
