@@ -25,7 +25,7 @@ const (
 	neighOffBits = 6
 	tagBits      = 16
 
-	maxAddr     = (1 << addrBits) - 1
+	MaxAddr     = (1 << addrBits) - 1
 	maxGrains   = (1 << grainsBits) - 1
 	maxOtype    = 3
 	maxNeighOff = (1 << neighOffBits) - 1
@@ -34,7 +34,7 @@ const (
 
 // ParseEntry parses entry.
 func ParseEntry(entry uint64) (tag, neighOff, otype, grains, addr uint32) {
-	addr = uint32(entry & maxAddr)
+	addr = uint32(entry & MaxAddr)
 	grains = uint32(entry>>(addrBits+paddingBits)) & maxGrains
 	otype = uint32(entry>>(grainsBits+addrBits+paddingBits)) & maxOtype
 	neighOff = uint32(entry>>(otypeBits+grainsBits+addrBits+paddingBits)) & maxNeighOff
@@ -62,7 +62,7 @@ func BackToDigest(tag, slotCnt, slot, neighOff uint32) uint32 {
 
 func MakeEntry(digest, neighOff, otype, grains, addr uint32) uint64 {
 	tag := (digest >> 16) & maxTag
-	return uint64(addr&maxAddr) | uint64(grains)<<(addrBits+paddingBits) |
+	return uint64(addr&MaxAddr) | uint64(grains)<<(addrBits+paddingBits) |
 		(uint64(otype)&maxOtype)<<(grainsBits+addrBits+paddingBits) | uint64(neighOff)<<(addrBits+paddingBits+grainsBits+otypeBits) |
 		uint64(tag)<<(addrBits+paddingBits+grainsBits+otypeBits+neighOffBits)
 }

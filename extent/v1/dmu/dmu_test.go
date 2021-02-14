@@ -261,7 +261,7 @@ func generatesEntries(cnt int, fast bool) []entryFields {
 			grains = 1
 		}
 		ens[i].grains = grains
-		ens[i].addr = uint32(rand.Intn(maxAddr + 1))
+		ens[i].addr = uint32(rand.Intn(MaxAddr + 1))
 	}
 	return ens
 }

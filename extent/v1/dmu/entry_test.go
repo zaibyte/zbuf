@@ -17,9 +17,9 @@ func TestEntryMinMax(t *testing.T) {
 		t.Fatal("min mismatch", min)
 	}
 
-	max := MakeEntry(math.MaxUint32, maxNeighOff, maxOtype, maxGrains, maxAddr)
+	max := MakeEntry(math.MaxUint32, maxNeighOff, maxOtype, maxGrains, MaxAddr)
 	tag, neighOff, otype, grains, addr = ParseEntry(max)
-	if tag != maxTag || neighOff != maxNeighOff || otype != maxOtype || grains != maxGrains || addr != maxAddr {
+	if tag != maxTag || neighOff != maxNeighOff || otype != maxOtype || grains != maxGrains || addr != MaxAddr {
 		t.Fatal("max mismatch")
 	}
 }
@@ -38,7 +38,7 @@ func TestEntryMakeParse(t *testing.T) {
 		neighOff := uint32(rand.Intn(maxNeighOff + 1))
 		otype := uint32(rand.Intn(maxOtype + 1))
 		grains := uint32(rand.Intn(maxGrains + 1))
-		addr := uint32(rand.Intn(maxAddr + 1))
+		addr := uint32(rand.Intn(MaxAddr + 1))
 
 		entry := MakeEntry(digest, neighOff, otype, grains, addr)
 
