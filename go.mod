@@ -4,7 +4,7 @@ go 1.15
 
 require (
 	g.tesamc.com/IT/zai v0.0.0-20210211214729-073e9b119c52
-	g.tesamc.com/IT/zaipkg v0.0.0-20210213214020-e27e41d8f8bf
+	g.tesamc.com/IT/zaipkg v0.0.0-20210214025409-b3ee6707b6ca
 	g.tesamc.com/IT/zproto v0.0.0-20210211215311-bcd38e3c16c4
 	github.com/VictoriaMetrics/metrics v1.12.3
 	github.com/gogo/protobuf v1.3.1 // indirect
