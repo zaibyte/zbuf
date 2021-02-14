@@ -42,6 +42,8 @@ import (
 )
 
 type Extenter struct {
+	isDead bool
+
 	cfg *Config
 
 	// Using a lock here won't break down performance,
@@ -93,7 +95,11 @@ type Extenter struct {
 }
 
 func (e *Extenter) Start() error {
-	panic("implement me")
+	if e.isDead {
+		return nil
+	}
+
+	return nil
 }
 
 func (e *Extenter) PutObj(_reqid, oid uint64, objData []byte, isClone bool) error {
@@ -169,25 +175,19 @@ func (e *Extenter) GetObj(reqid, oid uint64, isClone bool) (objData []byte, err 
 				return nil, err
 			}
 			if newOffset == offset {
-				e.rwMutex.Lock()
-				e.handleError(err)
-				e.rwMutex.Unlock()
+				e.setState(err)
 				xbytes.PutAlignedBytes(objData)
 				return nil, err
 			}
 			err = e.objReadAt(uint64(reqType), digest, newOffset, objData)
 			if err != nil {
-				e.rwMutex.Lock()
-				e.handleError(err)
-				e.rwMutex.Unlock()
+				e.setState(err)
 				xbytes.PutAlignedBytes(objData)
 				return nil, err
 			}
 			return objData, nil
 		}
-		e.rwMutex.Lock()
-		e.handleError(err)
-		e.rwMutex.Unlock()
+		e.setState(err)
 		xbytes.PutAlignedBytes(objData)
 		return nil, err
 	}
@@ -249,7 +249,11 @@ func (e *Extenter) GetInfo() *extent.Info {
 	return e.info
 }
 
-func (e *Extenter) Close() error {
+func (e *Extenter) Close() {
+
+	if e.isDead {
+		return
+	}
 
 	e.dmu.Close()
 	// Far away from enough for DMU finishing all operation.
@@ -261,7 +265,7 @@ func (e *Extenter) Close() error {
 
 	// TODO close a buffered chan, could read/write?
 	// TODO do sync header...snap ...etc
-	panic("implement me")
+
 }
 
 func (e *Extenter) traverseWritableSeg() error {

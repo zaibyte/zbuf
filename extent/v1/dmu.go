@@ -196,7 +196,7 @@ func (e *Extenter) writeDMUSnap(done chan<- error, lastFn string) {
 	h := new(dmuSnapHeader)
 
 	defer func() {
-		e.handleError(err)
+		e.setState(err)
 		done <- err
 		if err == nil {
 			atomic.StorePointer((*unsafe.Pointer)(e.lastDMUSnap), unsafe.Pointer(h))

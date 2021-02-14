@@ -17,7 +17,7 @@ type Extenter interface {
 
 	GCer
 
-	Close() error
+	Close()
 }
 
 type Objecter interface {

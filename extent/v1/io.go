@@ -92,7 +92,7 @@ func (e *Extenter) updatesLoop() {
 				if err != nil {
 					wr.done <- err
 					e.rwMutex.Unlock()
-					e.handleError(err)
+					e.setState(err)
 					continue
 				}
 				e.writableSeg = nextSeg
@@ -106,14 +106,14 @@ func (e *Extenter) updatesLoop() {
 			written, err := e.objWriteAt(wr.reqType, wr.oid, offset, wr.objData, writeBuf)
 			if err != nil {
 				wr.done <- err
-				e.handleError(err)
+				e.setState(err)
 				continue
 			}
 
 			err = e.dmu.Insert(digest, uint32(otype), grains, offsetToAddr(offset))
 			if err != nil {
 				wr.done <- err
-				e.handleError(err)
+				e.setState(err)
 				continue
 			}
 
@@ -356,6 +356,7 @@ func shuffleSegStates(states []uint8) []segStateClone {
 
 // fastDiskHealthCheck checks the disk health by load boot-sector,
 // if succeed, we think the EIO is just happens inside an extent but not the whole disk.
+// And we regard EIO as sector read error, the firmware in driver will remap the bad sector
 func (e *Extenter) fastDiskHealthCheck() error {
 	_, err := extent.LoadBootSector(e.fs, e.ioSched, e.extDir)
 	return err

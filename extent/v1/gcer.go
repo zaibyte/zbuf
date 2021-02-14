@@ -195,7 +195,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			readOffset := segCursorToOffset(e.gcSrcSeg, int64(e.gcSrcCursor), int64(segSize))
 			oid, err2 := e.oidReadAt(xio.ReqGCRead, readOffset, oidBuf)
 			if err2 != nil {
-				e.handleError(err2)
+				e.setState(err2)
 				return gcDeadInterval, false
 			}
 
@@ -253,21 +253,21 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 
 			err = e.objReadAt(xio.ReqGCRead, digest, readOffset, gcObjBuf[:objSize])
 			if err != nil {
-				e.handleError(err)
+				e.setState(err)
 				return gcDeadInterval, false
 			}
 
 			writeOffset := segCursorToOffset(e.gcDstSeg, int64(e.gcDstCursor), int64(segSize))
 			totalWritten, werr := e.objWriteAt(xio.ReqGCWrite, oid, writeOffset, gcObjBuf[:objSize], gcWriteBuf[:objSize+oidSizeInSeg])
 			if werr != nil {
-				e.handleError(err)
+				e.setState(err)
 				return gcDeadInterval, false
 			}
 
 			// Set origin oid address to empty.
 			err = e.ioSched.DoSync(xio.ReqGCWrite, e.segsFile, readOffset, blankOID)
 			if err != nil {
-				e.handleError(err)
+				e.setState(err)
 				return gcDeadInterval, false
 			}
 
@@ -349,7 +349,7 @@ func (e *Extenter) findGCDst() int64 {
 		}
 	}
 	xlog.Error(fmt.Sprintf("could not find a reserved segment for GC dst, ext_id: %d", e.info.PbExt.Id))
-	e.handleError(orpc.ErrExtentBroken) // Set extent broken if there is no reserved segment.
+	e.setState(orpc.ErrExtentBroken) // Set extent broken if there is no reserved segment.
 	return -1
 }
 

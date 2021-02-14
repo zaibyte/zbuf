@@ -11,37 +11,31 @@ import (
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 )
 
-// handleError handles error happens in Extenter.
-func (e *Extenter) handleError(err error) {
+// setState sets Extenter state by err.
+func (e *Extenter) setState(err error) {
 
-	if errors.Is(err, orpc.ErrServiceClosed) {
-		xlog.Warn("service is closed, but got request")
-		return
-	}
-	if errors.Is(err, orpc.ErrObjDigestExisted) {
+	if err == nil {
 		return
 	}
 
+	old := e.info.GetState()
+	var state metapb.ExtentState
 	if diskutil.IsBroken(err) {
-		derr := err
-		if errors.Is(err, syscall.EIO) {
-			derr = e.fastDiskHealthCheck()
-		}
-		if derr != nil {
-			xlog.Error(fmt.Sprintf("disk: %d is broken: %s", e.diskInfo.PbDisk.Id, err.Error()))
-			e.diskInfo.SetState(metapb.DiskState_Disk_Broken, false)
-		}
-	}
-
-	state := metapb.ExtentState_Extent_Broken
-	if errors.Is(err, orpc.ErrExtentFull) {
+		xlog.Error(fmt.Sprintf("disk: %d is broken: %s", e.diskInfo.PbDisk.Id, err.Error()))
+		e.diskInfo.SetState(metapb.DiskState_Disk_Broken, false)
+		state = metapb.ExtentState_Extent_Broken
+	} else if errors.Is(err, syscall.EIO) {
+		state = metapb.ExtentState_Extent_Broken
+	} else if errors.Is(err, orpc.ErrExtentFull) {
 		state = metapb.ExtentState_Extent_Full
-	}
-	if errors.Is(err, orpc.ErrChecksumMismatch) { // Silent corruption.
+	} else if errors.Is(err, orpc.ErrChecksumMismatch) { // Silent corruption.
 		state = metapb.ExtentState_Extent_Ghost
+	} else {
+		state = old
 	}
-	xlog.Error(fmt.Sprintf("extent: %d is %s: %s", e.info.PbExt.Id, state.String(), err.Error()))
 
+	if state != old {
+		xlog.Error(fmt.Sprintf("extent: %d is %s: %s", e.info.PbExt.Id, state.String(), err.Error()))
+	}
 	e.info.SetState(state, false)
-
 }
