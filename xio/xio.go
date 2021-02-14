@@ -46,7 +46,7 @@ const (
 	ReqObjWrite = 0
 	ReqObjRead  = 1
 
-	// ReqChunkWrite/Read is I/O requests of big data chunk write/read.
+	// ReqChunkWrite/Read is I/O requests of big data chunk write/read or heavy I/O job(e.g. clone).
 	// Should have the lowest priority.
 	ReqChunkWrite = 2
 	ReqChunkRead  = 3
