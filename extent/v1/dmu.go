@@ -360,6 +360,12 @@ func (e *Extenter) loadDMUSnap() error {
 		}
 	}
 
+	e.gcSrcSeg = h.GcDstSeg
+	e.gcDstSeg = h.GcDstSeg
+	e.gcSrcCursor = h.GcSrcCursor
+	e.gcDstCursor = h.GcDstCursor
+	e.header.nvh.CloneJob.DoneCnt = uint64(h.CloneJobDoneCnt)
+
 	atomic.StorePointer((*unsafe.Pointer)(e.lastDMUSnap), unsafe.Pointer(h))
 
 	return nil
