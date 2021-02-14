@@ -96,7 +96,7 @@ func (e *Extenter) Start() error {
 	panic("implement me")
 }
 
-func (e *Extenter) PutObj(_reqid, oid uint64, _extID uint32, objData []byte, isClone bool) error {
+func (e *Extenter) PutObj(_reqid, oid uint64, objData []byte, isClone bool) error {
 
 	wr := acquirePutObjRequest()
 
@@ -143,7 +143,7 @@ func (e *Extenter) PutObj(_reqid, oid uint64, _extID uint32, objData []byte, isC
 	return err
 }
 
-func (e *Extenter) GetObj(reqid, oid uint64, _extID uint32, isClone bool) (objData []byte, err error) {
+func (e *Extenter) GetObj(reqid, oid uint64, isClone bool) (objData []byte, err error) {
 
 	has, digest, offset, size := e.getObjOffsetSize(oid)
 	if !has {
@@ -208,7 +208,7 @@ func (e *Extenter) getObjOffsetSize(oid uint64) (has bool, digest uint32, offset
 	return true, digest, int64(addr * dmu.AlignSize), int(grains * uid.GrainSize)
 }
 
-func (e *Extenter) DeleteObj(_reqid, oid uint64, _extID uint32) error {
+func (e *Extenter) DeleteObj(_reqid, oid uint64) error {
 	mr := acquireDMURequest()
 
 	mr.oid = oid

@@ -3,7 +3,6 @@ package extent
 import (
 	"context"
 
-	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zbuf/vdisk"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 )
@@ -14,10 +13,17 @@ type Extenter interface {
 
 	GetInfo() *Info
 
-	orpc.ServerHandler
+	Objecter
+
 	GCer
 
 	Close() error
+}
+
+type Objecter interface {
+	PutObj(reqid, oid uint64, objData []byte, isClone bool) error
+	GetObj(reqid, oid uint64, isClone bool) (objData []byte, err error) // Using xbytes.Buffer here for saving potential GC overhead.
+	DeleteObj(reqid, oid uint64) error
 }
 
 const (
