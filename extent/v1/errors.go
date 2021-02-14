@@ -22,17 +22,14 @@ func (e *Extenter) handleError(err error) {
 		return
 	}
 
-	isGhost := false
 	if diskutil.IsBroken(err) {
-		var ferr error
+		derr := err
 		if errors.Is(err, syscall.EIO) {
-			ferr = e.fastDiskHealthCheck()
+			derr = e.fastDiskHealthCheck()
 		}
-		if ferr != nil {
+		if derr != nil {
 			xlog.Error(fmt.Sprintf("disk: %d is broken: %s", e.diskInfo.PbDisk.Id, err.Error()))
 			e.diskInfo.SetState(metapb.DiskState_Disk_Broken, false)
-		} else {
-			isGhost = true
 		}
 	}
 
@@ -40,9 +37,8 @@ func (e *Extenter) handleError(err error) {
 	if errors.Is(err, orpc.ErrExtentFull) {
 		state = metapb.ExtentState_Extent_Full
 	}
-	if errors.Is(err, orpc.ErrChecksumMismatch) || isGhost {
+	if errors.Is(err, orpc.ErrChecksumMismatch) { // Silent corruption.
 		state = metapb.ExtentState_Extent_Ghost
-		isGhost = true
 	}
 	xlog.Error(fmt.Sprintf("extent: %d is %s: %s", e.info.PbExt.Id, state.String(), err.Error()))
 
