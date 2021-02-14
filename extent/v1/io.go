@@ -164,6 +164,10 @@ func (e *Extenter) preprocWriteReq() error {
 		return orpc.ErrExtentTombstone
 	case metapb.ExtentState_Extent_Ghost:
 		return orpc.ErrExtentGhost
+	case metapb.ExtentState_Extent_Clone:
+		return orpc.ErrExtentClone
+	case metapb.ExtentState_Extent_Sealed:
+		return orpc.ErrExtentSealed
 	}
 	return nil
 }
