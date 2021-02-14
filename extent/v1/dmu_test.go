@@ -171,7 +171,7 @@ import (
 // n: 256.00MB, delta: 3s, cost: 6335.82
 // n: 256.00MB, delta: 2s, cost: 11754.29
 // n: 256.00MB, delta: 1s, cost: 21806.73
-func TestCalcSnapCost2(t *testing.T) {
+func TestCalcSnapCost(t *testing.T) {
 
 	if !xtest.IsPropEnabled() {
 		t.Skip("we already got data, run it again unless you've changed the algorithm")
