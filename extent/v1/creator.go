@@ -115,35 +115,32 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 // Traverse should check oid checksum
 func (c *Creator) Load(ctx context.Context, extDir string, params extent.CreateParams) (extent.Extenter, error) {
 
-	fs := c.fs
-
-	h, err := LoadHeader(c.iosched, fs, extDir)
+	e, err := c.load(ctx, extDir, params)
 	if err != nil {
-		return createDeadExt(c.cfg), err
+		return createBrokenExt(), err
 	}
-
-	c.load(ctx, extDir, params)
+	return e, nil
 }
 
-// createDeadExt creates an Extenter which is unhealthy,
+// createBrokenExt creates an Extenter which is broken,
 // but we still need it for heartbeat or other methods.
-func createDeadExt(cfg *Config, extID, diskID, instanceID uint32, state metapb.ExtentState) extent.Extenter {
+func createBrokenExt() extent.Extenter {
 	return &Extenter{
-		isDead: true,
+		isBroken: true,
 		info: &extent.Info{PbExt: &metapb.Extent{
-			State:      state,
-			Id:         extID,
-			Size_:      uint64(cfg.SegmentSize * segmentCnt),
-			Used:       0,
-			Avail:      (segmentCnt - uint64(cfg.ReservedSeg)) * uint64(cfg.SegmentSize),
-			Version:    uint32(extent.Version1),
-			DiskId:     diskID,
-			InstanceId: instanceID,
+			State: metapb.ExtentState_Extent_Broken,
 		}},
 	}
 }
 
 func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateParams) (extent.Extenter, error) {
+
+	fs := c.fs
+
+	h, err := LoadHeader(c.iosched, fs, extDir)
+	if err != nil {
+		return createBrokenExt(), err
+	}
 
 	segFile, err := fs.Open(filepath.Join(extDir, SegmentsFileName))
 	if err != nil {

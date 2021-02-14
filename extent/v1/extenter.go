@@ -42,7 +42,7 @@ import (
 )
 
 type Extenter struct {
-	isDead bool
+	isBroken bool
 
 	cfg *Config
 
@@ -95,7 +95,7 @@ type Extenter struct {
 }
 
 func (e *Extenter) Start() error {
-	if e.isDead {
+	if e.isBroken {
 		return nil
 	}
 
@@ -251,7 +251,7 @@ func (e *Extenter) GetInfo() *extent.Info {
 
 func (e *Extenter) Close() {
 
-	if e.isDead {
+	if e.isBroken {
 		return
 	}
 
