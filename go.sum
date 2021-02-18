@@ -3,6 +3,8 @@ g.tesamc.com/IT/zai v0.0.0-20210211214729-073e9b119c52 h1:Lqkk3icz+pSeY63yDcfvV5
 g.tesamc.com/IT/zai v0.0.0-20210211214729-073e9b119c52/go.mod h1:rWBczMCzZ7R8FCwfMIgDq5PtW8B0N3GaE+BMapvY728=
 g.tesamc.com/IT/zaipkg v0.0.0-20210214101122-0880065ce70f h1:8GfxsXFplgxEENVASUFeNNvtIrJq3XEgvKIYNwSKsIA=
 g.tesamc.com/IT/zaipkg v0.0.0-20210214101122-0880065ce70f/go.mod h1:Wx5yYTCSm//V4+mpErGLMbbO/lx5Tm3dyKF3d7UOHPE=
+g.tesamc.com/IT/zaipkg v0.0.0-20210218051243-f44d4feca208 h1:j+8CQyb7V9N73WCWqSRe5BNg+dvp48/WzRLkifJp3es=
+g.tesamc.com/IT/zaipkg v0.0.0-20210218051243-f44d4feca208/go.mod h1:Wx5yYTCSm//V4+mpErGLMbbO/lx5Tm3dyKF3d7UOHPE=
 g.tesamc.com/IT/zproto v0.0.0-20210114071438-1018be4c55d3 h1:T9uNHqRS9Bf0KtAOmVEKHDjlRW9vOjskccyyU1BsW8s=
 g.tesamc.com/IT/zproto v0.0.0-20210114071438-1018be4c55d3/go.mod h1:cOpEEu7RT7ocVlcIh/c4JmLSyIFQoPGbzU+77RVg1NE=
 g.tesamc.com/IT/zproto v0.0.0-20210214100940-87133d87229e h1:JMomscDv2rSe52OS89p1WvAmGzb0UDnHC3eaFvZIp2c=
