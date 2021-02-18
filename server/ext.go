@@ -41,7 +41,7 @@ func getExtDirParent(extDir string) string {
 }
 
 // createExtent creates new extent.
-func (s *Server) createExtent(version uint16, extID, diskID uint32) (err error) {
+func (s *Server) createExtent(version uint16, extID, diskID, state, objCount uint32) (err error) {
 
 	// TODO create failed should clean up all dir & files but not search the extinfo
 	defer func() {
@@ -88,7 +88,7 @@ func (s *Server) createExtent(version uint16, extID, diskID uint32) (err error) 
 		return errors.New("not enough space")
 	}
 
-	ext, err := creator.Create(s.ctx, &s.stopWg, s.fs, s.cfg.App.InstanceID, diskID, extID, extDir)
+	ext, err := creator.Create(s.ctx, &s.stopWg, s.fs, s.cfg.App.InstanceID, diskID, extID, extDir, state, objCount)
 	if err != nil {
 		return err
 	}
