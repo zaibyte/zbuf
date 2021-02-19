@@ -205,14 +205,15 @@ func (e *Extenter) updatesLoop() {
 const delWALChunkMinSize = directio.BlockSize
 
 // Del WAL Chunk format(https://g.tesamc.com/IT/zbuf/issues/153):
-func makeDelWALChunk(odigest uint32, ts int64, buf []byte) {
+func makeDelWALChunk(odigest uint32, ts int64, buf []byte) int {
 	binary.LittleEndian.PutUint32(buf[1:5], 1)
 	binary.LittleEndian.PutUint64(buf[5:13], uint64(ts))
 	binary.LittleEndian.PutUint32(buf[13:17], odigest)
 	binary.LittleEndian.PutUint32(buf[delWALChunkMinSize-4:], xdigest.Sum32(buf[:delWALChunkMinSize-4]))
+	return delWALChunkMinSize
 }
 
-func makeDelBatchWALChunk(oids []uint64, ts int64, buf []byte) {
+func makeDelBatchWALChunk(oids []uint64, ts int64, buf []byte) int {
 	buf[0] = 1
 	binary.LittleEndian.PutUint32(buf[1:5], uint32(len(oids)))
 	binary.LittleEndian.PutUint64(buf[5:13], uint64(ts))
@@ -222,6 +223,7 @@ func makeDelBatchWALChunk(oids []uint64, ts int64, buf []byte) {
 	}
 	n := xbytes.AlignSize(13+int64(len(oids))*4+4, directio.BlockSize)
 	binary.LittleEndian.PutUint32(buf[n-4:n], xdigest.Sum32(buf[:n-4]))
+	return int(n)
 }
 
 // preprocWriteReq preprocesses write request.
