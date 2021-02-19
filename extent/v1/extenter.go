@@ -83,9 +83,10 @@ type Extenter struct {
 	gcSrcCursor uint32
 	gcDstCursor uint32
 
-	putObjChan chan *putObjRequest
-	modChan    chan *modifyRequest
-	forceGC    chan float64
+	putObjChan     chan *putObjRequest
+	modChan        chan *modifyRequest
+	forceGC        chan float64
+	dirtyDeleteWAL vfs.File
 
 	zai zai.Client
 
