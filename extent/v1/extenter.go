@@ -209,55 +209,25 @@ func (e *Extenter) getObjOffsetSize(oid uint64) (has bool, digest uint32, offset
 }
 
 func (e *Extenter) DeleteObj(_reqid, oid uint64) error {
-	mr := acquireModifyRequest()
-
-	mr.oid = oid
-	mr.isRemove = true
-	mr.done = make(chan error)
-
-	select {
-	case e.modChan <- mr:
-	default:
-		// Try substituting the oldest async request by the new one
-		// on requests' queue overflow.
-		// This increases the chances for new request to succeed
-		// without timeout.
-		select {
-		case mr2 := <-e.modChan:
-			mr2.done <- orpc.ErrRequestQueueOverflow
-			releaseModifyRequest(mr2)
-		default:
-		}
-
-		// After pop, try to put again.
-		select {
-		case e.modChan <- mr:
-		default:
-			// RequestsChan is filled, release it since mr wasn't exposed to the caller yet.
-			releaseModifyRequest(mr)
-			return orpc.ErrRequestQueueOverflow
-		}
-	}
-
-	err := <-mr.done
-	releaseModifyRequest(mr)
-	return err
+	return e.callModify(modReqRemove, oid, nil, 0)
 }
 
 func (e *Extenter) DeleteBatch(reqid uint64, oids []uint64) error {
+	return e.callModify(modReqRmBatch, 0, oids, 0)
+}
+
+func (e *Extenter) callModify(reqType uint8, oid uint64, oids []uint64, newAddr uint32) error {
 	mr := acquireModifyRequest()
 
+	mr.reqType = reqType
 	mr.oid = oid
-	mr.isRemove = true
+	mr.oids = oids
+	mr.newAddr = newAddr
 	mr.done = make(chan error)
 
 	select {
 	case e.modChan <- mr:
 	default:
-		// Try substituting the oldest async request by the new one
-		// on requests' queue overflow.
-		// This increases the chances for new request to succeed
-		// without timeout.
 		select {
 		case mr2 := <-e.modChan:
 			mr2.done <- orpc.ErrRequestQueueOverflow
@@ -265,11 +235,9 @@ func (e *Extenter) DeleteBatch(reqid uint64, oids []uint64) error {
 		default:
 		}
 
-		// After pop, try to put again.
 		select {
 		case e.modChan <- mr:
 		default:
-			// RequestsChan is filled, release it since mr wasn't exposed to the caller yet.
 			releaseModifyRequest(mr)
 			return orpc.ErrRequestQueueOverflow
 		}
