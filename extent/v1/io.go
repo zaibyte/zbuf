@@ -29,9 +29,9 @@ import (
 const (
 	// 8192 for delete batch, 512 for delete one by one.
 	// The batch WAL won't beyond 128KB, the normal delete WAL won't beyond 4MB.
-	maxDirtyOne        = 512
-	maxDirtyBatch      = 8192
-	maxDirtyDelete     = maxDirtyOne + maxDirtyBatch
+	maxDirtyDelOne     = 512
+	maxDirtyDelBatch   = 8192
+	maxDirtyDelete     = maxDirtyDelOne + maxDirtyDelBatch
 	maxDirtyBloomBits  = 65536
 	maxDirtyBloomHashK = 5
 )
@@ -71,6 +71,8 @@ func (e *Extenter) updatesLoop() {
 		bf: bloom.New(maxDirtyBloomBits, maxDirtyBloomHashK),
 	}
 	digestBuf := make([]byte, 4)
+	var dirtyWALOffset int64 = 0
+
 	for {
 
 		if atomic.LoadInt64(&e.dirtyUpdates) > e.cfg.MaxDirtyCount {
@@ -162,14 +164,28 @@ func (e *Extenter) updatesLoop() {
 
 		switch mr.reqType {
 		case modReqRemove:
-			rHas, rAddr := e.dmu.Remove(digest)
-			if rHas {
-				rSeg := addrToSeg(rAddr, segSize)
-				e.rwMutex.Lock()
-				e.header.nvh.Removed[rSeg] += grains + oidSizeInSeg
-				e.rwMutex.Unlock()
-				atomic.AddInt64(&e.dirtyUpdates, 1)
+			if dirtyDel.dirtyOneCnt >= maxDirtyDelOne {
+				mr.done <- orpc.ErrTooManyRequests
+				continue
 			}
+			if e.dmu.Search(digest) == 0 {
+				mr.done <- orpc.ErrNotFound
+				continue
+			}
+
+			e.ioSched.DoSync(xio.ReqMetaRead, e.dirtyDeleteWAL, dirtyWALOffset)
+
+			_, rAddr := e.dmu.Remove(digest)
+			// TODO should write WAL first
+			lastMod := tsc.UnixNano()
+			dirtyDel.dirtyOneCnt++
+			rSeg := addrToSeg(rAddr, segSize)
+			e.rwMutex.Lock()
+			dirtyDel.lasMod = lastMod
+			e.header.nvh.Removed[rSeg] += grains + oidSizeInSeg
+			e.rwMutex.Unlock()
+			atomic.AddInt64(&e.dirtyUpdates, 1)
+
 			mr.done <- nil
 			continue
 		case modReqRmBatch:
@@ -184,6 +200,28 @@ func (e *Extenter) updatesLoop() {
 			continue
 		}
 	}
+}
+
+const delWALChunkMinSize = directio.BlockSize
+
+// Del WAL Chunk format(https://g.tesamc.com/IT/zbuf/issues/153):
+func makeDelWALChunk(odigest uint32, ts int64, buf []byte) {
+	binary.LittleEndian.PutUint32(buf[1:5], 1)
+	binary.LittleEndian.PutUint64(buf[5:13], uint64(ts))
+	binary.LittleEndian.PutUint32(buf[13:17], odigest)
+	binary.LittleEndian.PutUint32(buf[delWALChunkMinSize-4:], xdigest.Sum32(buf[:delWALChunkMinSize-4]))
+}
+
+func makeDelBatchWALChunk(oids []uint64, ts int64, buf []byte) {
+	buf[0] = 1
+	binary.LittleEndian.PutUint32(buf[1:5], uint32(len(oids)))
+	binary.LittleEndian.PutUint64(buf[5:13], uint64(ts))
+	for i, oid := range oids {
+		_, _, _, digest, _, _ := uid.ParseOID(oid)
+		binary.LittleEndian.PutUint32(buf[i*4+13:i*4+13+4], digest)
+	}
+	n := xbytes.AlignSize(13+int64(len(oids))*4+4, directio.BlockSize)
+	binary.LittleEndian.PutUint32(buf[n-4:n], xdigest.Sum32(buf[:n-4]))
 }
 
 // preprocWriteReq preprocesses write request.
