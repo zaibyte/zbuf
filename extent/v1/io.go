@@ -448,8 +448,10 @@ func acquireModifyRequest() *modifyRequest {
 }
 
 func releaseModifyRequest(mr *modifyRequest) {
-	mr.oid = nil
-	mr.isRemove = false
+	mr.reqType = 0
+
+	mr.oid = 0
+	mr.oids = nil
 	mr.newAddr = 0
 
 	mr.done = nil
