@@ -172,12 +172,15 @@ func (e *Extenter) updatesLoop() {
 				mr.done <- orpc.ErrNotFound
 				continue
 			}
-
-			e.ioSched.DoSync(xio.ReqMetaRead, e.dirtyDeleteWAL, dirtyWALOffset)
-
-			_, rAddr := e.dmu.Remove(digest)
-			// TODO should write WAL first
 			lastMod := tsc.UnixNano()
+			n := makeDelWALChunk(digest, lastMod, writeBuf)
+			err := e.ioSched.DoSync(xio.ReqMetaRead, e.dirtyDeleteWAL, dirtyWALOffset, writeBuf[:n])
+			if err != nil {
+				mr.done <- err
+				e.setState(err)
+				continue
+			}
+			_, rAddr := e.dmu.Remove(digest)
 			dirtyDel.dirtyOneCnt++
 			rSeg := addrToSeg(rAddr, segSize)
 			e.rwMutex.Lock()
@@ -185,7 +188,6 @@ func (e *Extenter) updatesLoop() {
 			e.header.nvh.Removed[rSeg] += grains + oidSizeInSeg
 			e.rwMutex.Unlock()
 			atomic.AddInt64(&e.dirtyUpdates, 1)
-
 			mr.done <- nil
 			continue
 		case modReqRmBatch:
