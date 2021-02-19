@@ -420,11 +420,19 @@ func releasePutObjRequest(wr *putObjRequest) {
 	putObjRequestPool.Put(wr)
 }
 
+const (
+	modReqRemove    = 1
+	modReqRmBatch   = 2
+	modReqResetAddr = 3
+)
+
 // Including deletion & setting new address for an oid.
 type modifyRequest struct {
-	oid      uint64
-	isRemove bool   // Remove request, otherwise is GC.
-	newAddr  uint32 // GC will move object to a new address.
+	reqType uint8
+
+	oid     uint64   // If modReqRemove, using this one.
+	oids    []uint64 // If modReqRmBatch, using this one.
+	newAddr uint32   // If modReqResetAddr, using this one.
 
 	done chan error
 }
@@ -440,7 +448,7 @@ func acquireModifyRequest() *modifyRequest {
 }
 
 func releaseModifyRequest(mr *modifyRequest) {
-	mr.oid = 0
+	mr.oid = nil
 	mr.isRemove = false
 	mr.newAddr = 0
 
