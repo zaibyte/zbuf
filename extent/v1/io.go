@@ -153,7 +153,7 @@ func (e *Extenter) updatesLoop() {
 
 		// mr must not be nil
 
-		if err := e.preprocDMUReq(); err != nil {
+		if err := e.preprocModifyRequest(); err != nil {
 			mr.done <- err
 			continue
 		}
@@ -203,9 +203,9 @@ func (e *Extenter) preprocWriteReq(reqType uint64) error {
 	return nil
 }
 
-// preprocDMUReq preprocesses DMU request.
+// preprocModifyRequest preprocesses modify request.
 // Return error if cannot execute the request.
-func (e *Extenter) preprocDMUReq() error {
+func (e *Extenter) preprocModifyRequest() error {
 
 	state := e.info.GetState()
 
