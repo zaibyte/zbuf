@@ -38,9 +38,16 @@ const (
 
 type dirtyDelete struct {
 	bf            *bloom.BloomFilter
-	lasMod        int64
+	lastMod       int64
 	dirtyOneCnt   int
 	dirtyBatchCnt int
+}
+
+func (d *dirtyDelete) reset() {
+	d.bf.ClearAll()
+	d.lastMod = 0
+	d.dirtyOneCnt = 0
+	d.dirtyBatchCnt = 0
 }
 
 // updatesLoop keeps trying to get new updates request and handle it.
@@ -162,6 +169,12 @@ func (e *Extenter) updatesLoop() {
 
 		switch mr.reqType {
 		case modReqRemove:
+			lastSnap := e.getLastDMUSnap()
+			if lastSnap.createTS >= dirtyDel.lastMod {
+				dirtyDel.reset()
+				dirtyWALOffset = 0
+			}
+
 			if dirtyDel.dirtyOneCnt+1 > maxDirtyDelOne {
 				mr.done <- orpc.ErrTooManyRequests
 				continue
@@ -186,13 +199,19 @@ func (e *Extenter) updatesLoop() {
 			dirtyDel.dirtyOneCnt++
 			rSeg := addrToSeg(rAddr, segSize)
 			e.rwMutex.Lock()
-			dirtyDel.lasMod = lastMod
+			dirtyDel.lastMod = lastMod
 			e.header.nvh.Removed[rSeg] += grains + oidSizeInSeg
 			e.rwMutex.Unlock()
 			atomic.AddInt64(&e.dirtyUpdates, 1)
 			mr.done <- nil
 			continue
 		case modReqRmBatch:
+			lastSnap := e.getLastDMUSnap()
+			if lastSnap.createTS >= dirtyDel.lastMod {
+				dirtyDel.reset()
+				dirtyWALOffset = 0
+			}
+
 			if dirtyDel.dirtyBatchCnt+len(mr.oids) > maxDirtyDelBatch {
 				mr.done <- orpc.ErrTooManyRequests
 				continue
@@ -215,7 +234,7 @@ func (e *Extenter) updatesLoop() {
 					dirtyDel.bf.Add(digestBuf)
 					dirtyDel.dirtyOneCnt++
 					rSeg := addrToSeg(rAddr, segSize)
-					dirtyDel.lasMod = lastMod
+					dirtyDel.lastMod = lastMod
 					e.header.nvh.Removed[rSeg] += grains + oidSizeInSeg
 					atomic.AddInt64(&e.dirtyUpdates, 1)
 				}
