@@ -23,7 +23,25 @@ import (
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 
 	"github.com/templexxx/tsc"
+	"github.com/willf/bloom"
 )
+
+const (
+	// 8192 for delete batch, 512 for delete one by one.
+	// The batch WAL won't beyond 128KB, the normal delete WAL won't beyond 4MB.
+	maxDirtyOne        = 512
+	maxDirtyBatch      = 8192
+	maxDirtyDelete     = maxDirtyOne + maxDirtyBatch
+	maxDirtyBloomBits  = 65536
+	maxDirtyBloomHashK = 5
+)
+
+type dirtyDelete struct {
+	bf            *bloom.BloomFilter
+	lasMod        int64
+	dirtyOneCnt   int64
+	dirtyBatchCnt int64
+}
 
 // updatesLoop keeps trying to get new updates request and handle it.
 // Includes:
@@ -48,6 +66,11 @@ func (e *Extenter) updatesLoop() {
 	// we will pass the objData piece by piece directly.
 	writeBuf := directio.AlignedBlock(int(oidSizeInSeg + e.cfg.SizePerWrite))
 	segSize := int64(e.cfg.SegmentSize)
+
+	dirtyDel := &dirtyDelete{
+		bf: bloom.New(maxDirtyBloomBits, maxDirtyBloomHashK),
+	}
+	digestBuf := make([]byte, 4)
 	for {
 
 		if atomic.LoadInt64(&e.dirtyUpdates) > e.cfg.MaxDirtyCount {
@@ -74,12 +97,18 @@ func (e *Extenter) updatesLoop() {
 		}
 
 		if wr != nil {
-			if err := e.preprocWriteReq(); err != nil {
+			if err := e.preprocWriteReq(wr.reqType); err != nil {
 				wr.done <- err
 				continue
 			}
 
 			_, _, grains, digest, otype, _ := uid.ParseOID(wr.oid) // ignore err here, because the oid should have been checked.
+
+			binary.LittleEndian.PutUint32(digestBuf, digest)
+			if dirtyDel.bf.Test(digestBuf) {
+				wr.done <- orpc.ErrObjDigestExisted
+				continue
+			}
 
 			if e.dmu.Search(digest) != 0 {
 				wr.done <- orpc.ErrObjDigestExisted
@@ -162,8 +191,6 @@ func (e *Extenter) preprocWriteReq(reqType uint64) error {
 		return orpc.ErrExtentBroken
 	case metapb.ExtentState_Extent_Full:
 		return orpc.ErrExtentFull
-	case metapb.ExtentState_Extent_Tombstone:
-		return orpc.ErrExtentTombstone
 	case metapb.ExtentState_Extent_Ghost:
 		return orpc.ErrExtentGhost
 	case metapb.ExtentState_Extent_Clone:

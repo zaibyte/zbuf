@@ -33,6 +33,7 @@ func (s *Server) listDisks() {
 	diskIDs, _ := listDiskIDs(s.fs, root)
 
 	s.getDisksInfo(diskIDs)
+	// TODO start disk io scheduler
 }
 
 func listDiskIDs(fs vfs.FS, root string) (diskIDs []uint32, err error) {
