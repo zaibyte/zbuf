@@ -39,8 +39,8 @@ const (
 type dirtyDelete struct {
 	bf            *bloom.BloomFilter
 	lasMod        int64
-	dirtyOneCnt   int64
-	dirtyBatchCnt int64
+	dirtyOneCnt   int
+	dirtyBatchCnt int
 }
 
 // updatesLoop keeps trying to get new updates request and handle it.
@@ -160,27 +160,29 @@ func (e *Extenter) updatesLoop() {
 			continue
 		}
 
-		_, _, grains, digest, _, _ := uid.ParseOID(mr.oid)
-
 		switch mr.reqType {
 		case modReqRemove:
-			if dirtyDel.dirtyOneCnt >= maxDirtyDelOne {
+			if dirtyDel.dirtyOneCnt+1 > maxDirtyDelOne {
 				mr.done <- orpc.ErrTooManyRequests
 				continue
 			}
+			_, _, grains, digest, _, _ := uid.ParseOID(mr.oid)
+
 			if e.dmu.Search(digest) == 0 {
 				mr.done <- orpc.ErrNotFound
 				continue
 			}
 			lastMod := tsc.UnixNano()
 			n := makeDelWALChunk(digest, lastMod, writeBuf)
-			err := e.ioSched.DoSync(xio.ReqMetaRead, e.dirtyDeleteWAL, dirtyWALOffset, writeBuf[:n])
+			err := e.ioSched.DoSync(xio.ReqMetaWrite, e.dirtyDeleteWAL, dirtyWALOffset, writeBuf[:n])
 			if err != nil {
 				mr.done <- err
 				e.setState(err)
 				continue
 			}
 			_, rAddr := e.dmu.Remove(digest)
+			binary.LittleEndian.PutUint32(digestBuf, digest)
+			dirtyDel.bf.Add(digestBuf)
 			dirtyDel.dirtyOneCnt++
 			rSeg := addrToSeg(rAddr, segSize)
 			e.rwMutex.Lock()
@@ -191,7 +193,39 @@ func (e *Extenter) updatesLoop() {
 			mr.done <- nil
 			continue
 		case modReqRmBatch:
+			if dirtyDel.dirtyBatchCnt+len(mr.oids) > maxDirtyDelBatch {
+				mr.done <- orpc.ErrTooManyRequests
+				continue
+			}
+			lastMod := tsc.UnixNano()
+			n := makeDelBatchWALChunk(mr.oids, lastMod, writeBuf)
+			err := e.ioSched.DoSync(xio.ReqMetaWrite, e.dirtyDeleteWAL, dirtyWALOffset, writeBuf[:n])
+			if err != nil {
+				mr.done <- err
+				e.setState(err)
+				continue
+			}
+
+			e.rwMutex.Lock()
+			for _, oid := range mr.oids {
+				_, _, grains, digest, _, _ := uid.ParseOID(oid)
+				rHas, rAddr := e.dmu.Remove(digest)
+				if rHas {
+					binary.LittleEndian.PutUint32(digestBuf, digest)
+					dirtyDel.bf.Add(digestBuf)
+					dirtyDel.dirtyOneCnt++
+					rSeg := addrToSeg(rAddr, segSize)
+					dirtyDel.lasMod = lastMod
+					e.header.nvh.Removed[rSeg] += grains + oidSizeInSeg
+					atomic.AddInt64(&e.dirtyUpdates, 1)
+				}
+			}
+			e.rwMutex.Unlock()
+			mr.done <- nil
+			continue
+
 		case modReqResetAddr:
+			_, _, _, digest, _, _ := uid.ParseOID(mr.oid)
 			if e.dmu.Update(digest, mr.newAddr) {
 				atomic.AddInt64(&e.dirtyUpdates, 1)
 			}
