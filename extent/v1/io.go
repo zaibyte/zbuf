@@ -159,22 +159,28 @@ func (e *Extenter) updatesLoop() {
 		}
 
 		_, _, grains, digest, _, _ := uid.ParseOID(mr.oid)
-		if mr.isRemove {
+
+		switch mr.reqType {
+		case modReqRemove:
 			rHas, rAddr := e.dmu.Remove(digest)
 			if rHas {
 				rSeg := addrToSeg(rAddr, segSize)
 				e.rwMutex.Lock()
 				e.header.nvh.Removed[rSeg] += grains + oidSizeInSeg
 				e.rwMutex.Unlock()
+				atomic.AddInt64(&e.dirtyUpdates, 1)
 			}
 			mr.done <- nil
-			// We don't add dirtyUpdates here, what we do care is add/reset, not remove.
 			continue
-		} else {
+		case modReqRmBatch:
+		case modReqResetAddr:
 			if e.dmu.Update(digest, mr.newAddr) {
 				atomic.AddInt64(&e.dirtyUpdates, 1)
-			} // Actually it's only used for GC process, couldn't be false.
+			}
 			mr.done <- nil
+			continue
+		default:
+			mr.done <- orpc.ErrNotImplemented
 			continue
 		}
 	}
