@@ -42,6 +42,10 @@ func (c *Creator) GetSize() uint64 {
 	return seg + header + boot + uint64(pa)
 }
 
+const (
+	dirtyDelWalFileName = "dirty_del.wal"
+)
+
 func (c *Creator) Create(ctx context.Context, extDir string, params extent.CreateParams) (extent.Extenter, error) {
 
 	fs := c.fs
@@ -51,6 +55,12 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 	}
 
 	segFile, err := fs.Create(filepath.Join(extDir, SegmentsFileName))
+	if err != nil {
+		h.Close()
+		return nil, err
+	}
+
+	dwf, err := fs.Create(filepath.Join(extDir, dirtyDelWalFileName))
 	if err != nil {
 		h.Close()
 		return nil, err
@@ -92,9 +102,10 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 		gcSrcSeg: -1,
 		gcDstSeg: -1,
 
-		putObjChan: make(chan *putObjRequest, c.cfg.UpdatesPending),
-		modChan:    make(chan *modifyRequest, c.cfg.UpdatesPending), // Shares same config.
-		forceGC:    make(chan float64, 1),
+		putObjChan:     make(chan *putObjRequest, c.cfg.UpdatesPending),
+		modChan:        make(chan *modifyRequest, c.cfg.UpdatesPending), // Shares same config.
+		forceGC:        make(chan float64, 1),
+		dirtyDeleteWAL: dwf,
 
 		zai: c.zai,
 
