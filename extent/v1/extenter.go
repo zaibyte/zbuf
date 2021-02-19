@@ -84,7 +84,7 @@ type Extenter struct {
 	gcDstCursor uint32
 
 	putObjChan chan *putObjRequest
-	dmuChan    chan *dmuRequest
+	modChan    chan *modifyRequest
 	forceGC    chan float64
 
 	zai zai.Client
@@ -209,38 +209,74 @@ func (e *Extenter) getObjOffsetSize(oid uint64) (has bool, digest uint32, offset
 }
 
 func (e *Extenter) DeleteObj(_reqid, oid uint64) error {
-	mr := acquireDMURequest()
+	mr := acquireModifyRequest()
 
 	mr.oid = oid
 	mr.isRemove = true
 	mr.done = make(chan error)
 
 	select {
-	case e.dmuChan <- mr:
+	case e.modChan <- mr:
 	default:
 		// Try substituting the oldest async request by the new one
 		// on requests' queue overflow.
 		// This increases the chances for new request to succeed
 		// without timeout.
 		select {
-		case mr2 := <-e.dmuChan:
+		case mr2 := <-e.modChan:
 			mr2.done <- orpc.ErrRequestQueueOverflow
-			releaseDMURequest(mr2)
+			releaseModifyRequest(mr2)
 		default:
 		}
 
 		// After pop, try to put again.
 		select {
-		case e.dmuChan <- mr:
+		case e.modChan <- mr:
 		default:
 			// RequestsChan is filled, release it since mr wasn't exposed to the caller yet.
-			releaseDMURequest(mr)
+			releaseModifyRequest(mr)
 			return orpc.ErrRequestQueueOverflow
 		}
 	}
 
 	err := <-mr.done
-	releaseDMURequest(mr)
+	releaseModifyRequest(mr)
+	return err
+}
+
+func (e *Extenter) DeleteBatch(reqid uint64, oids []uint64) error {
+	mr := acquireModifyRequest()
+
+	mr.oid = oid
+	mr.isRemove = true
+	mr.done = make(chan error)
+
+	select {
+	case e.modChan <- mr:
+	default:
+		// Try substituting the oldest async request by the new one
+		// on requests' queue overflow.
+		// This increases the chances for new request to succeed
+		// without timeout.
+		select {
+		case mr2 := <-e.modChan:
+			mr2.done <- orpc.ErrRequestQueueOverflow
+			releaseModifyRequest(mr2)
+		default:
+		}
+
+		// After pop, try to put again.
+		select {
+		case e.modChan <- mr:
+		default:
+			// RequestsChan is filled, release it since mr wasn't exposed to the caller yet.
+			releaseModifyRequest(mr)
+			return orpc.ErrRequestQueueOverflow
+		}
+	}
+
+	err := <-mr.done
+	releaseModifyRequest(mr)
 	return err
 }
 

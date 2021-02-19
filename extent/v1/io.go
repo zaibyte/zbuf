@@ -78,12 +78,12 @@ func (e *Extenter) updatesLoop() {
 		}
 
 		var wr *putObjRequest
-		var mr *dmuRequest
+		var mr *modifyRequest
 
 		// We must be sure loop blocking on select, otherwise the loop will do nothing & wasting the CPU.
 		select {
 		case wr = <-e.putObjChan:
-		case mr = <-e.dmuChan:
+		case mr = <-e.modChan:
 		default:
 			// Give the last chance for ready goroutines filling chan.
 			runtime.Gosched()
@@ -92,7 +92,7 @@ func (e *Extenter) updatesLoop() {
 			case <-ctx.Done():
 				return
 			case wr = <-e.putObjChan:
-			case mr = <-e.dmuChan:
+			case mr = <-e.modChan:
 			}
 		}
 
@@ -212,8 +212,6 @@ func (e *Extenter) preprocDMUReq() error {
 	switch state {
 	case metapb.ExtentState_Extent_Broken:
 		return orpc.ErrExtentBroken
-	case metapb.ExtentState_Extent_Tombstone:
-		return orpc.ErrExtentTombstone
 	case metapb.ExtentState_Extent_Ghost:
 		return orpc.ErrExtentGhost
 	}
@@ -422,8 +420,8 @@ func releasePutObjRequest(wr *putObjRequest) {
 	putObjRequestPool.Put(wr)
 }
 
-// Including deletion & GC.
-type dmuRequest struct {
+// Including deletion & setting new address for an oid.
+type modifyRequest struct {
 	oid      uint64
 	isRemove bool   // Remove request, otherwise is GC.
 	newAddr  uint32 // GC will move object to a new address.
@@ -431,22 +429,22 @@ type dmuRequest struct {
 	done chan error
 }
 
-var dmuRequestPool sync.Pool
+var modifyRequestPool sync.Pool
 
-func acquireDMURequest() *dmuRequest {
-	v := dmuRequestPool.Get()
+func acquireModifyRequest() *modifyRequest {
+	v := modifyRequestPool.Get()
 	if v == nil {
-		return &dmuRequest{}
+		return &modifyRequest{}
 	}
-	return v.(*dmuRequest)
+	return v.(*modifyRequest)
 }
 
-func releaseDMURequest(mr *dmuRequest) {
+func releaseModifyRequest(mr *modifyRequest) {
 	mr.oid = 0
 	mr.isRemove = false
 	mr.newAddr = 0
 
 	mr.done = nil
 
-	dmuRequestPool.Put(mr)
+	modifyRequestPool.Put(mr)
 }

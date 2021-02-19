@@ -93,7 +93,7 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 		gcDstSeg: -1,
 
 		putObjChan: make(chan *putObjRequest, c.cfg.UpdatesPending),
-		dmuChan:    make(chan *dmuRequest, c.cfg.UpdatesPending), // Shares same config.
+		modChan:    make(chan *modifyRequest, c.cfg.UpdatesPending), // Shares same config.
 		forceGC:    make(chan float64, 1),
 
 		zai: c.zai,
@@ -177,7 +177,7 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 		gcDstSeg: -1,
 
 		putObjChan: make(chan *putObjRequest, c.cfg.UpdatesPending),
-		dmuChan:    make(chan *dmuRequest, c.cfg.UpdatesPending), // Shares same config.
+		modChan:    make(chan *modifyRequest, c.cfg.UpdatesPending), // Shares same config.
 		forceGC:    make(chan float64, 1),
 
 		zai: c.zai,
