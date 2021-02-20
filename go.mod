@@ -3,7 +3,7 @@ module g.tesamc.com/IT/zbuf
 go 1.15
 
 require (
-	g.tesamc.com/IT/zai v0.0.0-20210211214729-073e9b119c52
+	g.tesamc.com/IT/zai v0.0.0-20210220130729-d6a02edbb301
 	g.tesamc.com/IT/zaipkg v0.0.0-20210220112705-f58d9c62d4bd
 	g.tesamc.com/IT/zproto v0.0.0-20210220091410-211cae3890c4
 	github.com/VictoriaMetrics/metrics v1.12.3
