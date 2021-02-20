@@ -2,6 +2,7 @@ package extent
 
 import (
 	"context"
+	"sync/atomic"
 
 	"g.tesamc.com/IT/zbuf/vdisk"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
@@ -61,4 +62,19 @@ type GCer interface {
 	// DoGC tries to trigger GC with a certain ratio,
 	// it's non-block, and you could call it anytime.
 	DoGC(ratio float64)
+}
+
+// SetCloneJobState sets clone job a new state.
+func SetCloneJobState(cj *metapb.CloneJob, state metapb.CloneJobState, isKeeper bool) {
+	oldSate := atomic.LoadInt32((*int32)(&cj.State))
+	if !isKeeper {
+		if metapb.CloneJobState(oldSate) == metapb.CloneJobState_CloneJob_Failed ||
+			metapb.CloneJobState(oldSate) == metapb.CloneJobState_CloneJob_Paused ||
+			metapb.CloneJobState(oldSate) == metapb.CloneJobState_CloneJob_Terminated ||
+			metapb.CloneJobState(oldSate) == metapb.CloneJobState_CloneJob_Done {
+			return
+		}
+	}
+
+	atomic.StoreInt32((*int32)(&cj.State), int32(state))
 }
