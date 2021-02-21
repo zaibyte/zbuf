@@ -24,6 +24,8 @@ import (
 	"time"
 	"unsafe"
 
+	"g.tesamc.com/IT/zproto/pkg/metapb"
+
 	zai "g.tesamc.com/IT/zai/client"
 
 	"g.tesamc.com/IT/zaipkg/xbytes"
@@ -162,6 +164,11 @@ func (e *Extenter) PutObj(_reqid, oid uint64, objData []byte, isClone bool) erro
 
 func (e *Extenter) GetObj(reqid, oid uint64, isClone bool) (objData []byte, err error) {
 
+	err = e.preprocGetReq()
+	if err != nil {
+		return nil, err
+	}
+
 	has, digest, offset, size := e.getObjOffsetSize(oid)
 	if !has {
 		err = xerrors.WithMessage(orpc.ErrNotFound, fmt.Sprintf("oid: %d", oid))
@@ -205,10 +212,25 @@ func (e *Extenter) GetObj(reqid, oid uint64, isClone bool) (objData []byte, err 
 	return objData, nil
 }
 
+func (e *Extenter) preprocGetReq() error {
+
+	state := e.info.GetState()
+
+	switch state {
+	case metapb.ExtentState_Extent_Broken:
+		return orpc.ErrExtentBroken
+	case metapb.ExtentState_Extent_Ghost:
+		return orpc.ErrExtentGhost
+	case metapb.ExtentState_Extent_Clone:
+		return orpc.ErrExtentClone
+	}
+	return nil
+}
+
 func (e *Extenter) getObjOffsetSize(oid uint64) (has bool, digest uint32, offset int64, size int) {
 	_, _, _, digest, _, _ = uid.ParseOID(oid)
-	entry, ok := e.dmu.Search(digest)
-	if !ok {
+	entry := e.dmu.Search(digest)
+	if entry == 0 {
 
 		return false, 0, 0, 0
 	}
