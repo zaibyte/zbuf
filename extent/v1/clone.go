@@ -69,10 +69,20 @@ func (e *Extenter) TryClone(job *metapb.CloneJob) {
 
 		for i := 0; i < len(oids)/8; i++ {
 			oid := binary.LittleEndian.Uint64(oids[i*8 : i*8+8])
+			_, _, _, digest, _, _ := uid.ParseOID(oid)
+			if e.dmu.Search(digest) != 0 {
+				e.rwMutex.Lock()
+				e.header.nvh.CloneJob.DoneCnt += 1
+				e.rwMutex.Unlock()
+				continue
+			}
 			_, err = e.zai.GetObj(oid, objDataBuf, 0, settings.MaxObjectSize, true, 3*time.Second)
 			if err != nil {
 				xlog.Warn(xerrors.WithMessage(err, fmt.Sprintf("failed to get clone job oid: %d", oid)).Error())
 				if errors.Is(err, orpc.ErrNotFound) {
+					e.rwMutex.Lock()
+					e.header.nvh.CloneJob.DoneCnt += 1
+					e.rwMutex.Unlock()
 					continue
 				}
 
