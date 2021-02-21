@@ -70,7 +70,7 @@ func SetCloneJobState(cj *metapb.CloneJob, state metapb.CloneJobState, isKeeper 
 	if !isKeeper {
 		if metapb.CloneJobState(oldSate) == metapb.CloneJobState_CloneJob_Failed ||
 			metapb.CloneJobState(oldSate) == metapb.CloneJobState_CloneJob_Paused ||
-			metapb.CloneJobState(oldSate) == metapb.CloneJobState_CloneJob_Terminated ||
+			metapb.CloneJobState(oldSate) == metapb.CloneJobState_CloneJob_Collapse ||
 			metapb.CloneJobState(oldSate) == metapb.CloneJobState_CloneJob_Done {
 			return
 		}
