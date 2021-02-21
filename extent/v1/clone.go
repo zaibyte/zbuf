@@ -1,7 +1,70 @@
 package v1
 
-import "g.tesamc.com/IT/zproto/pkg/metapb"
+import (
+	"bytes"
+	"errors"
+	"fmt"
+	"time"
 
-func (e *Extenter) TryClone(job *metapb.CloneJob) error {
-	panic("implement me")
+	"g.tesamc.com/IT/zbuf/extent"
+
+	"g.tesamc.com/IT/zaipkg/orpc"
+
+	"g.tesamc.com/IT/zaipkg/config/settings"
+	"g.tesamc.com/IT/zaipkg/uid"
+	"g.tesamc.com/IT/zaipkg/xerrors"
+	"g.tesamc.com/IT/zaipkg/xlog"
+	"g.tesamc.com/IT/zproto/pkg/metapb"
+)
+
+const (
+	// cloneOIDsBufSize is the buffer size to hold clone source OIDs,
+	// the biggest OIDs maybe 102.4MB, we don't need to get them all
+	// in one call.
+	cloneOIDsBufSize = settings.MaxObjectSize
+)
+
+func (e *Extenter) TryClone(job *metapb.CloneJob) {
+	if job == nil {
+		return
+	}
+
+	oidsOID := job.OidsOid
+	oidsBody := bytes.NewBuffer(make([]byte, cloneOIDsBufSize))
+	_, _, grains, _, _, _ := uid.ParseOID(oidsOID)
+	var done = uint32(job.DoneCnt * 8)
+
+	retry := &orpc.Retryer{
+		MinSleep: 100 * time.Millisecond,
+		MaxTried: 10,
+		MaxSleep: 15 * time.Second,
+	}
+
+	for done < grains*uid.GrainSize {
+
+		var n int64
+		var err error
+		for i := 0; ; i++ {
+			oidsBody.Reset() // Avoiding dirty read.
+			n, err = e.zai.GetObj(oidsOID, oidsBody, int64(done), int64(cloneOIDsBufSize), 3*time.Second)
+			if err != nil {
+				xlog.Warn(xerrors.WithMessage(err, fmt.Sprintf("failed to get clone job oids_oid: %d", oidsOID)).Error())
+				if errors.Is(err, orpc.ErrReplicasCollapse) {
+					extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Failed, false)
+					return
+				}
+				time.Sleep(retry.GetSleepDuration(i+1, cloneOIDsBufSize))
+				continue
+			}
+			break
+		}
+
+		oidsBody.Bytes()
+
+		// TODO deal with oids_set which got in last request.
+
+		done += uint32(n)
+
+	}
+
 }
