@@ -29,9 +29,10 @@ import (
 const (
 	// 8192 for delete batch, 512 for delete one by one.
 	// The batch WAL won't beyond 128KB, the normal delete WAL won't beyond 4MB.
-	maxDirtyDelOne     = 512
-	maxDirtyDelBatch   = 8192
-	maxDirtyDelete     = maxDirtyDelOne + maxDirtyDelBatch
+	maxDirtyDelOne   = 512
+	maxDirtyDelBatch = 8192
+	maxDirtyDelete   = maxDirtyDelOne + maxDirtyDelBatch
+	// False positive will be around 0.02.
 	maxDirtyBloomBits  = 65536
 	maxDirtyBloomHashK = 5
 )
@@ -200,7 +201,7 @@ func (e *Extenter) updatesLoop() {
 			rSeg := addrToSeg(rAddr, segSize)
 			e.rwMutex.Lock()
 			dirtyDel.lastMod = lastMod
-			e.header.nvh.Removed[rSeg] += grains + oidSizeInSeg
+			e.header.nvh.Removed[rSeg] += uint32(xbytes.AlignSize(int64(grains+oidSizeInSeg/uid.GrainSize), dmu.AlignSize/uid.GrainSize))
 			e.rwMutex.Unlock()
 			atomic.AddInt64(&e.dirtyUpdates, 1)
 			mr.done <- nil
