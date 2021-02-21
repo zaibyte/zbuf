@@ -40,13 +40,6 @@ func (e *Extenter) gcLoop() {
 	hasCheckedSnap := false
 	for {
 
-		state := e.info.GetState()
-		if state != metapb.ExtentState_Extent_ReadWrite &&
-			state != metapb.ExtentState_Extent_Full &&
-			state != metapb.ExtentState_Extent_Offline {
-			return
-		}
-
 		if tryChan == nil {
 			tryChan = xtime.GetTimerEvent(t, interval)
 		}
