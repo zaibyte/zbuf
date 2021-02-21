@@ -100,7 +100,17 @@ func (e *Extenter) Start() error {
 		return nil
 	}
 
+	e.startBackgroundLoops()
+
 	return nil
+}
+
+func (e *Extenter) startBackgroundLoops() {
+	e.stopWg.Add(1)
+	go e.updatesLoop()
+
+	e.stopWg.Add(1)
+	go e.gcLoop()
 }
 
 func (e *Extenter) PutObj(_reqid, oid uint64, objData []byte, isClone bool) error {
