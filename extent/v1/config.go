@@ -48,6 +48,7 @@ const (
 	defaultGCRatio        = 0.5
 	defaultGCInterval     = time.Hour * 24
 	defaultGCScanInterval = time.Hour
+	defaultDeepGCInterval = 30 * 24 * time.Hour // One month.
 )
 
 // TODO may no need to create get queue
@@ -88,6 +89,10 @@ type Config struct {
 	// GCScanInterval is the interval of two GC scan job.
 	// If there is nothing to do for GC, the GC worker will sleep for GCScanInterval for next scan.
 	GCScanInterval typeutil.Duration `toml:"gc_scan_interval"`
+	// DeepGCInterval is the interval of deep GC, which will traverse the whole DMU to get the accurate removed for
+	// each segment.
+	// See: https://g.tesamc.com/IT/zbuf/issues/150#issuecomment-578 for deailts.
+	DeepGCInterval typeutil.Duration `toml:"deep_gc_interval"`
 }
 
 func (cfg *Config) adjust() {
@@ -106,4 +111,5 @@ func (cfg *Config) adjust() {
 	config.Adjust(&cfg.GCRatio, defaultGCRatio)
 	config.Adjust(&cfg.GCInterval, defaultGCInterval)
 	config.Adjust(&cfg.GCScanInterval, defaultGCScanInterval)
+	config.Adjust(&cfg.DeepGCInterval, defaultDeepGCInterval)
 }
