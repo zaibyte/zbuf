@@ -2,9 +2,13 @@ package v1
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 	"sort"
+	"sync/atomic"
 	"time"
+
+	"github.com/willf/bloom"
 
 	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
 
@@ -37,11 +41,16 @@ func (e *Extenter) gcLoop() {
 	t := time.NewTimer(interval)
 	var tryChan <-chan time.Time
 
+	var deepGC <-chan time.Time
+
 	hasCheckedSnap := false
 	for {
 
 		if tryChan == nil {
 			tryChan = xtime.GetTimerEvent(t, interval)
+		}
+		if deepGC == nil {
+			deepGC = xtime.GetTimerEvent(t, e.cfg.DeepGCInterval.Duration)
 		}
 		select {
 
@@ -54,6 +63,48 @@ func (e *Extenter) gcLoop() {
 			tryChan = nil
 			ratio = e.cfg.GCRatio // After force GC once, reset the ratio back.
 			continue
+		case <-deepGC:
+			e.deepGC()
+			deepGC = nil
+			continue
+		}
+	}
+}
+
+func (e *Extenter) deepGC() {
+	used := make([]uint32, segmentCnt)
+	d := e.dmu
+
+	t0 := dmu.GetTbl(d, 0)
+	t1 := dmu.GetTbl(d, 1)
+	_, cnt := d.GetUsage()
+	seen := bloom.New(uint(cnt*8), 5) // False positive will be around 0.02, enough good for this case.
+
+	e.deepGCDMUTbl(t0, used, seen)
+	e.deepGCDMUTbl(t1, used, seen)
+
+	nvh := e.header.nvh
+	e.rwMutex.Lock()
+	for i, s := range nvh.SegStates {
+		if s == segSealed { // Only sealed are GC source candidates. And only in sealed segments, removed = size - used.
+			nvh.Removed[i] = uint32(e.cfg.SegmentSize)/uid.GrainSize - used[i]
+		}
+	}
+	e.rwMutex.Unlock()
+}
+
+func (e *Extenter) deepGCDMUTbl(tbl []uint64, used []uint32, seen *bloom.BloomFilter) {
+	digestBuf := make([]byte, 4)
+	for i := range tbl {
+		en := atomic.LoadUint64(&tbl[i])
+		tag, neighOff, _, grains, addr := dmu.ParseEntry(en)
+		digest := dmu.BackToDigest(tag, uint32(len(tbl)), uint32(i), neighOff)
+		binary.LittleEndian.PutUint32(digestBuf, digest)
+		if !seen.Test(digestBuf) {
+			seg := addrToSeg(addr, int64(e.cfg.SegmentSize))
+			used[seg] += uint32(xbytes.AlignSize(int64(grains+oidSizeInSeg/uid.GrainSize), dmu.AlignSize/uid.GrainSize))
+		} else {
+			seen.Add(digestBuf)
 		}
 	}
 }
