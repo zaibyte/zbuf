@@ -18,7 +18,7 @@ func (p *Info) GetState() metapb.ExtentState {
 func (p *Info) SetState(state metapb.ExtentState, isKeeper bool) bool {
 	oldSate := metapb.ExtentState(atomic.LoadInt32((*int32)(&p.PbExt.State)))
 	if oldSate == state {
-		return false
+		return true
 	}
 
 	if !isKeeper {
