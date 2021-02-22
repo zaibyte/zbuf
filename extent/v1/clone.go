@@ -2,6 +2,7 @@ package v1
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -88,6 +89,11 @@ func entryToOID(boxID, groupID uint32, entry uint64, slotCnt, slot uint32) uint6
 
 func (e *Extenter) tryClone() {
 
+	defer e.stopWg.Done()
+
+	ctx, cancel := context.WithCancel(e.ctx)
+	defer cancel()
+
 	job := e.header.nvh.CloneJob
 
 	if job == nil {
@@ -134,6 +140,14 @@ func (e *Extenter) tryClone() {
 		oids := oidsBody.Bytes()
 
 		for i := 0; i < len(oids)/8; i++ {
+
+			select {
+			case <-ctx.Done():
+				return
+			default:
+
+			}
+
 			oid := binary.LittleEndian.Uint64(oids[i*8 : i*8+8])
 			_, _, grains, digest, _, _ := uid.ParseOID(oid)
 			if e.dmu.Search(digest) != 0 { // Already has.
@@ -144,6 +158,7 @@ func (e *Extenter) tryClone() {
 			}
 			notFound := false
 			for j := 0; ; j++ {
+				objDataBuf.Reset()
 				_, err = e.zai.GetObj(oid, objDataBuf, 0, settings.MaxObjectSize, true, 3*time.Second)
 				if err != nil {
 					xlog.Warn(xerrors.WithMessage(err, fmt.Sprintf("failed to get clone job oid: %d", oid)).Error())
