@@ -5,7 +5,10 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"sync/atomic"
 	"time"
+
+	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
 
 	"g.tesamc.com/IT/zaipkg/config/settings"
 	"g.tesamc.com/IT/zaipkg/orpc"
@@ -25,6 +28,68 @@ const (
 
 func (e *Extenter) InitCloneSource() {
 
+	job := e.header.nvh.CloneJob // Won't be nil, because this method will be invoked only if it's not nil.
+
+	if !e.info.SetState(metapb.ExtentState_Extent_Sealed, true) { // InitCloneSource only will be created by Keeper.
+		return // Unhealthy extent.
+	}
+
+	d := e.dmu
+	_, usage := d.GetUsage()
+
+	oids := make([]byte, usage*8) // After sealed, the future usage only will get lower.
+	t0 := dmu.GetTbl(d, 0)
+	t1 := dmu.GetTbl(d, 1)
+	cnt := e.getOIDsFromDMUTbl(t0, oids, 0)
+	cnt = e.getOIDsFromDMUTbl(t1, oids, cnt)
+	oids = oids[:cnt*8]
+
+	buf := bytes.NewReader(oids)
+
+	retry := &orpc.Retryer{
+		MinSleep: 100 * time.Millisecond,
+		MaxTried: 10,
+		MaxSleep: 10 * time.Second,
+	}
+	for i := 0; ; i++ {
+		if job.GetState() == metapb.CloneJobState_CloneJob_Collapse {
+			xlog.Error("failed to put oids_oid: clone job collapse")
+			break
+		}
+		oidsOID, _, err := e.zai.PutObj(buf, 0)
+		if err != nil {
+			xlog.Warn(xerrors.WithMessage(err, "failed to put oids_oid").Error())
+			time.Sleep(retry.GetSleepDuration(i+1, int64(len(oids))))
+			buf.Reset(oids)
+			continue
+		}
+		e.rwMutex.Lock()
+		e.header.nvh.CloneJob.OidsOid = oidsOID
+		e.rwMutex.Unlock()
+		break
+	}
+}
+
+func (e *Extenter) getOIDsFromDMUTbl(tbl []uint64, oids []byte, offset int) int {
+
+	groupID, _ := uid.ParseExtID(e.info.PbExt.Id)
+
+	for i := range tbl {
+		en := atomic.LoadUint64(&tbl[i])
+		if en != 0 {
+			oid := entryToOID(e.boxID, uint32(groupID), en, uint32(len(tbl)), uint32(i))
+			binary.LittleEndian.PutUint64(oids[offset*8:offset*8+8], oid)
+			offset++
+		}
+	}
+	return offset
+}
+
+func entryToOID(boxID, groupID uint32, entry uint64, slotCnt, slot uint32) uint64 {
+
+	tag, neighOff, otype, grains, _ := dmu.ParseEntry(entry)
+	digest := dmu.BackToDigest(tag, slotCnt, slot, neighOff)
+	return uid.MakeOID(boxID, groupID, grains, digest, uint8(otype))
 }
 
 func (e *Extenter) tryClone() {
