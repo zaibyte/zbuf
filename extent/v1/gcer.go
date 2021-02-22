@@ -192,8 +192,8 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 	}
 
 	state := e.info.GetState()
-	if state == metapb.ExtentState_Extent_Offline {
-		return e.cfg.GCScanInterval.Duration, false // May in Clone process.
+	if state == metapb.ExtentState_Extent_Clone {
+		return e.cfg.GCScanInterval.Duration, false
 	}
 	cs := e.getGCSrcCandidates(ratio)
 	if len(cs) == 0 {
@@ -234,8 +234,11 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			}
 
 			if e.gcSrcCursor >= segSize { // Meet src end.
+				xlog.Info(fmt.Sprintf("done GC in ext:%d, seg:%d", e.info.PbExt.Id, e.gcSrcSeg))
 				break
 			}
+
+			xlog.Info(fmt.Sprintf("begin GC in ext:%d, seg:%d", e.info.PbExt.Id, e.gcSrcSeg))
 
 			readOffset := segCursorToOffset(e.gcSrcSeg, int64(e.gcSrcCursor), int64(segSize))
 			oid, err2 := e.oidReadAt(xio.ReqGCRead, readOffset, oidBuf)
@@ -288,6 +291,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 				newDst := e.findGCDst()
 				if newDst == -1 {
 					e.rwMutex.Unlock()
+					xlog.Warn(fmt.Sprintf("cannot find reserved seg in ext:%d", e.info.PbExt.Id))
 					return gcDeadInterval, false
 				}
 				e.header.nvh.SegStates[e.gcDstSeg] = segSealed
