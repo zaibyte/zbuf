@@ -6,6 +6,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"g.tesamc.com/IT/zbuf/metric"
+
 	"g.tesamc.com/IT/zaipkg/app"
 	"g.tesamc.com/IT/zaipkg/orpc/otcp"
 	"g.tesamc.com/IT/zaipkg/xlog"
@@ -91,7 +93,7 @@ func (s *Server) Run() error {
 
 	go systimemon.StartMonitor(s.ctx, tsc.UnixNano, func() {
 		xlog.Error("system time jumps backward")
-		timeJumpBackCounter.Inc()
+		metric.TimeJumpBackCounter.Inc()
 	})
 
 	err := s.objSvr.Start()
