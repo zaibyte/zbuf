@@ -22,7 +22,7 @@ func (e *Extenter) setState(err error) {
 	var state metapb.ExtentState
 	if diskutil.IsBroken(err) {
 		xlog.Error(fmt.Sprintf("disk: %d is broken: %s", e.diskInfo.PbDisk.Id, err.Error()))
-		e.diskInfo.SetState(metapb.DiskState_Disk_Broken, false)
+		_ = e.diskInfo.SetState(metapb.DiskState_Disk_Broken, false)
 		state = metapb.ExtentState_Extent_Broken
 	} else if errors.Is(err, syscall.EIO) {
 		state = metapb.ExtentState_Extent_Broken
