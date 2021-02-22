@@ -288,7 +288,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 					return checkSnapSyncGCInterval, false // Reset checked, avoiding makeDMUSnapAsync too frequently.
 				}
 				e.rwMutex.Lock()
-				newDst := e.findGCDst()
+				newDst := e.findGCDst() // Must have a valid dst, see GCRatio in config for details.
 				e.header.nvh.SegStates[e.gcDstSeg] = segSealed
 				e.gcDstSeg = newDst
 				e.gcDstCursor = 0

@@ -45,7 +45,9 @@ const (
 	// I've implemented a algorithm to measure the opportunity of making snapshot.
 	defaultMaxDirtyCount = 128
 
-	defaultGCRatio        = 0.5
+	// Ensure free speed is faster than the speed of taking reserved segments by GC.
+	// The min value should > 0.33, for sure there will be enough reserved segments(safe value).
+	defaultGCRatio        = 0.55
 	defaultGCInterval     = time.Hour * 24
 	defaultGCScanInterval = time.Hour
 	defaultDeepGCInterval = 30 * 24 * time.Hour // One month.
