@@ -73,16 +73,27 @@ type GCer interface {
 }
 
 // SetCloneJobState sets clone job a new state.
-func SetCloneJobState(cj *metapb.CloneJob, state metapb.CloneJobState, isKeeper bool) {
-	oldSate := atomic.LoadInt32((*int32)(&cj.State))
-	if !isKeeper {
-		if metapb.CloneJobState(oldSate) == metapb.CloneJobState_CloneJob_Failed ||
-			metapb.CloneJobState(oldSate) == metapb.CloneJobState_CloneJob_Paused ||
-			metapb.CloneJobState(oldSate) == metapb.CloneJobState_CloneJob_Collapse ||
-			metapb.CloneJobState(oldSate) == metapb.CloneJobState_CloneJob_Done {
-			return
-		}
+func SetCloneJobState(cj *metapb.CloneJob, state metapb.CloneJobState) bool {
+	oldSate := metapb.CloneJobState(atomic.LoadInt32((*int32)(&cj.State)))
+
+	if oldSate == state {
+		return true
 	}
 
-	atomic.StoreInt32((*int32)(&cj.State), int32(state))
+	if oldSate == metapb.CloneJobState_CloneJob_Doing && state == metapb.CloneJobState_CloneJob_Init {
+		return false
+	}
+
+	switch oldSate {
+	case metapb.CloneJobState_CloneJob_Failed:
+		return false
+	case metapb.CloneJobState_CloneJob_Collapse:
+		return false
+	case metapb.CloneJobState_CloneJob_Done:
+		return false
+	default:
+
+	}
+
+	return atomic.CompareAndSwapInt32((*int32)(&cj.State), int32(oldSate), int32(state))
 }

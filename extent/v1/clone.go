@@ -104,6 +104,8 @@ func (e *Extenter) tryClone() {
 		return
 	}
 
+	extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Doing)
+
 	oidsOID := job.OidsOid
 	oidsBody := bytes.NewBuffer(make([]byte, cloneOIDsBufSize))
 	_, _, grains, _, _, _ := uid.ParseOID(oidsOID)
@@ -127,14 +129,14 @@ func (e *Extenter) tryClone() {
 			if err != nil {
 				xlog.Warn(xerrors.WithMessage(err, fmt.Sprintf("failed to get clone job oids_oid: %d", oidsOID)).Error())
 				if errors.Is(err, orpc.ErrReplicasCollapse) {
-					extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Failed, false)
+					extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Failed)
 					return
 				}
 				if orpc.CouldRetry(err) {
 					time.Sleep(retry.GetSleepDuration(i+1, cloneOIDsBufSize))
 					continue
 				} else {
-					extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Failed, false)
+					extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Failed)
 					return
 				}
 			}
@@ -175,7 +177,7 @@ func (e *Extenter) tryClone() {
 					}
 
 					if errors.Is(err, orpc.ErrReplicasCollapse) {
-						extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Collapse, false)
+						extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Collapse)
 						return
 					}
 
@@ -183,7 +185,7 @@ func (e *Extenter) tryClone() {
 						time.Sleep(retry.GetSleepDuration(j+1, int64(grains*uid.GrainSize)))
 						continue
 					} else {
-						extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Failed, false)
+						extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Failed)
 						return
 					}
 				} else {
@@ -209,6 +211,6 @@ func (e *Extenter) tryClone() {
 
 	}
 
-	extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Done, false)
+	extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Done)
 	e.info.SetState(metapb.ExtentState_Extent_ReadWrite, false)
 }
