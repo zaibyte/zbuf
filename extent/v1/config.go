@@ -28,14 +28,14 @@ const (
 	// Don't change it, because in present there are some hard codes are using 256 directly.
 	// e.g. header.
 	segmentCnt = 256
-	// There are 48 segments are reserved for GC:
-	// 1. The load factor is 0.8125 at most, suitable for the DMU algorithm.
-	// 2. 81.25% usable storage is quite good for NVMe drivers:
+	// There are 1 segments are reserved for GC:
+	// 99.6% usable storage is quite good for NVMe drivers:
 	// NVMe drivers need to scrub before writing when there is a new writing if there is no free space,
 	// that's why it's getting slow when the disk is more than 50% full.
+	// We'll set over-provisioning > 25%, this could help.
 	// For extent.v1 almost all writing are sequentially writing, and the garbage will be collected in sequentially
-	// way, which means even get 80% full, the performance won't be impacted in theory.
-	defaultReservedSeg = 48
+	// way, which means even get 90% full, the performance won't be impacted in theory.
+	defaultReservedSeg = 1
 
 	// For the worst cases, 128 means 128*4MB = 512MB, is the half of segment,
 	// snapshot still has big chance to catch up the changes enough fast.
@@ -46,7 +46,7 @@ const (
 	defaultMaxDirtyCount = 128
 
 	// Ensure free speed is faster than the speed of taking reserved segments by GC.
-	// The min value should > 0.33, for sure there will be enough reserved segments(safe value).
+	// The min value should > 0.33, for sure there won't be too much I/O wasting.
 	defaultGCRatio        = 0.55
 	defaultGCInterval     = time.Hour * 24
 	defaultGCScanInterval = time.Hour
