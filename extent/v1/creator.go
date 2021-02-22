@@ -19,14 +19,16 @@ type Creator struct {
 	iosched xio.Scheduler
 	fs      vfs.FS
 	zai     zai.Client
+	boxID   uint32
 }
 
-func NewCreator(cfg *Config, iosched xio.Scheduler, fs vfs.FS, zai zai.Client) *Creator {
+func NewCreator(cfg *Config, iosched xio.Scheduler, fs vfs.FS, zai zai.Client, boxID uint32) *Creator {
 	return &Creator{
 		cfg:     cfg,
 		iosched: iosched,
 		fs:      fs,
 		zai:     zai,
+		boxID:   boxID,
 	}
 }
 
@@ -74,6 +76,7 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 	ctx2, cancel := context.WithCancel(ctx)
 
 	ext := &Extenter{
+		boxID:   c.boxID,
 		cfg:     c.cfg,
 		rwMutex: new(sync.RWMutex),
 		fs:      fs,
@@ -160,6 +163,7 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 	ctx2, cancel := context.WithCancel(ctx)
 
 	ext := &Extenter{
+		boxID:   c.boxID,
 		cfg:     c.cfg,
 		rwMutex: new(sync.RWMutex),
 		fs:      fs,
@@ -211,4 +215,5 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 	// TODO open snapshot
 	return ext, err
 	// TODO start clone job in a goroutine before return
+	// TODO check clone state if done set extent readwrite
 }

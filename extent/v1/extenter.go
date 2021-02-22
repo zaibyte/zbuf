@@ -46,7 +46,8 @@ import (
 type Extenter struct {
 	isBroken bool
 
-	cfg *Config
+	boxID uint32
+	cfg   *Config
 
 	// Using a lock here won't break down performance,
 	// in some situation, it may improve performance, e.g. copy a slice,
