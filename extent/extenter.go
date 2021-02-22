@@ -18,6 +18,8 @@ type Extenter interface {
 
 	GCer
 
+	Cloner
+
 	Close()
 }
 
