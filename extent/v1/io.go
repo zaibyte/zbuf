@@ -286,7 +286,18 @@ func makeDelBatchWALChunk(oids []uint64, ts int64, buf []byte) int {
 // Return error if cannot execute the request.
 func (e *Extenter) preprocWriteReq(reqType uint64) error {
 
+	if xio.IsReqRead(reqType) {
+		return xerrors.WithMessage(orpc.ErrInternalServer, "want write request, but got read")
+	}
+
 	state := e.info.GetState()
+
+	if reqType == xio.ReqChunkWrite {
+		if state != metapb.ExtentState_Extent_Clone {
+			return xerrors.WithMessage(orpc.ErrInternalServer, fmt.Sprintf("want clone extent, but got: %s", state.String()))
+		}
+		return nil
+	}
 
 	switch state {
 	case metapb.ExtentState_Extent_Broken:
