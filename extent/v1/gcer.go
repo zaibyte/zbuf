@@ -138,9 +138,9 @@ const (
 	// so it won't block on checking forever unless extent unhealthy.
 	// If it's unhealthy, tryGC will break the loop and return.
 	checkSnapSyncGCInterval = 16 * time.Second
-	// gcDeadInterval is the interval when Extenter meets unexpected error and the Extenter need to be closed.
-	// Using time.Hour to ensure the ctx.Done() will be selected firstly.(caused by Extenter.Close())
-	gcDeadInterval = time.Hour
+	// gcDeadInterval is the interval when Extenter meets unexpected error and we should exit GC.
+	// Using time.Hour + a magic number to ensure the interval is unique.
+	gcDeadInterval = time.Hour + 1234
 )
 
 // isSnapCatchGC checks DMU snapshot has caught the newest updates of GC.
