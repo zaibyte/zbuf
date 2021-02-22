@@ -41,8 +41,6 @@ const (
 	VersionTest uint16 = 666
 )
 
-// TODO interface of scheduler scrub
-// TODO interface of migrate
 var AvailVersions = []uint16{Version1, VersionTest}
 
 // CreateParams are the params for creating an extent.
