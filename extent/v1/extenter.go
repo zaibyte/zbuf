@@ -307,11 +307,11 @@ func (e *Extenter) Close() {
 }
 
 func (e *Extenter) traverseWritableSeg() error {
-
+	return nil
 }
 
 func (e *Extenter) traverseGCDst() error {
-
+	return nil
 }
 
 // cleanDirtyUpdates set dirtyUpdates 0 directly.
