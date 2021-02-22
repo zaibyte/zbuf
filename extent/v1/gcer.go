@@ -45,6 +45,9 @@ func (e *Extenter) gcLoop() {
 
 	hasCheckedSnap := false
 	for {
+		if interval == gcDeadInterval {
+			return
+		}
 
 		if tryChan == nil {
 			tryChan = xtime.GetTimerEvent(t, interval)
@@ -172,8 +175,6 @@ func (e *Extenter) preprocGC() error {
 	switch state {
 	case metapb.ExtentState_Extent_Broken:
 		return orpc.ErrExtentBroken
-	case metapb.ExtentState_Extent_Tombstone:
-		return orpc.ErrExtentTombstone
 	case metapb.ExtentState_Extent_Ghost:
 		return orpc.ErrExtentGhost
 	}
