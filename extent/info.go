@@ -21,17 +21,22 @@ func (p *Info) SetState(state metapb.ExtentState, isKeeper bool) bool {
 		return true
 	}
 
-	if !isKeeper {
-		if oldSate == metapb.ExtentState_Extent_Offline ||
-			oldSate == metapb.ExtentState_Extent_Tombstone ||
-			oldSate == metapb.ExtentState_Extent_Broken ||
-			oldSate == metapb.ExtentState_Extent_Ghost {
+	if state == metapb.ExtentState_Extent_Clone {
+		if !isKeeper {
 			return false
 		}
 	}
 
-	atomic.StoreInt32((*int32)(&p.PbExt.State), int32(state))
-	return true
+	switch oldSate {
+	case metapb.ExtentState_Extent_Broken:
+		return false
+	case metapb.ExtentState_Extent_Ghost:
+		return false
+	default:
+
+	}
+
+	return atomic.CompareAndSwapInt32((*int32)(&p.PbExt.State), int32(oldSate), int32(state))
 }
 
 // AddUsed adds delta to used. delta could be negative means delta space have been freed.
