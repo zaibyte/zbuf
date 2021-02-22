@@ -58,6 +58,7 @@ func (e *Extenter) InitCloneSource() {
 		}
 		e.rwMutex.Lock()
 		e.header.nvh.CloneJob.OidsOid = oidsOID
+		e.header.nvh.CloneJob.ObjCnt = uint64(cnt)
 		e.rwMutex.Unlock()
 		break
 	}
@@ -135,12 +136,13 @@ func (e *Extenter) tryClone() {
 		for i := 0; i < len(oids)/8; i++ {
 			oid := binary.LittleEndian.Uint64(oids[i*8 : i*8+8])
 			_, _, grains, digest, _, _ := uid.ParseOID(oid)
-			if e.dmu.Search(digest) != 0 {
+			if e.dmu.Search(digest) != 0 { // Already has.
 				e.rwMutex.Lock()
 				e.header.nvh.CloneJob.DoneCnt += 1
 				e.rwMutex.Unlock()
 				continue
 			}
+			notFound := false
 			for j := 0; ; j++ {
 				_, err = e.zai.GetObj(oid, objDataBuf, 0, settings.MaxObjectSize, true, 3*time.Second)
 				if err != nil {
@@ -149,17 +151,29 @@ func (e *Extenter) tryClone() {
 						e.rwMutex.Lock()
 						e.header.nvh.CloneJob.DoneCnt += 1
 						e.rwMutex.Unlock()
-						time.Sleep(retry.GetSleepDuration(j+1, int64(grains*uid.GrainSize)))
-						continue
+						notFound = true
+						break
 					}
 
 					if errors.Is(err, orpc.ErrReplicasCollapse) {
 						extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Collapse, false)
 						return
 					}
+
+					if orpc.CouldRetry(err) {
+						time.Sleep(retry.GetSleepDuration(j+1, int64(grains*uid.GrainSize)))
+						continue
+					} else {
+						extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Failed, false)
+						return
+					}
 				} else {
 					break
 				}
+			}
+			if notFound {
+				notFound = false
+				continue
 			}
 
 			err = e.PutObj(0, oid, objDataBuf.Bytes(), true)
