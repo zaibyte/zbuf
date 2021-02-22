@@ -8,14 +8,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
-
 	"g.tesamc.com/IT/zaipkg/config/settings"
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/uid"
 	"g.tesamc.com/IT/zaipkg/xerrors"
 	"g.tesamc.com/IT/zaipkg/xlog"
 	"g.tesamc.com/IT/zbuf/extent"
+	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 )
 
@@ -49,7 +48,7 @@ func (e *Extenter) InitCloneSource() {
 	retry := &orpc.Retryer{
 		MinSleep: 100 * time.Millisecond,
 		MaxTried: 10,
-		MaxSleep: 10 * time.Second,
+		MaxSleep: 15 * time.Second,
 	}
 	for i := 0; ; i++ {
 		if job.GetState() == metapb.CloneJobState_CloneJob_Collapse {
@@ -159,7 +158,7 @@ func (e *Extenter) tryClone() {
 				}
 
 				if errors.Is(err, orpc.ErrReplicasCollapse) {
-					extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Failed, false)
+					extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Collapse, false)
 					return
 				}
 			}
