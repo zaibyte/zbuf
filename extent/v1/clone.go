@@ -27,8 +27,6 @@ const (
 
 func (e *Extenter) InitCloneSource() {
 
-	job := e.header.nvh.CloneJob // Won't be nil, because this method will be invoked only if it's not nil.
-
 	if !e.info.SetState(metapb.ExtentState_Extent_Sealed, true) { // InitCloneSource only will be created by Keeper.
 		return // Unhealthy extent.
 	}
@@ -51,10 +49,6 @@ func (e *Extenter) InitCloneSource() {
 		MaxSleep: 15 * time.Second,
 	}
 	for i := 0; ; i++ {
-		if job.GetState() == metapb.CloneJobState_CloneJob_Collapse {
-			xlog.Error("failed to put oids_oid: clone job collapse")
-			break
-		}
 		oidsOID, _, err := e.zai.PutObj(buf, 0)
 		if err != nil {
 			xlog.Warn(xerrors.WithMessage(err, "failed to put oids_oid").Error())
