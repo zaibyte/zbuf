@@ -67,6 +67,10 @@ func (e *Extenter) InitCloneSource() {
 
 func (e *Extenter) getOIDsFromDMUTbl(tbl []uint64, oids []byte, offset int) int {
 
+	if tbl == nil {
+		return offset
+	}
+
 	groupID, _ := uid.ParseExtID(e.info.PbExt.Id)
 
 	for i := range tbl {
