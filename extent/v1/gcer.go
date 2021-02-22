@@ -289,11 +289,6 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 				}
 				e.rwMutex.Lock()
 				newDst := e.findGCDst()
-				if newDst == -1 {
-					e.rwMutex.Unlock()
-					xlog.Warn(fmt.Sprintf("cannot find reserved seg in ext:%d", e.info.PbExt.Id))
-					return gcDeadInterval, false
-				}
 				e.header.nvh.SegStates[e.gcDstSeg] = segSealed
 				e.gcDstSeg = newDst
 				e.gcDstCursor = 0
