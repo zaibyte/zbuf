@@ -134,28 +134,34 @@ func (e *Extenter) tryClone() {
 
 		for i := 0; i < len(oids)/8; i++ {
 			oid := binary.LittleEndian.Uint64(oids[i*8 : i*8+8])
-			_, _, _, digest, _, _ := uid.ParseOID(oid)
+			_, _, grains, digest, _, _ := uid.ParseOID(oid)
 			if e.dmu.Search(digest) != 0 {
 				e.rwMutex.Lock()
 				e.header.nvh.CloneJob.DoneCnt += 1
 				e.rwMutex.Unlock()
 				continue
 			}
-			_, err = e.zai.GetObj(oid, objDataBuf, 0, settings.MaxObjectSize, true, 3*time.Second)
-			if err != nil {
-				xlog.Warn(xerrors.WithMessage(err, fmt.Sprintf("failed to get clone job oid: %d", oid)).Error())
-				if errors.Is(err, orpc.ErrNotFound) {
-					e.rwMutex.Lock()
-					e.header.nvh.CloneJob.DoneCnt += 1
-					e.rwMutex.Unlock()
-					continue
-				}
+			for j := 0; ; j++ {
+				_, err = e.zai.GetObj(oid, objDataBuf, 0, settings.MaxObjectSize, true, 3*time.Second)
+				if err != nil {
+					xlog.Warn(xerrors.WithMessage(err, fmt.Sprintf("failed to get clone job oid: %d", oid)).Error())
+					if errors.Is(err, orpc.ErrNotFound) {
+						e.rwMutex.Lock()
+						e.header.nvh.CloneJob.DoneCnt += 1
+						e.rwMutex.Unlock()
+						time.Sleep(retry.GetSleepDuration(j+1, int64(grains*uid.GrainSize)))
+						continue
+					}
 
-				if errors.Is(err, orpc.ErrReplicasCollapse) {
-					extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Collapse, false)
-					return
+					if errors.Is(err, orpc.ErrReplicasCollapse) {
+						extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Collapse, false)
+						return
+					}
+				} else {
+					break
 				}
 			}
+
 			err = e.PutObj(0, oid, objDataBuf.Bytes(), true)
 			if err != nil {
 				xlog.Error(xerrors.WithMessage(err, fmt.Sprintf("failed to put object: %d when clone", oid)).Error())
