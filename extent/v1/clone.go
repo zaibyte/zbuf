@@ -23,7 +23,14 @@ const (
 	cloneOIDsBufSize = settings.MaxObjectSize
 )
 
-func (e *Extenter) TryClone(job *metapb.CloneJob) {
+func (e *Extenter) InitCloneSource() {
+
+}
+
+func (e *Extenter) tryClone() {
+
+	job := e.header.nvh.CloneJob
+
 	if job == nil {
 		return
 	}
