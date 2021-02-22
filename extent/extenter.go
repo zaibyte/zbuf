@@ -32,9 +32,8 @@ type Objecter interface {
 
 type Cloner interface {
 	// InitCloneSource sets extent to sealed and makes the set of all OIDs in this extent and put the set as a new object in Zai.
-	// Return oid.
-	// It won't return until extent is unhealthy or uploading oid successfully.
-	InitCloneSource() uint64
+	// It won't finish until extent is unhealthy or uploading oid successfully.
+	InitCloneSource()
 }
 
 const (
