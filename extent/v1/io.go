@@ -136,6 +136,7 @@ func (e *Extenter) updatesLoop() {
 				}
 				e.writableSeg = nextSeg
 				e.writableCursor = 0
+				e.info.AddAvail(-segSize)
 				e.rwMutex.Unlock()
 			}
 			wseg := e.writableSeg
