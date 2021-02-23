@@ -136,9 +136,10 @@ func (e *Extenter) Close() {
 	e.cancel()
 	e.stopWg.Wait()
 
-	// TODO close a buffered chan, could read/write?
-	// TODO do sync header...snap ...etc
+	_ = e.header.Store(metapb.ExtentState(e.header.nvh.State))
+	_ = e.makeDMUSnapSync(true)
 
+	xlog.Info(fmt.Sprintf("ext: %d is closed", e.info.PbExt.Id))
 }
 
 func (e *Extenter) startBackgroundLoops() {
