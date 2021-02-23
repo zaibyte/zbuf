@@ -39,12 +39,11 @@ func (p *Info) SetState(state metapb.ExtentState, isKeeper bool) bool {
 	return atomic.CompareAndSwapInt32((*int32)(&p.PbExt.State), int32(oldSate), int32(state))
 }
 
-// AddUsed adds delta to used. delta could be negative means delta space have been freed.
-func (p *Info) AddUsed(delta int64) {
-
+// AddAvail adds delta to avail. delta could be negative means delta space have been used.
+func (p *Info) AddAvail(delta int64) {
 	if delta < 0 {
-		atomic.AddUint64(&p.PbExt.Used, ^uint64(-delta-1))
+		atomic.AddUint64(&p.PbExt.Avail, ^uint64(-delta-1))
 		return
 	}
-	atomic.AddUint64(&p.PbExt.Used, uint64(delta))
+	atomic.AddUint64(&p.PbExt.Avail, uint64(delta))
 }
