@@ -44,7 +44,7 @@ import (
 )
 
 type Extenter struct {
-	isBroken bool
+	unhealthy bool // unhealthy indicates it's a unhealthy extent, which couldn't be started.
 
 	boxID uint32
 	cfg   *Config
@@ -53,10 +53,11 @@ type Extenter struct {
 	// in some situation, it may improve performance, e.g. copy a slice,
 	// if we are using atomic, we have to load it one by one,
 	// using a lock could write done it directly because of the memory barrier brought by lock.
-	// For an extent, there won't be more than two goroutines are updating it,
+	// For an extent, there won't be more than two goroutines are updating it(one write one GC),
 	// so the lock operation is just a lock instruction & an atomic compare in most time, it won't be a slow lock
-	// which is waiting for wake up.
+	// which has to wait for being waken up.
 	// At the same time, part of fields in Extenter will still be modified by atomic for wait-free atomic read.
+	// (we don't need strong consistence in these fields)
 	rwMutex *sync.RWMutex
 
 	fs       vfs.FS
@@ -99,7 +100,7 @@ type Extenter struct {
 }
 
 func (e *Extenter) Start() error {
-	if e.isBroken {
+	if e.unhealthy {
 		return nil
 	}
 
@@ -289,7 +290,7 @@ func (e *Extenter) GetInfo() *extent.Info {
 
 func (e *Extenter) Close() {
 
-	if e.isBroken {
+	if e.unhealthy {
 		return
 	}
 
