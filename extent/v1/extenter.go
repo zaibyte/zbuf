@@ -286,6 +286,10 @@ func (e *Extenter) DeleteBatch(reqid uint64, oids []uint64) error {
 }
 
 func (e *Extenter) callModify(reqType uint8, oid uint64, oids []uint64, newAddr uint32) error {
+
+	ctx, cancel := context.WithCancel(e.ctx)
+	defer cancel()
+
 	mr := acquireModifyRequest()
 
 	mr.reqType = reqType
@@ -295,9 +299,13 @@ func (e *Extenter) callModify(reqType uint8, oid uint64, oids []uint64, newAddr 
 	mr.done = make(chan error)
 
 	select {
+	case <-ctx.Done():
+		return orpc.ErrServiceClosed
 	case e.modChan <- mr:
 	default:
 		select {
+		case <-ctx.Done():
+			return orpc.ErrServiceClosed
 		case mr2 := <-e.modChan:
 			mr2.done <- orpc.ErrRequestQueueOverflow
 			releaseModifyRequest(mr2)
@@ -305,6 +313,8 @@ func (e *Extenter) callModify(reqType uint8, oid uint64, oids []uint64, newAddr 
 		}
 
 		select {
+		case <-ctx.Done():
+			return orpc.ErrServiceClosed
 		case e.modChan <- mr:
 		default:
 			releaseModifyRequest(mr)
