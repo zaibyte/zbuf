@@ -327,6 +327,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 		e.header.nvh.Removed[e.gcSrcSeg] = 0
 		srcNewState := segReserved
 		if e.isReservedEnough() {
+			e.info.AddAvail(int64(segSize))
 			srcNewState = segReady
 		}
 		e.header.nvh.SegStates[e.gcSrcSeg] = srcNewState
