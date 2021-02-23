@@ -6,6 +6,9 @@ import (
 	"os"
 	"testing"
 
+	zai "g.tesamc.com/IT/zai/client"
+	"g.tesamc.com/IT/zbuf/extent"
+
 	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zbuf/xio"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
@@ -22,7 +25,15 @@ func TestCreateLoadHeader(t *testing.T) {
 	}
 	defer os.RemoveAll(extDir)
 
-	h, err := CreateHeader(sched, vfs.GetFS(), extDir, 4096, metapb.ExtentState_Extent_ReadWrite, 16)
+	c := NewCreator(new(Config), sched, vfs.GetFS(), new(zai.NopClient), 1)
+
+	h, err := c.CreateHeader(extDir, extent.CreateParams{
+		InstanceID: 1,
+		DiskID:     1,
+		ExtID:      1,
+		DiskInfo:   nil,
+		CloneJob:   nil,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,22 +48,31 @@ func TestCreateLoadHeader(t *testing.T) {
 	// Compare "empty" header.
 	assert.Equal(t, h.nvh.State, lh.nvh.State)
 	assert.Equal(t, h.nvh.SegSize, lh.nvh.SegSize)
-	assert.Equal(t, h.nvh.WritableHistoryNextIdx, lh.nvh.WritableHistoryNextIdx)
-	assert.Equal(t, h.nvh.WritableHistory, lh.nvh.WritableHistory)
-	assert.Equal(t, h.nvh.WritableHistoryTS, lh.nvh.WritableHistoryTS)
+	assert.Equal(t, h.nvh.ReservedSeg, lh.nvh.ReservedSeg)
 	assert.Equal(t, h.nvh.SegStates, lh.nvh.SegStates)
 	assert.Equal(t, h.nvh.SealedTS, lh.nvh.SealedTS) // Because removed won't be sync to disk, so comparing empty is still meaningful.
-	assert.Equal(t, h.nvh.ReservedSeg, lh.nvh.ReservedSeg)
-	assert.Equal(t, h.segRemoved, lh.segRemoved)
+	assert.Equal(t, h.nvh.WritableHistory, lh.nvh.WritableHistory)
+	assert.Equal(t, h.nvh.WritableHistoryNextIdx, lh.nvh.WritableHistoryNextIdx)
+	assert.Equal(t, h.nvh.Removed, lh.nvh.Removed)
+	assert.Equal(t, h.nvh.CloneJob, lh.nvh.CloneJob)
 
 	h.nvh.State += 1
 	h.nvh.SegSize = rand.Uint32()
-	h.nvh.WritableHistoryNextIdx = 2
-	h.nvh.WritableHistory[1] = 255
-	h.nvh.WritableHistoryTS[1] = tsc.UnixNano()
+	h.nvh.ReservedSeg += 1
 	h.nvh.SegStates[255] = segSealed
 	h.nvh.SealedTS[255] = tsc.UnixNano()
-	h.nvh.ReservedSeg += 1
+	h.nvh.WritableHistory[1] = 255
+	h.nvh.WritableHistoryNextIdx = 2
+	h.nvh.Removed[255] = 10
+	h.nvh.CloneJob = &metapb.CloneJob{
+		IsSource: false,
+		State:    metapb.CloneJobState_CloneJob_Doing,
+		Id:       11,
+		ParentId: 1,
+		ObjCnt:   11,
+		DoneCnt:  1,
+		OidsOid:  1234,
+	}
 
 	err = h.Store(metapb.ExtentState_Extent_Broken)
 	if err != nil {
@@ -68,11 +88,11 @@ func TestCreateLoadHeader(t *testing.T) {
 	// Compare non-empty header with random data.
 	assert.Equal(t, h.nvh.State, lh.nvh.State)
 	assert.Equal(t, h.nvh.SegSize, lh.nvh.SegSize)
-	assert.Equal(t, h.nvh.WritableHistoryNextIdx, lh.nvh.WritableHistoryNextIdx)
-	assert.Equal(t, h.nvh.WritableHistory, lh.nvh.WritableHistory)
-	assert.Equal(t, h.nvh.WritableHistoryTS, lh.nvh.WritableHistoryTS)
-	assert.Equal(t, h.nvh.SegStates, lh.nvh.SegStates)
-	assert.Equal(t, h.nvh.SealedTS, lh.nvh.SealedTS)
 	assert.Equal(t, h.nvh.ReservedSeg, lh.nvh.ReservedSeg)
-	assert.Equal(t, h.segRemoved, lh.segRemoved)
+	assert.Equal(t, h.nvh.SegStates, lh.nvh.SegStates)
+	assert.Equal(t, h.nvh.SealedTS, lh.nvh.SealedTS) // Because removed won't be sync to disk, so comparing empty is still meaningful.
+	assert.Equal(t, h.nvh.WritableHistory, lh.nvh.WritableHistory)
+	assert.Equal(t, h.nvh.WritableHistoryNextIdx, lh.nvh.WritableHistoryNextIdx)
+	assert.Equal(t, h.nvh.Removed, lh.nvh.Removed)
+	assert.Equal(t, h.nvh.CloneJob, lh.nvh.CloneJob)
 }

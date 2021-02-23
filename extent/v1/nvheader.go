@@ -40,6 +40,8 @@ func (h *NVHeader) Unmarshal(b []byte) (err error) {
 	for i := range h.SealedTS {
 		h.SealedTS[i] = int64(binary.LittleEndian.Uint64(b[265+i*8 : 265+i*8+8]))
 	}
+	h.WritableHistory = make([]byte, 256)
+	copy(h.WritableHistory, b[2313:2569])
 	h.WritableHistoryNextIdx = int64(binary.LittleEndian.Uint64(b[2569:2577]))
 	h.Removed = make([]uint32, segmentCnt)
 	for i := range h.Removed {

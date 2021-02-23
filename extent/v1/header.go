@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"path/filepath"
 
+	"g.tesamc.com/IT/zaipkg/xerrors"
+
 	"g.tesamc.com/IT/zbuf/extent"
 
 	"g.tesamc.com/IT/zaipkg/directio"
@@ -32,10 +34,11 @@ type Header struct {
 
 // CreateHeader creates a new Header with a new writable segment(segment[0]),
 // and persist it on local file system.
-func (c *Creator) CreateHeader(fs vfs.FS, extDir string, params extent.CreateParams) (*Header, error) {
+func (c *Creator) CreateHeader(extDir string, params extent.CreateParams) (*Header, error) {
 	h := new(Header)
 
 	h.iosched = c.iosched
+	fs := c.fs
 	f, err := fs.Create(filepath.Join(extDir, HeaderFileName))
 	if err != nil {
 		return nil, err
@@ -43,7 +46,7 @@ func (c *Creator) CreateHeader(fs vfs.FS, extDir string, params extent.CreatePar
 	err = vfs.FAlloc(f.Fd(), headerSize)
 	if err != nil {
 		_ = f.Close()
-		return nil, err
+		return nil, xerrors.WithMessage(err, "failed to alloc header")
 	}
 
 	h.f = f

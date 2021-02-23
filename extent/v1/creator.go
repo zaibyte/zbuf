@@ -51,7 +51,7 @@ const (
 func (c *Creator) Create(ctx context.Context, extDir string, params extent.CreateParams) (extent.Extenter, error) {
 
 	fs := c.fs
-	h, err := c.CreateHeader(fs, extDir, params)
+	h, err := c.CreateHeader(extDir, params)
 	if err != nil {
 		return nil, err
 	}
