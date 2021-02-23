@@ -201,6 +201,7 @@ func (e *Extenter) writeDMUSnap(done chan<- error, lastFn string) {
 		if err == nil {
 			atomic.StorePointer((*unsafe.Pointer)(e.lastDMUSnap), unsafe.Pointer(h))
 			_ = e.fs.Remove(lastFn)
+			e.cleanDirtyUpdates()
 		}
 		atomic.StoreInt64(&e.isMakingDMUSnap, 0)
 	}()
