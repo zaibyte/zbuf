@@ -73,6 +73,7 @@ type Extenter struct {
 	writableSeg    int64
 	writableCursor int64
 
+	forceGC  chan float64
 	gcSrcSeg int64
 	gcDstSeg int64
 	// After GC done, must be set to 0.
@@ -81,7 +82,6 @@ type Extenter struct {
 
 	putObjChan     chan *putObjRequest
 	modChan        chan *modifyRequest
-	forceGC        chan float64
 	dirtyDeleteWAL vfs.File
 
 	dirtyUpdates    int64 // dirtyUpdates is the count of DMU changes haven't flushed to disk.
@@ -103,6 +103,8 @@ func (e *Extenter) Start() error {
 
 	e.startBackgroundLoops()
 
+	xlog.Info(fmt.Sprintf("ext: %d has started", e.info.PbExt.Id))
+
 	return nil
 }
 
@@ -112,6 +114,9 @@ func (e *Extenter) startBackgroundLoops() {
 
 	e.stopWg.Add(1)
 	go e.gcLoop()
+
+	e.stopWg.Add(1)
+	go e.tryClone()
 }
 
 func (e *Extenter) PutObj(_reqid, oid uint64, objData []byte, isClone bool) error {
