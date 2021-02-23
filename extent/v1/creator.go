@@ -85,7 +85,6 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 			State:      metapb.ExtentState(h.nvh.State),
 			Id:         params.ExtID,
 			Size_:      uint64(c.cfg.SegmentSize) * uint64(segmentCnt),
-			Used:       uint64(c.cfg.ReservedSeg) * uint64(c.cfg.SegmentSize),
 			Avail:      (segmentCnt - uint64(c.cfg.ReservedSeg)) * uint64(c.cfg.SegmentSize),
 			Version:    uint32(extent.Version1),
 			DiskId:     params.DiskID,
@@ -173,7 +172,6 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 			Id:    params.ExtID,
 			Size_: uint64(c.cfg.SegmentSize) * uint64(segmentCnt),
 			// TODO recalcute used & avail by header
-			Used:       0,
 			Avail:      (segmentCnt - uint64(c.cfg.ReservedSeg)) * uint64(c.cfg.SegmentSize),
 			Version:    uint32(extent.Version1),
 			DiskId:     params.DiskID,
