@@ -205,6 +205,7 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 		return nil, err
 	}
 
+	// TODO get writable seg & its cursor
 	// TODO open dmu by snapshot & traverse writable segments
 	// TODO traverse gc seg first for release slot in DMU, then writable seg
 	// TODO if seg is gc_src, skip writable replay(in writable history too)

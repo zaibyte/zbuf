@@ -47,7 +47,8 @@ type Extenter struct {
 	unhealthy bool // unhealthy indicates it's a unhealthy extent, which couldn't be started.
 
 	boxID uint32
-	cfg   *Config
+
+	cfg *Config
 
 	// Using a lock here won't break down performance,
 	// in some situation, it may improve performance, e.g. copy a slice,
@@ -60,27 +61,18 @@ type Extenter struct {
 	// (we don't need strong consistence in these fields)
 	rwMutex *sync.RWMutex
 
+	header   *Header
 	fs       vfs.FS
 	extDir   string
 	info     *extent.Info
 	diskInfo *vdisk.Info
 	ioSched  xio.Scheduler
 	segsFile vfs.File
+	dmu      *dmu.DMU
 
-	header *Header
-
-	dmu *dmu.DMU
-
-	// TODO init it if there is existed extent and a snap
 	writableSeg    int64
 	writableCursor int64
 
-	dirtyUpdates    int64 // dirtyUpdates is the count of DMU changes haven't flushed to disk.
-	isMakingDMUSnap int64 // 1 is true.
-	// lastDMUSnap is the last DMU snapshot.
-	lastDMUSnap unsafe.Pointer
-
-	// After GC done, must be set to -1.
 	gcSrcSeg int64
 	gcDstSeg int64
 	// After GC done, must be set to 0.
@@ -91,6 +83,11 @@ type Extenter struct {
 	modChan        chan *modifyRequest
 	forceGC        chan float64
 	dirtyDeleteWAL vfs.File
+
+	dirtyUpdates    int64 // dirtyUpdates is the count of DMU changes haven't flushed to disk.
+	isMakingDMUSnap int64 // 1 is true.
+	// lastDMUSnap is the last DMU snapshot.
+	lastDMUSnap unsafe.Pointer
 
 	zai zai.Client
 
