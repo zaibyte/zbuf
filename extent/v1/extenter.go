@@ -204,7 +204,7 @@ func (e *Extenter) GetObj(_reqid, oid uint64, isClone bool) (objData []byte, err
 		return nil, err
 	}
 
-	has, digest, offset, size := e.getObjOffsetSize(e.dmu, oid)
+	has, digest, offset, size := getObjOffsetSize(e.dmu, oid)
 	if !has {
 		err = xerrors.WithMessage(orpc.ErrNotFound, fmt.Sprintf("oid: %d", oid))
 		return nil, err
@@ -219,7 +219,7 @@ func (e *Extenter) GetObj(_reqid, oid uint64, isClone bool) (objData []byte, err
 	if err != nil {
 		// May meet GC segments could be write again: https://g.tesamc.com/IT/zbuf/issues/124
 		if err == orpc.ErrChecksumMismatch {
-			newHas, _, newOffset, _ := e.getObjOffsetSize(e.dmu, oid)
+			newHas, _, newOffset, _ := getObjOffsetSize(e.dmu, oid)
 			if !newHas {
 				err = xerrors.WithMessage(orpc.ErrNotFound, fmt.Sprintf("oid: %d", oid))
 				xbytes.PutAlignedBytes(objData)
