@@ -18,6 +18,7 @@ package v1
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -45,6 +46,7 @@ import (
 
 type Extenter struct {
 	unhealthy bool // unhealthy indicates it's a unhealthy extent, which couldn't be started.
+	isRunning int64
 
 	boxID uint32
 
@@ -100,6 +102,9 @@ func (e *Extenter) Start() error {
 	if e.unhealthy {
 		return nil
 	}
+	if !atomic.CompareAndSwapInt64(&e.isRunning, 0, 1) {
+		return errors.New("already started")
+	}
 
 	e.startBackgroundLoops()
 
@@ -116,13 +121,17 @@ func (e *Extenter) GetMeta() *metapb.Extent {
 func (e *Extenter) Close() {
 
 	if e.unhealthy {
-		return
+		return // Nothing to close.
+	}
+
+	if !atomic.CompareAndSwapInt64(&e.isRunning, 1, 0) {
+		return // Already closed.
 	}
 
 	e.dmu.Close()
 	// Far away from enough for DMU finishing all operation.
 	// Enough DMU is stable.
-	time.Sleep(time.Millisecond)
+	time.Sleep(time.Second)
 
 	e.cancel()
 	e.stopWg.Wait()
