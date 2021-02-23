@@ -139,6 +139,9 @@ func (e *Extenter) Close() {
 	_ = e.header.Store(metapb.ExtentState(e.header.nvh.State))
 	_ = e.makeDMUSnapSync(true)
 
+	_ = e.segsFile.Close()
+	_ = e.dirtyDeleteWAL.Close()
+
 	xlog.Info(fmt.Sprintf("ext: %d is closed", e.info.PbExt.Id))
 }
 
