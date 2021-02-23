@@ -165,17 +165,16 @@ func (e *Extenter) PutObj(_reqid, oid uint64, objData []byte, isClone bool) erro
 	wr.objData = objData
 	wr.done = make(chan error)
 
+	ctx, cancel := context.WithCancel(e.ctx)
+	defer cancel()
+
 	select {
-	case <-e.ctx.Done():
+	case <-ctx.Done():
 		return orpc.ErrServiceClosed
 	case e.putObjChan <- wr:
 	default:
-		// Try substituting the oldest async request by the new one
-		// on requests' queue overflow.
-		// This increases the chances for new request to succeed
-		// without timeout.
 		select {
-		case <-e.ctx.Done():
+		case <-ctx.Done():
 			return orpc.ErrServiceClosed
 		case wr2 := <-e.putObjChan:
 			wr2.done <- orpc.ErrRequestQueueOverflow
@@ -183,13 +182,11 @@ func (e *Extenter) PutObj(_reqid, oid uint64, objData []byte, isClone bool) erro
 		default:
 		}
 
-		// After pop, try to put again.
 		select {
-		case <-e.ctx.Done():
+		case <-ctx.Done():
 			return orpc.ErrServiceClosed
 		case e.putObjChan <- wr:
 		default:
-			// RequestsChan is filled, release it since wr wasn't exposed to the caller yet.
 			releasePutObjRequest(wr)
 			return orpc.ErrRequestQueueOverflow
 		}
