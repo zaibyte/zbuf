@@ -323,7 +323,6 @@ func (e *Extenter) traverseGCDst() error {
 }
 
 // cleanDirtyUpdates set dirtyUpdates 0 directly.
-// It's better to use it after locked.
 func (e *Extenter) cleanDirtyUpdates() {
 	atomic.StoreInt64(&e.dirtyUpdates, 0)
 }
