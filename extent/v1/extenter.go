@@ -108,6 +108,30 @@ func (e *Extenter) Start() error {
 	return nil
 }
 
+func (e *Extenter) GetMeta() *metapb.Extent {
+
+	return e.info.Clone()
+}
+
+func (e *Extenter) Close() {
+
+	if e.unhealthy {
+		return
+	}
+
+	e.dmu.Close()
+	// Far away from enough for DMU finishing all operation.
+	// Enough DMU is stable.
+	time.Sleep(time.Millisecond)
+
+	e.cancel()
+	e.stopWg.Wait()
+
+	// TODO close a buffered chan, could read/write?
+	// TODO do sync header...snap ...etc
+
+}
+
 func (e *Extenter) startBackgroundLoops() {
 	e.stopWg.Add(1)
 	go e.updatesLoop()
@@ -283,30 +307,6 @@ func (e *Extenter) callModify(reqType uint8, oid uint64, oids []uint64, newAddr 
 	err := <-mr.done
 	releaseModifyRequest(mr)
 	return err
-}
-
-func (e *Extenter) GetInfo() *extent.Info {
-
-	return e.info
-}
-
-func (e *Extenter) Close() {
-
-	if e.unhealthy {
-		return
-	}
-
-	e.dmu.Close()
-	// Far away from enough for DMU finishing all operation.
-	// Enough DMU is stable.
-	time.Sleep(time.Millisecond)
-
-	e.cancel()
-	e.stopWg.Wait()
-
-	// TODO close a buffered chan, could read/write?
-	// TODO do sync header...snap ...etc
-
 }
 
 func (e *Extenter) traverseWritableSeg() error {

@@ -12,6 +12,9 @@ import (
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 )
 
+// TODO should be useless.
+// because all extent error will be captured inside extent.
+// Only need to care about disk broken.
 // handleIOError handles I/O errors,
 // if it's checksum mismatched -> extent broken.
 // if it's disk/filesystem error -> disk broken.
@@ -25,7 +28,7 @@ func (s *Server) handleIOError(err error, extID, diskID uint32) {
 			return
 		}
 		ext := v.(extent.Extenter)
-		info := ext.GetInfo()
+		info := ext.GetMeta()
 		info.SetState(metapb.ExtentState_Extent_Broken, false)
 		xlog.Error(fmt.Sprintf("ext: %d broken: %s", extID, err.Error()))
 		return

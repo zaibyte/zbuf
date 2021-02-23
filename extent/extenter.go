@@ -12,7 +12,7 @@ import (
 type Extenter interface {
 	Start() error
 
-	GetInfo() *Info
+	GetMeta() *metapb.Extent
 
 	Objecter
 
