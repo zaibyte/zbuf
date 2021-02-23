@@ -204,7 +204,7 @@ func (e *Extenter) GetObj(_reqid, oid uint64, isClone bool) (objData []byte, err
 		return nil, err
 	}
 
-	has, digest, offset, size := e.getObjOffsetSize(oid)
+	has, digest, offset, size := e.getObjOffsetSize(e.dmu, oid)
 	if !has {
 		err = xerrors.WithMessage(orpc.ErrNotFound, fmt.Sprintf("oid: %d", oid))
 		return nil, err
@@ -219,7 +219,7 @@ func (e *Extenter) GetObj(_reqid, oid uint64, isClone bool) (objData []byte, err
 	if err != nil {
 		// May meet GC segments could be write again: https://g.tesamc.com/IT/zbuf/issues/124
 		if err == orpc.ErrChecksumMismatch {
-			newHas, _, newOffset, _ := e.getObjOffsetSize(oid)
+			newHas, _, newOffset, _ := e.getObjOffsetSize(e.dmu, oid)
 			if !newHas {
 				err = xerrors.WithMessage(orpc.ErrNotFound, fmt.Sprintf("oid: %d", oid))
 				xbytes.PutAlignedBytes(objData)
@@ -260,9 +260,9 @@ func (e *Extenter) preprocGetReq() error {
 	return nil
 }
 
-func (e *Extenter) getObjOffsetSize(oid uint64) (has bool, digest uint32, offset int64, size int) {
+func getObjOffsetSize(d *dmu.DMU, oid uint64) (has bool, digest uint32, offset int64, size int) {
 	_, _, _, digest, _, _ = uid.ParseOID(oid)
-	entry := e.dmu.Search(digest)
+	entry := d.Search(digest)
 	if entry == 0 {
 
 		return false, 0, 0, 0
