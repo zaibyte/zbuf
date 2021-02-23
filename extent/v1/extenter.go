@@ -197,7 +197,7 @@ func (e *Extenter) PutObj(_reqid, oid uint64, objData []byte, isClone bool) erro
 	return err
 }
 
-func (e *Extenter) GetObj(reqid, oid uint64, isClone bool) (objData []byte, err error) {
+func (e *Extenter) GetObj(_reqid, oid uint64, isClone bool) (objData []byte, err error) {
 
 	err = e.preprocGetReq()
 	if err != nil {
@@ -207,7 +207,6 @@ func (e *Extenter) GetObj(reqid, oid uint64, isClone bool) (objData []byte, err 
 	has, digest, offset, size := e.getObjOffsetSize(oid)
 	if !has {
 		err = xerrors.WithMessage(orpc.ErrNotFound, fmt.Sprintf("oid: %d", oid))
-		xlog.WarnID(reqid, err.Error())
 		return nil, err
 	}
 
@@ -223,7 +222,6 @@ func (e *Extenter) GetObj(reqid, oid uint64, isClone bool) (objData []byte, err 
 			newHas, _, newOffset, _ := e.getObjOffsetSize(oid)
 			if !newHas {
 				err = xerrors.WithMessage(orpc.ErrNotFound, fmt.Sprintf("oid: %d", oid))
-				xlog.WarnID(reqid, err.Error())
 				xbytes.PutAlignedBytes(objData)
 				return nil, err
 			}
