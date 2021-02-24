@@ -25,6 +25,8 @@ import (
 	"time"
 	"unsafe"
 
+	"g.tesamc.com/IT/zaipkg/directio"
+
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 
 	zai "g.tesamc.com/IT/zai/client"
@@ -328,7 +330,32 @@ func (e *Extenter) callModify(reqType uint8, oid uint64, oids []uint64, newAddr 
 }
 
 func (e *Extenter) traverseWritableSeg() error {
-	return nil
+
+	wseg := e.writableSeg
+	wcursor := e.writableCursor
+	segSize := int64(e.cfg.SegmentSize)
+	addr := segCursorToOffset(wseg, wcursor, segSize)
+
+	var err error
+	oidBuf := directio.AlignedBlock(oidSizeInSeg)
+	for addr < segCursorToOffset(wseg, segSize, segSize) {
+		oid, err2 := e.checkReadAt(addr, oidBuf)
+		if err2 != nil {
+			err = err2
+			break
+		}
+		_, _, grains, digest, otype, _ := uid.ParseOID(oid)
+		err2 = e.dmu.Insert(digest, uint32(otype), grains, uint32(addr))
+		if err2 != nil {
+			err = err2
+			break
+		}
+		mov := xbytes.AlignSize(int64(uid.GrainsToBytes(grains)+oidSizeInSeg), dmu.AlignSize)
+		e.writableCursor += mov
+		addr += mov
+	}
+
+	return err
 }
 
 func (e *Extenter) traverseGCDst() error {
