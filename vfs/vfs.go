@@ -115,6 +115,12 @@ var DefaultFS FS = DirectFS
 type File interface {
 	lvfs.File
 	Fd() uintptr
+	// Truncate changes the size of the file.
+	// It does not change the I/O offset.
+	// If there is an error, it will be of type *PathError.
+	// Warn:
+	// The size must be <= origin size.
+	Truncate(size int64) error
 }
 
 // IsNotExist returns a boolean value indicating whether the specified error is

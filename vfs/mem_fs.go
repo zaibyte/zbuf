@@ -633,6 +633,14 @@ type memFile struct {
 	read, write bool
 }
 
+func (f *memFile) Truncate(size int64) error {
+	f.n.mu.Lock()
+	defer f.n.mu.Unlock()
+
+	f.n.mu.data = f.n.mu.data[:size]
+	return nil
+}
+
 func (f *memFile) Fd() uintptr {
 	return 0
 }
