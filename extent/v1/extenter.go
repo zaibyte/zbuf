@@ -346,6 +346,9 @@ func (e *Extenter) traverseWritableSeg() error {
 		}
 		_, _, grains, digest, otype, _ := uid.ParseOID(oid)
 		err2 = e.dmu.Insert(digest, uint32(otype), grains, uint32(addr))
+		if errors.Is(err2, orpc.ErrObjDigestExisted) { // Has synced in DMU.
+			err2 = nil
+		}
 		if err2 != nil {
 			err = err2
 			break
