@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"sync"
 
+	"g.tesamc.com/IT/zaipkg/xerrors"
+
 	zai "g.tesamc.com/IT/zai/client"
 
 	"g.tesamc.com/IT/zbuf/extent"
@@ -61,11 +63,21 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 		h.Close()
 		return nil, err
 	}
+	err = vfs.FAlloc(segFile.Fd(), int64(c.cfg.SegmentSize*segmentCnt))
+	if err != nil {
+		_ = segFile.Close()
+		return nil, xerrors.WithMessage(err, "failed to alloc segs file")
+	}
 
 	dwf, err := fs.Create(filepath.Join(extDir, dirtyDelWalFileName))
 	if err != nil {
 		h.Close()
 		return nil, err
+	}
+	err = vfs.FAlloc(dwf.Fd(), dirtyDeleteWALSize)
+	if err != nil {
+		_ = dwf.Close()
+		return nil, xerrors.WithMessage(err, "failed to alloc dirty_delete_wal")
 	}
 
 	dmuCap := dmu.MinCap

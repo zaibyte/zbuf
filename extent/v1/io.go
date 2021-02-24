@@ -28,10 +28,11 @@ import (
 
 const (
 	// 8192 for delete batch, 512 for delete one by one.
-	// The batch WAL won't beyond 128KB, the normal delete WAL won't beyond 4MB.
-	maxDirtyDelOne   = 512
-	maxDirtyDelBatch = 8192
-	maxDirtyDelete   = maxDirtyDelOne + maxDirtyDelBatch
+	// The batch WAL won't beyond 128KB, the normal delete WAL won't beyond 2MB. Total WAL will be < 4MB.
+	maxDirtyDelOne     = 512
+	maxDirtyDelBatch   = 8192
+	dirtyDeleteWALSize = 4 * 1024 * 1024
+	maxDirtyDelete     = maxDirtyDelOne + maxDirtyDelBatch
 	// False positive will be around 0.02.
 	maxDirtyBloomBits  = 65536
 	maxDirtyBloomHashK = 5
@@ -85,6 +86,12 @@ func (e *Extenter) updatesLoop() {
 
 		if atomic.LoadInt64(&e.dirtyUpdates) > e.cfg.MaxDirtyCount {
 			e.makeDMUSnapAsync(false)
+		}
+
+		lastSnap := e.getLastDMUSnap()
+		if lastSnap.createTS >= dirtyDel.lastMod {
+			dirtyDel.reset()
+			dirtyWALOffset = 0
 		}
 
 		var wr *putObjRequest
@@ -171,14 +178,9 @@ func (e *Extenter) updatesLoop() {
 
 		switch mr.reqType {
 		case modReqRemove:
-			lastSnap := e.getLastDMUSnap()
-			if lastSnap.createTS >= dirtyDel.lastMod {
-				dirtyDel.reset()
-				dirtyWALOffset = 0
-			}
 
 			if dirtyDel.dirtyOneCnt+1 > maxDirtyDelOne {
-				mr.done <- orpc.ErrTooManyRequests
+				mr.done <- xerrors.WithMessage(orpc.ErrTooManyRequests, "delete too fast")
 				continue
 			}
 			_, _, grains, digest, _, _ := uid.ParseOID(mr.oid)
