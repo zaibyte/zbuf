@@ -331,34 +331,51 @@ func (e *Extenter) callModify(reqType uint8, oid uint64, oids []uint64, newAddr 
 
 func (e *Extenter) traverseWritableSeg() error {
 
-	wseg := e.writableSeg
-	wcursor := e.writableCursor
-	segSize := int64(e.cfg.SegmentSize)
-	addr := segCursorToOffset(wseg, wcursor, segSize)
+	lastSnap := e.getLastDMUSnap() // Must not be nil.
 
-	var err error
-	oidBuf := directio.AlignedBlock(oidSizeInSeg)
-	for addr < segCursorToOffset(wseg, segSize, segSize) {
-		oid, err2 := e.checkReadAt(addr, oidBuf)
-		if err2 != nil {
-			err = err2
-			break
+	swhi := lastSnap.WritableHistoryIdx
+	hwhi := e.header.nvh.WritableHistoryNextIdx - 1 // It's next!
+
+	segSize := int64(e.cfg.SegmentSize)
+	for i := swhi; i <= hwhi; i++ {
+
+		wseg := e.getWsegByHistoryIdx(i)
+		e.writableSeg = int64(wseg)
+
+		wcursor := e.writableCursor
+
+		addr := segCursorToOffset(int64(wseg), wcursor, segSize)
+
+		oidBuf := directio.AlignedBlock(oidSizeInSeg)
+		end := segCursorToOffset(int64(wseg), segSize, segSize)
+		for addr <= end {
+			if addr == end {
+				e.writableCursor = 0
+				break
+			}
+			oid, err := e.checkReadAt(addr, oidBuf)
+			if err != nil {
+				return err
+			}
+			if oid == 0 {
+				e.writableCursor = 0 // Will start at next writable seg.
+				break
+			}
+			_, _, grains, digest, otype, _ := uid.ParseOID(oid)
+			err = e.dmu.Insert(digest, uint32(otype), grains, uint32(addr))
+			if errors.Is(err, orpc.ErrObjDigestExisted) { // Has synced in DMU.
+				err = nil
+			}
+			if err != nil {
+				return err
+			}
+			mov := xbytes.AlignSize(int64(uid.GrainsToBytes(grains)+oidSizeInSeg), dmu.AlignSize)
+			e.writableCursor += mov
+			addr += mov
 		}
-		_, _, grains, digest, otype, _ := uid.ParseOID(oid)
-		err2 = e.dmu.Insert(digest, uint32(otype), grains, uint32(addr))
-		if errors.Is(err2, orpc.ErrObjDigestExisted) { // Has synced in DMU.
-			err2 = nil
-		}
-		if err2 != nil {
-			err = err2
-			break
-		}
-		mov := xbytes.AlignSize(int64(uid.GrainsToBytes(grains)+oidSizeInSeg), dmu.AlignSize)
-		e.writableCursor += mov
-		addr += mov
 	}
 
-	return err
+	return nil
 }
 
 func (e *Extenter) traverseGCDst() error {

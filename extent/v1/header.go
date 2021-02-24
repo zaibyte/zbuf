@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	historyCnt = 256
-	headerSize = 4096 // 4KiB.
+	wsegHistroyCnt = 256
+	headerSize     = 4096 // 4KiB.
 	// HeaderFileName is header filename in local file system.
 	HeaderFileName = "header"
 )
@@ -71,7 +71,7 @@ func (c *Creator) CreateHeader(extDir string, params extent.CreateParams) (*Head
 	h.nvh.SegStates[0] = segWritable // Set first seg writable.
 	h.nvh.SealedTS = make([]int64, segmentCnt)
 
-	h.nvh.WritableHistory = make([]byte, historyCnt)
+	h.nvh.WritableHistory = make([]byte, wsegHistroyCnt)
 	h.nvh.WritableHistoryNextIdx = 1 // segment_0 is writable now.
 
 	h.nvh.Removed = make([]uint32, segmentCnt)

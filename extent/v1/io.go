@@ -420,6 +420,9 @@ func (e *Extenter) objReadAt(reqType uint64, digest uint32, offset int64, objDat
 // buf should be cfg.SizePerRead bytes block.
 func (e *Extenter) checkReadAt(offset int64, buf []byte) (uint64, error) {
 	oid, err := e.oidReadAt(xio.ReqObjRead, offset, buf[:oidSizeInSeg])
+	if oid == 0 && err == nil { // Meet free space.
+		return 0, nil
+	}
 	if err != nil {
 		return 0, err
 	}
@@ -462,7 +465,7 @@ func (e *Extenter) isDMUSnapBehind() bool {
 	nvh := e.header.nvh
 
 	if lastSnap == nil { // None snapshot has been made.
-		if nvh.WritableHistoryNextIdx >= historyCnt {
+		if nvh.WritableHistoryNextIdx >= wsegHistroyCnt {
 			return true // No free place to put new writable seg.
 		}
 		return false
@@ -470,7 +473,7 @@ func (e *Extenter) isDMUSnapBehind() bool {
 
 	snapIdx := lastSnap.WritableHistoryIdx
 
-	if nvh.WritableHistoryNextIdx-historyCnt >= snapIdx {
+	if nvh.WritableHistoryNextIdx-wsegHistroyCnt >= snapIdx {
 		return true
 	}
 	return false
@@ -495,7 +498,7 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 			nvh.SegStates[next] = segWritable
 			nvh.SegStates[last] = segSealed
 			nvh.SealedTS[last] = tsc.UnixNano()
-			nvh.WritableHistory[nvh.WritableHistoryNextIdx%historyCnt] = byte(next)
+			nvh.WritableHistory[nvh.WritableHistoryNextIdx%wsegHistroyCnt] = byte(next)
 			nvh.WritableHistoryNextIdx++
 			err := e.header.Store(e.info.GetState())
 
@@ -510,6 +513,11 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 	}
 	err := orpc.ErrExtentFull
 	return -1, err
+}
+
+func (e *Extenter) getWsegByHistoryIdx(idx int64) uint8 {
+	nvh := e.header.nvh
+	return nvh.WritableHistory[idx&wsegHistroyCnt]
 }
 
 type segStateClone struct {
