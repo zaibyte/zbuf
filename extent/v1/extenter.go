@@ -334,15 +334,16 @@ func (e *Extenter) traverseWritableSeg() error {
 	lastSnap := e.getLastDMUSnap() // Must not be nil.
 
 	swhi := lastSnap.WritableHistoryIdx
-	hwhi := e.header.nvh.WritableHistoryNextIdx - 1 // It's next!
+	hwhi := e.header.nvh.WritableHistoryNextIdx
+
+	wcursor := e.writableCursor
 
 	segSize := int64(e.cfg.SegmentSize)
-	for i := swhi; i <= hwhi; i++ {
+	for i := swhi; i < hwhi; i++ {
 
 		wseg := e.getWsegByHistoryIdx(i)
 		e.writableSeg = int64(wseg)
-
-		wcursor := e.writableCursor
+		e.writableCursor = wcursor
 
 		addr := segCursorToOffset(int64(wseg), wcursor, segSize)
 
@@ -350,7 +351,7 @@ func (e *Extenter) traverseWritableSeg() error {
 		end := segCursorToOffset(int64(wseg), segSize, segSize)
 		for addr <= end {
 			if addr == end {
-				e.writableCursor = 0
+				wcursor = 0
 				break
 			}
 			oid, err := e.checkReadAt(addr, oidBuf)
@@ -358,7 +359,7 @@ func (e *Extenter) traverseWritableSeg() error {
 				return err
 			}
 			if oid == 0 {
-				e.writableCursor = 0 // Will start at next writable seg.
+				wcursor = 0 // Meet end, should start with 0 in next writable seg if has.
 				break
 			}
 			_, _, grains, digest, otype, _ := uid.ParseOID(oid)
@@ -379,6 +380,47 @@ func (e *Extenter) traverseWritableSeg() error {
 }
 
 func (e *Extenter) traverseGCDst() error {
+
+	var lastOID uint64
+	lastSnap := e.getLastDMUSnap() // Must not be nil.
+
+	gcSrc := lastSnap.GcSrcSeg
+	gcDst := lastSnap.GcDstSeg
+	gcSrcCursor := lastSnap.GcSrcCursor
+	gcDstCursor := lastSnap.GcDstCursor
+
+	segSize := int64(e.cfg.SegmentSize)
+
+	addr := segCursorToOffset(gcDst, int64(gcDstCursor), segSize)
+
+	oidBuf := directio.AlignedBlock(oidSizeInSeg)
+	end := segCursorToOffset(int64(gcDst), segSize, segSize)
+	for addr <= end {
+		if addr == end {
+			e.gcDstCursor = 0
+			break
+		}
+		oid, err := e.checkReadAt(addr, oidBuf)
+		if err != nil {
+			return err
+		}
+		if oid == 0 {
+			e.writableCursor = 0 // Will start at next writable seg.
+			break
+		}
+		_, _, grains, digest, otype, _ := uid.ParseOID(oid)
+		err = e.dmu.Insert(digest, uint32(otype), grains, uint32(addr))
+		if errors.Is(err, orpc.ErrObjDigestExisted) { // Has synced in DMU.
+			err = nil
+		}
+		if err != nil {
+			return err
+		}
+		mov := xbytes.AlignSize(int64(uid.GrainsToBytes(grains)+oidSizeInSeg), dmu.AlignSize)
+		e.gcDstCursor += uint32(mov)
+		addr += mov
+	}
+
 	return nil
 }
 
