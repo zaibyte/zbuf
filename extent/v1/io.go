@@ -9,6 +9,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"g.tesamc.com/IT/zbuf/vfs"
+
 	"g.tesamc.com/IT/zbuf/xio"
 
 	"g.tesamc.com/IT/zaipkg/directio"
@@ -39,17 +41,24 @@ const (
 )
 
 type dirtyDelete struct {
+	wal           vfs.File
 	bf            *bloom.BloomFilter
 	lastMod       int64
 	dirtyOneCnt   int
 	dirtyBatchCnt int
 }
 
-func (d *dirtyDelete) reset() {
+func (d *dirtyDelete) reset() error {
+	err := d.wal.Truncate(0)
+	if err != nil {
+		return err
+	}
 	d.bf.ClearAll()
 	d.lastMod = 0
 	d.dirtyOneCnt = 0
 	d.dirtyBatchCnt = 0
+	err = vfs.FAlloc(d.wal.Fd(), dirtyDeleteWALSize)
+	return err
 }
 
 // updatesLoop keeps trying to get new updates request and handle it.
@@ -77,21 +86,30 @@ func (e *Extenter) updatesLoop() {
 	segSize := int64(e.cfg.SegmentSize)
 
 	dirtyDel := &dirtyDelete{
-		bf: bloom.New(maxDirtyBloomBits, maxDirtyBloomHashK),
+		wal: e.dirtyDeleteWAL,
+		bf:  bloom.New(maxDirtyBloomBits, maxDirtyBloomHashK),
 	}
 	digestBuf := make([]byte, 4)
 	var dirtyWALOffset int64 = 0
 
 	for {
 
-		if atomic.LoadInt64(&e.dirtyUpdates) > e.cfg.MaxDirtyCount {
-			e.makeDMUSnapAsync(false)
-		}
+		state := e.info.GetState()
 
-		lastSnap := e.getLastDMUSnap()
-		if lastSnap.createTS >= dirtyDel.lastMod {
-			dirtyDel.reset()
-			dirtyWALOffset = 0
+		if state != metapb.ExtentState_Extent_Broken && state != metapb.ExtentState_Extent_Ghost {
+			if atomic.LoadInt64(&e.dirtyUpdates) > e.cfg.MaxDirtyCount {
+				e.makeDMUSnapAsync(false)
+			}
+			lastSnap := e.getLastDMUSnap()
+			if lastSnap.createTS >= dirtyDel.lastMod {
+				err := dirtyDel.reset()
+				if err != nil {
+					xlog.Error(fmt.Sprintf("ext: %d broken: failed to reset dirty_delete_wal", e.info.PbExt.Id))
+					e.info.SetState(metapb.ExtentState_Extent_Broken, false)
+				} else {
+					dirtyWALOffset = 0
+				}
+			}
 		}
 
 		var wr *putObjRequest
@@ -206,15 +224,11 @@ func (e *Extenter) updatesLoop() {
 			dirtyDel.lastMod = lastMod
 			e.header.nvh.Removed[rSeg] += uint32(xbytes.AlignSize(int64(grains+oidSizeInSeg/uid.GrainSize), dmu.AlignSize/uid.GrainSize))
 			e.rwMutex.Unlock()
+			dirtyWALOffset += n
 			atomic.AddInt64(&e.dirtyUpdates, 1)
 			mr.done <- nil
 			continue
 		case modReqRmBatch:
-			lastSnap := e.getLastDMUSnap()
-			if lastSnap.createTS >= dirtyDel.lastMod {
-				dirtyDel.reset()
-				dirtyWALOffset = 0
-			}
 
 			if dirtyDel.dirtyBatchCnt+len(mr.oids) > maxDirtyDelBatch {
 				mr.done <- orpc.ErrTooManyRequests
@@ -244,6 +258,7 @@ func (e *Extenter) updatesLoop() {
 				}
 			}
 			e.rwMutex.Unlock()
+			dirtyWALOffset += n
 			mr.done <- nil
 			continue
 
@@ -264,7 +279,7 @@ func (e *Extenter) updatesLoop() {
 const delWALChunkMinSize = directio.BlockSize
 
 // Del WAL Chunk format(https://g.tesamc.com/IT/zbuf/issues/153):
-func makeDelWALChunk(odigest uint32, ts int64, buf []byte) int {
+func makeDelWALChunk(odigest uint32, ts int64, buf []byte) int64 {
 	binary.LittleEndian.PutUint32(buf[1:5], 1)
 	binary.LittleEndian.PutUint64(buf[5:13], uint64(ts))
 	binary.LittleEndian.PutUint32(buf[13:17], odigest)
@@ -272,7 +287,7 @@ func makeDelWALChunk(odigest uint32, ts int64, buf []byte) int {
 	return delWALChunkMinSize
 }
 
-func makeDelBatchWALChunk(oids []uint64, ts int64, buf []byte) int {
+func makeDelBatchWALChunk(oids []uint64, ts int64, buf []byte) int64 {
 	buf[0] = 1
 	binary.LittleEndian.PutUint32(buf[1:5], uint32(len(oids)))
 	binary.LittleEndian.PutUint64(buf[5:13], uint64(ts))
@@ -282,7 +297,7 @@ func makeDelBatchWALChunk(oids []uint64, ts int64, buf []byte) int {
 	}
 	n := xbytes.AlignSize(13+int64(len(oids))*4+4, directio.BlockSize)
 	binary.LittleEndian.PutUint32(buf[n-4:n], xdigest.Sum32(buf[:n-4]))
-	return int(n)
+	return n
 }
 
 // preprocWriteReq preprocesses write request.

@@ -447,6 +447,10 @@ func (e *Extenter) traverseGCDst() error {
 	return nil
 }
 
+func (e *Extenter) traverseDirtyDeleteWAL() error {
+
+}
+
 // cleanDirtyUpdates set dirtyUpdates 0 directly.
 func (e *Extenter) cleanDirtyUpdates() {
 	atomic.StoreInt64(&e.dirtyUpdates, 0)
