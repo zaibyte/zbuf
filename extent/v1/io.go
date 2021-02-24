@@ -441,7 +441,7 @@ func (e *Extenter) checkReadAt(offset int64, buf []byte) (uint64, error) {
 		if n-read < nn {
 			nn = n - read
 		}
-		err := e.ioSched.DoSync(xio.ReqObjRead, e.segsFile, offset, buf[:nn])
+		err = e.ioSched.DoSync(xio.ReqObjRead, e.segsFile, offset, buf[:nn])
 		if err != nil {
 			return 0, err
 		}

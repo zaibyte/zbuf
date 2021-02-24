@@ -339,6 +339,9 @@ func (e *Extenter) traverseWritableSeg() error {
 	wcursor := e.writableCursor
 
 	segSize := int64(e.cfg.SegmentSize)
+
+	buf := directio.AlignedBlock(int(e.cfg.SizePerRead))
+
 	for i := swhi; i < hwhi; i++ {
 
 		wseg := e.getWsegByHistoryIdx(i)
@@ -347,14 +350,13 @@ func (e *Extenter) traverseWritableSeg() error {
 
 		addr := segCursorToOffset(int64(wseg), wcursor, segSize)
 
-		oidBuf := directio.AlignedBlock(oidSizeInSeg)
 		end := segCursorToOffset(int64(wseg), segSize, segSize)
 		for addr <= end {
 			if addr == end {
 				wcursor = 0
 				break
 			}
-			oid, err := e.checkReadAt(addr, oidBuf)
+			oid, err := e.checkReadAt(addr, buf)
 			if err != nil {
 				return err
 			}
@@ -391,21 +393,18 @@ func (e *Extenter) traverseGCDst() error {
 
 	segSize := int64(e.cfg.SegmentSize)
 
-	addr := segCursorToOffset(gcDst, int64(gcDstCursor), segSize)
+	buf := directio.AlignedBlock(int(e.cfg.SizePerRead))
 
-	oidBuf := directio.AlignedBlock(oidSizeInSeg)
-	end := segCursorToOffset(int64(gcDst), segSize, segSize)
-	for addr <= end {
-		if addr == end {
-			e.gcDstCursor = 0
-			break
-		}
-		oid, err := e.checkReadAt(addr, oidBuf)
+	// 1. Get the last valid oid in GC dst.
+	addr := segCursorToOffset(gcDst, int64(gcDstCursor), segSize)
+	end := segCursorToOffset(gcDst, segSize, segSize)
+	for addr < end {
+
+		oid, err := e.checkReadAt(addr, buf)
 		if err != nil {
 			return err
 		}
 		if oid == 0 {
-			e.writableCursor = 0 // Will start at next writable seg.
 			break
 		}
 		_, _, grains, digest, otype, _ := uid.ParseOID(oid)
@@ -418,7 +417,31 @@ func (e *Extenter) traverseGCDst() error {
 		}
 		mov := xbytes.AlignSize(int64(uid.GrainsToBytes(grains)+oidSizeInSeg), dmu.AlignSize)
 		e.gcDstCursor += uint32(mov)
+		lastOID = oid
 		addr += mov
+	}
+
+	if lastOID == 0 {
+		return nil
+	}
+
+	// 2. Traverse the GC src to find the last valid oid in GC dst.
+	addr = segCursorToOffset(gcSrc, int64(gcSrcCursor), segSize)
+	end = segCursorToOffset(gcSrc, segSize, segSize)
+	for addr < end {
+
+		oid, err := e.checkReadAt(addr, buf)
+		if err != nil {
+			return err
+		}
+		if oid == 0 {
+			break // Actually it shouldn't happen. If there is last_oid, it will be find before meeting 0.
+		}
+
+		if oid == lastOID {
+			e.gcSrcCursor = uint32(addr)
+			break
+		}
 	}
 
 	return nil
