@@ -381,7 +381,7 @@ func (e *Extenter) traverseWritableSeg() error {
 	return nil
 }
 
-func (e *Extenter) traverseGCDst() error {
+func (e *Extenter) traverseGC() error {
 
 	var lastOID uint64
 	lastSnap := e.getLastDMUSnap() // Must not be nil.
@@ -390,6 +390,10 @@ func (e *Extenter) traverseGCDst() error {
 	gcDst := lastSnap.GcDstSeg
 	gcSrcCursor := lastSnap.GcSrcCursor
 	gcDstCursor := lastSnap.GcDstCursor
+
+	if gcSrc == -1 || gcDst == -1 {
+		return nil
+	}
 
 	segSize := int64(e.cfg.SegmentSize)
 
@@ -448,7 +452,7 @@ func (e *Extenter) traverseGCDst() error {
 }
 
 func (e *Extenter) traverseDirtyDeleteWAL() error {
-
+	return nil
 }
 
 // cleanDirtyUpdates set dirtyUpdates 0 directly.
