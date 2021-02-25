@@ -181,6 +181,9 @@ func (e *Extenter) preprocGC() error {
 	return nil
 }
 
+// tryGC will try to GC the extent if there are segments marked need to GC.
+// We use before-after checking to ensure DMU snapshot has caught up the GC src&dst changing,
+// avoiding inconsistent issue.
 func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duration, hasCheckedSnap bool) {
 
 	ctx, cancel := context.WithCancel(e.ctx)
@@ -224,6 +227,11 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			e.gcSrcCursor = 0
 		}
 		e.rwMutex.Unlock()
+
+		// After source changed, checking the snapshot again.
+		if !e.isSnapCatchGC() {
+			return checkSnapSyncGCInterval, false // Reset checked, avoiding makeDMUSnapAsync too frequently.
+		}
 
 		for {
 
@@ -293,6 +301,10 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 				e.gcDstSeg = newDst
 				e.gcDstCursor = 0
 				e.rwMutex.Unlock()
+				// Checking again after destination changed.
+				if !e.isSnapCatchGC() {
+					return checkSnapSyncGCInterval, false // Reset checked, avoiding makeDMUSnapAsync too frequently.
+				}
 			}
 
 			err = e.objReadAt(xio.ReqGCRead, digest, readOffset, gcObjBuf[:objSize])
