@@ -8,6 +8,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"g.tesamc.com/IT/zaipkg/xdigest"
+	xor "github.com/templexxx/xorsimd"
+
 	"github.com/willf/bloom"
 
 	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
@@ -321,6 +324,9 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			}
 
 			// Set origin oid address to empty.
+			xor.Bytes(blankOID, blankOID, blankOID)
+			binary.LittleEndian.PutUint32(blankOID[8:], grains)
+			binary.LittleEndian.PutUint32(blankOID[oidSizeInSeg-4:], xdigest.Sum32(blankOID[:oidSizeInSeg-4]))
 			err = e.ioSched.DoSync(xio.ReqGCWrite, e.segsFile, readOffset, blankOID)
 			if err != nil {
 				e.setState(err)
