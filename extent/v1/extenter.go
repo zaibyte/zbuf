@@ -442,6 +442,8 @@ func (e *Extenter) traverseGC() error {
 			break // Actually it shouldn't happen. If there is last_oid, it will be find before meeting 0.
 		}
 
+		// TODO traverse need jump over grains
+
 		if oid == lastOID {
 			e.gcSrcCursor = uint32(addr)
 			break

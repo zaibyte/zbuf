@@ -249,7 +249,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			xlog.Info(fmt.Sprintf("begin GC in ext:%d, seg:%d", e.info.PbExt.Id, e.gcSrcSeg))
 
 			readOffset := segCursorToOffset(e.gcSrcSeg, int64(e.gcSrcCursor), int64(segSize))
-			oid, err2 := e.oidReadAt(xio.ReqGCRead, readOffset, oidBuf)
+			oid, _, err2 := e.oidReadAt(xio.ReqGCRead, readOffset, oidBuf)
 			if err2 != nil {
 				e.setState(err2)
 				return gcDeadInterval, false

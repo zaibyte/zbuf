@@ -399,21 +399,20 @@ func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte,
 }
 
 // oidReadAt reads oid from disk at offset.
-func (e *Extenter) oidReadAt(reqType uint64, offset int64, oidBuf []byte) (oid uint64, err error) {
+func (e *Extenter) oidReadAt(reqType uint64, offset int64, oidBuf []byte) (oid uint64, grains uint32, err error) {
 
 	if err = e.ioSched.DoSync(reqType, e.segsFile, offset, oidBuf); err != nil {
-		return 0, err
+		return 0, 0, err
 	}
+
+	if xdigest.Sum32(oidBuf[:oidSizeInSeg-4]) != binary.LittleEndian.Uint32(oidBuf[oidSizeInSeg-4:]) {
+		return 0, 0, xerrors.WithMessage(orpc.ErrChecksumMismatch, fmt.Sprintf("read oid: %d", oid))
+	}
+
 	oid = binary.LittleEndian.Uint64(oidBuf[:8])
-	if oid == 0 {
-		return 0, nil
-	}
+	grains = binary.LittleEndian.Uint32(oidBuf[8:12])
 
-	if xdigest.Sum32(oidBuf[:8]) != binary.LittleEndian.Uint32(oidBuf[8:12]) {
-		return 0, xerrors.WithMessage(orpc.ErrChecksumMismatch, fmt.Sprintf("read oid: %d", oid))
-	}
-
-	return oid, nil
+	return oid, grains, nil
 }
 
 // objReadAt reads Extent's segments file from a certain offset(its the oid offset).
@@ -451,7 +450,7 @@ func (e *Extenter) objReadAt(reqType uint64, digest uint32, offset int64, objDat
 // It won't return the data, just checks the I/O system and its checksum.
 // buf should be cfg.SizePerRead bytes block.
 func (e *Extenter) checkReadAt(offset int64, buf []byte) (uint64, error) {
-	oid, err := e.oidReadAt(xio.ReqObjRead, offset, buf[:oidSizeInSeg])
+	oid, _, err := e.oidReadAt(xio.ReqObjRead, offset, buf[:oidSizeInSeg])
 	if oid == 0 && err == nil { // Meet free space.
 		return 0, nil
 	}
