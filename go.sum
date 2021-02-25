@@ -1,17 +1,9 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
-g.tesamc.com/IT/zai v0.0.0-20210222063712-c36c636625c3 h1:CCxl2JEOZ4xT6+v37ubLo8CVGncNavwoL76I0HX/1ok=
-g.tesamc.com/IT/zai v0.0.0-20210222063712-c36c636625c3/go.mod h1:rWBczMCzZ7R8FCwfMIgDq5PtW8B0N3GaE+BMapvY728=
 g.tesamc.com/IT/zai v0.0.0-20210223033300-3ff542d347f8 h1:5nTvdsx0d9UQ6Yl7QvqxZj2HZGZf6BP1OuImcXxIfy8=
 g.tesamc.com/IT/zai v0.0.0-20210223033300-3ff542d347f8/go.mod h1:rWBczMCzZ7R8FCwfMIgDq5PtW8B0N3GaE+BMapvY728=
 g.tesamc.com/IT/zaipkg v0.0.0-20210221102003-7de4fb06bd59 h1:w4uRNJSnYSsOFyKuEhfM21k0QxsXgLXQJ9TKy4FBoLc=
 g.tesamc.com/IT/zaipkg v0.0.0-20210221102003-7de4fb06bd59/go.mod h1:Wx5yYTCSm//V4+mpErGLMbbO/lx5Tm3dyKF3d7UOHPE=
 g.tesamc.com/IT/zproto v0.0.0-20210114071438-1018be4c55d3/go.mod h1:cOpEEu7RT7ocVlcIh/c4JmLSyIFQoPGbzU+77RVg1NE=
-g.tesamc.com/IT/zproto v0.0.0-20210222025649-6f97cb141bba h1:qZ0W455ocU9jkfCJOf89h4GiRBucXi0+hihTNdMLel4=
-g.tesamc.com/IT/zproto v0.0.0-20210222025649-6f97cb141bba/go.mod h1:unN6cXdfgSoM/q2tYIk+JcEF5cxsYY18b587H7k0QYo=
-g.tesamc.com/IT/zproto v0.0.0-20210222085541-799fd886a08e h1:b25IF5N+7T0Prod0sLhmuKuGhrbL+DXgiIUZDRnOOtY=
-g.tesamc.com/IT/zproto v0.0.0-20210222085541-799fd886a08e/go.mod h1:unN6cXdfgSoM/q2tYIk+JcEF5cxsYY18b587H7k0QYo=
-g.tesamc.com/IT/zproto v0.0.0-20210222213727-6c9bf8b307ad h1:M9TEaq49frSLo9eBVyS7c7L7180H6mkNmCdprrQBHK0=
-g.tesamc.com/IT/zproto v0.0.0-20210222213727-6c9bf8b307ad/go.mod h1:unN6cXdfgSoM/q2tYIk+JcEF5cxsYY18b587H7k0QYo=
 g.tesamc.com/IT/zproto v0.0.0-20210223015400-40e6b2bc1b38 h1:c17oc7nZuBIO6byXfyvCmbc4UslZka4sR14sIMOarOY=
 g.tesamc.com/IT/zproto v0.0.0-20210223015400-40e6b2bc1b38/go.mod h1:unN6cXdfgSoM/q2tYIk+JcEF5cxsYY18b587H7k0QYo=
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
@@ -138,6 +130,8 @@ github.com/templexxx/tsc v0.0.1/go.mod h1:0xbX5Da+cJ/a/G2NqRjkCuK4G+gRrCx0e1mnyo
 github.com/templexxx/tsc v0.0.2-0.20201016082558-86c1143c3415 h1:J6jeLh9e1eKbzUjM5rH4cHLE4WEI9xAC5F9u5zunF58=
 github.com/templexxx/tsc v0.0.2-0.20201016082558-86c1143c3415/go.mod h1:ggORF7ccw0KhHde+4jT9gopvb989ysiZTubZi/gqOvA=
 github.com/templexxx/xhex v0.0.0-20200614015412-aed53437177b/go.mod h1:7rwmCH0wC2fQvNEvPZ3sKXukhyCTyiaZ5VTZMQYpZKQ=
+github.com/templexxx/xorsimd v0.4.1 h1:iUZcywbOYDRAZUasAs2eSCUW8eobuZDy0I9FJiORkVg=
+github.com/templexxx/xorsimd v0.4.1/go.mod h1:W+ffZz8jJMH2SXwuKu9WhygqBMbFnp14G2fqEr8qaNo=
 github.com/urfave/negroni/v2 v2.0.2 h1:27gJcVxYJ2a/ytEoCHoJ7ybvyhymV4cAhGuMxkyCsrU=
 github.com/urfave/negroni/v2 v2.0.2/go.mod h1:SjdApKzYrObukpN/NnlejbQiZWIUjfDFzQltScGYigI=
 github.com/valyala/fastrand v1.0.0 h1:LUKT9aKer2dVQNUi3waewTbKV+7H17kvWFNKs2ObdkI=

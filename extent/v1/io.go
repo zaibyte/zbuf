@@ -25,6 +25,7 @@ import (
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 
 	"github.com/templexxx/tsc"
+	xor "github.com/templexxx/xorsimd"
 	"github.com/willf/bloom"
 )
 
@@ -188,7 +189,6 @@ func (e *Extenter) updatesLoop() {
 		}
 
 		// mr must not be nil
-
 		if err := e.preprocModifyRequest(); err != nil {
 			mr.done <- err
 			continue
@@ -349,15 +349,30 @@ func (e *Extenter) preprocModifyRequest() error {
 	return nil
 }
 
+// objHeaderWriteTo writes object header to buf.
+//
+// The elements inside the header: oid, grains, checksum:
+//
+// OID & its grains will be put into the first 12Bytes starting from the offset.
+// Their checksum will be put into the last 4Bytes in the first 4KB from the offset.
+// After GC, the oid will be reset to 0, and leaving the grains for future jumping in the loading process.
+func objHeaderWriteTo(oid uint64, size int, buf []byte) {
+	binary.LittleEndian.PutUint64(buf[:8], oid)
+	binary.LittleEndian.PutUint32(buf[8:12], uint32(size/uid.GrainSize))
+	hsum := xdigest.Sum32(buf[:oidSizeInSeg-4])
+	binary.LittleEndian.PutUint32(buf[oidSizeInSeg-4:], hsum)
+}
+
 // objWriteAt writes with a buffer in a certain offset.
 // Using objWriteAt split big data chunk into buffer size, avoiding stall.
 // Returns total_written(include oid & object_data) & error.
 func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte, buf []byte) (totalWritten int, err error) {
 
+	// Clean up space for oid.
+	xor.Bytes(buf[:oidSizeInSeg], buf[:oidSizeInSeg], buf[:oidSizeInSeg])
+
 	n := len(objData)
-	binary.LittleEndian.PutUint64(buf[:8], oid)
-	oidSum := xdigest.Sum32(buf[:8])
-	binary.LittleEndian.PutUint32(buf[8:12], oidSum)
+	objHeaderWriteTo(oid, n, buf)
 	written := copy(buf[oidSizeInSeg:], objData)
 
 	err = e.ioSched.DoSync(reqType, e.segsFile, offset, buf[:written+oidSizeInSeg])
