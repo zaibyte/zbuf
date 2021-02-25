@@ -37,6 +37,10 @@ Which means 0.5GB/TB.
    so we can't tolerate beyond failed write has succeeded one).
 3. Read is thread-safe, because it has no side-effect
 
+####Data Integrity
+
+Follow the Data Integrity Design Principle strictly which described in [Docs](https://g.tesamc.com/IT/zai-docs)
+
 ###Garbage Collection
 
 In extent.v1, extent is split into several segments. We reclaim segment one by one, if a segment is clean up, it gets
