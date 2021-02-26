@@ -506,14 +506,14 @@ func (e *Extenter) isDMUSnapBehind() bool {
 
 	snapIdx := lastSnap.WritableHistoryIdx
 
-	if nvh.WritableHistoryNextIdx < snapIdx+wsegHistroyCnt {
-		return true
+	if nvh.WritableHistoryNextIdx-wsegHistroyCnt >= snapIdx {
+		return false
 	}
-	return false
+	return true
 }
 
 // listSnapBehind lists segments which are in writable history, but
-// haven't been flushed to DMU snapshot.
+// haven't been flushed to DMU snapshot fully(including writable segment in lastSnap).
 // Warn:
 // Must be used with lock.
 func (e *Extenter) listSnapBehind() []uint8 {
@@ -535,7 +535,13 @@ func (e *Extenter) listSnapBehind() []uint8 {
 	}
 
 	snapIdx := lastSnap.WritableHistoryIdx
+	cnt := nvh.WritableHistoryNextIdx - snapIdx
 
+	ret := make([]uint8, cnt)
+	for i := range ret {
+		ret[i] = e.getWsegByHistoryIdx(snapIdx + int64(i))
+	}
+	return ret
 }
 
 // getNextWritableSeg gets the next writable segment for writing,
