@@ -43,14 +43,14 @@ func getExtDirParent(extDir string) string {
 // createExtent creates new extent.
 func (s *Server) createExtent(version uint16, extID, diskID, state, objCount uint32) (err error) {
 
+	extDir := getExtDir(extID, makeDiskDir(diskID, s.cfg.DataRoot))
+
 	// TODO create failed should clean up all dir & files but not search the extinfo
 	defer func() {
 		if err != nil {
-			s.handleIOError(err, extID, diskID)
+			_ = s.fs.RemoveAll(extDir)
 		}
 	}()
-
-	extDir := getExtDir(extID, makeDiskDir(diskID, s.cfg.DataRoot))
 
 	if vfs.IsDirExisted(s.fs, extDir) {
 		err = fmt.Errorf("extID: %d already existed", extID)

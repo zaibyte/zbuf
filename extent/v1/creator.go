@@ -66,7 +66,7 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 	err = vfs.FAlloc(segFile.Fd(), int64(c.cfg.SegmentSize*segmentCnt))
 	if err != nil {
 		_ = segFile.Close()
-		return nil, xerrors.WithMessage(err, "failed to alloc segs file")
+		return nil, xerrors.WithMessage(err, "failed to alloc segments file")
 	}
 
 	dwf, err := fs.Create(filepath.Join(extDir, dirtyDelWalFileName))
@@ -128,6 +128,10 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 		ctx:    ctx2,
 		cancel: cancel,
 		stopWg: new(sync.WaitGroup),
+	}
+	err = ext.makeDMUSnapSync(true)
+	if err != nil {
+
 	}
 
 	return ext, err
