@@ -469,9 +469,16 @@ func (e *Extenter) getGCSrcCandidates(ratio float64) []gcCandidate {
 		})
 	}
 
+	wsegNotInSnap := e.listSnapBehind()
+
 	nvh := e.header.nvh
 	for i, s := range nvh.SegStates {
-		if s == segSealed {
+		// The segment must be sealed & not in the writable history which haven't synced to the snapshot.
+		// If we GC the un-flushed segments, it'll break the logic of loading writable history segments in present.
+		//
+		// It may pause the whole GC process, but won't cause serious delay.(The cost of snapshot isn't high, should be
+		// finished fastly.)
+		if s == segSealed && !isInUint8(s, wsegNotInSnap) {
 			rm := nvh.Removed[i]
 			if rm >= threshold {
 				cnt++
@@ -490,6 +497,18 @@ func (e *Extenter) getGCSrcCandidates(ratio float64) []gcCandidate {
 	}
 
 	return cs
+}
+
+func isInUint8(n uint8, s []uint8) bool {
+	if s == nil {
+		return false
+	}
+	for _, nn := range s {
+		if nn == n {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *Extenter) sortGCCandidates(cs gcCandidates) {
