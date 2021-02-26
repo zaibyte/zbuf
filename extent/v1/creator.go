@@ -85,8 +85,6 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 		dmuCap = int(params.CloneJob.ObjCnt)
 	}
 
-	// TODO need create a lastSnap with the init writable seg and -1 gc src dst
-
 	ctx2, cancel := context.WithCancel(ctx)
 
 	ext := &Extenter{
@@ -131,7 +129,7 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 	}
 	err = ext.makeDMUSnapSync(true)
 	if err != nil {
-
+		return nil, err
 	}
 
 	return ext, err
