@@ -489,6 +489,8 @@ func (e *Extenter) checkReadAt(offset int64, buf []byte) (uint64, error) {
 }
 
 // isDMUSnapBehind checks DMU snapshot is too far behind new writable segment.
+// Warn:
+// Must be used with lock.
 func (e *Extenter) isDMUSnapBehind() bool {
 
 	lastSnap := e.getLastDMUSnap()
@@ -504,10 +506,36 @@ func (e *Extenter) isDMUSnapBehind() bool {
 
 	snapIdx := lastSnap.WritableHistoryIdx
 
-	if nvh.WritableHistoryNextIdx-wsegHistroyCnt >= snapIdx {
+	if nvh.WritableHistoryNextIdx < snapIdx+wsegHistroyCnt {
 		return true
 	}
 	return false
+}
+
+// listSnapBehind lists segments which are in writable history, but
+// haven't been flushed to DMU snapshot.
+// Warn:
+// Must be used with lock.
+func (e *Extenter) listSnapBehind() []uint8 {
+
+	lastSnap := e.getLastDMUSnap()
+
+	nvh := e.header.nvh
+
+	if lastSnap == nil {
+		if nvh.WritableHistoryNextIdx == 0 {
+			return nil
+		}
+		ret := make([]uint8, nvh.WritableHistoryNextIdx)
+		var i int64
+		for i = 0; i < nvh.WritableHistoryNextIdx; i++ {
+			ret[i] = nvh.WritableHistory[i]
+		}
+		return ret
+	}
+
+	snapIdx := lastSnap.WritableHistoryIdx
+
 }
 
 // getNextWritableSeg gets the next writable segment for writing,
@@ -548,7 +576,7 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 
 func (e *Extenter) getWsegByHistoryIdx(idx int64) uint8 {
 	nvh := e.header.nvh
-	return nvh.WritableHistory[idx&wsegHistroyCnt]
+	return nvh.WritableHistory[idx%wsegHistroyCnt]
 }
 
 type segStateClone struct {

@@ -190,3 +190,5 @@ func TestCalcSnapCost(t *testing.T) {
 		}
 	}
 }
+
+// TODO test empty snap create & load
