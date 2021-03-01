@@ -4,11 +4,11 @@ import "g.tesamc.com/IT/zbuf/extent/v1/dmu"
 
 // Segments layout on local file system:
 //
-// Address   4KB
-// | oid(8B)  |  object_data |
+// Address                                    Address+4KB
+// | oid(8B) grains(4B) padding(4080B) checksum(4B) |  object_data |
 //
 // Address is aligned to 16KB.
-// oid takes 4KB
+// header takes 4KB
 // object_data is started at Address + 4KB.
 
 const (
