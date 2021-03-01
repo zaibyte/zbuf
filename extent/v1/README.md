@@ -12,17 +12,18 @@ Designed for NVMe Drivers.
 3. Garbage collection friendly: fast and good for SSD firmware & its physical properties.
 4. Supports various I/O models (could be adjusted by different configs)
 5. Consistence model: Read-After-Writer, any read after a writing must be succeeded.
+6. Read-Optimized: User facing Read should be the first class
 
 ##Details
 
 This Paper: `<Reaping the performance of fast NVM storage with uDepot>` has almost the same idea with me, and it gives 
-confidence to make the extent.v1 successfully. 
+me confidence to make the extent.v1 successfully. 
 
 ###Index
 
 Based on Hopscotch Hashing with these optimizations:
 
-1. Redesign for Zai's oid, reducing overhead of key.
+1. Redesign for Zai's OID, reducing overhead of key.
 2. Wait-free Searching
 3. Online Scaling
 
@@ -32,10 +33,16 @@ Which means 0.5GB/TB.
 
 ###I/O
 
-1. Use direct I/O for saving memory copy cost
-2. Only one goroutine could write object sequentially, avoiding non-sequential state.(segments file plays the WAL role indeed,
+v1 is built upon on local file system(XFS) with direct I/O model. ([Here](https://www.scylladb.com/2017/10/05/io-access-methods-scylla/) is
+a good comparison of different I/O models in Linux).
+
+Direct I/O gets a balance of performance and application complexity.
+
+Others:
+
+1. Only one goroutine could write object sequentially, avoiding non-sequential state.(segments file plays the WAL role indeed,
    so we can't tolerate beyond failed write has succeeded one).
-3. Read is thread-safe, because it has no side-effect
+2. Read is thread-safe, because it has no side-effect
 
 ####Data Integrity
 
