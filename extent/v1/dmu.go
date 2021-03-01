@@ -59,8 +59,19 @@ const (
 )
 
 const (
-	dumSnapSuffix = ".dmu_snap"
+	dmuSnapEntrySize = 9 // Each entry will take 9 bytes.
+	dumSnapSuffix    = ".dmu_snap"
 )
+
+// getMaxDMUSnapSize gets the max size of DMU snapshot would take.
+func getMaxDMUSnapSize(segSize uint64, reservedSeg int) float64 {
+	maxWritableSeg := uint64(segmentCnt - reservedSeg)
+	maxWritableSize := segSize * maxWritableSeg
+	maxObj := maxWritableSize / dmu.AlignSize
+	maxEnSize := dmuSnapEntrySize * maxObj
+	maxBlks := math.Trunc(float64(maxEnSize)/dmuSnapBlockSize + 1)
+	return maxBlks * dmuSnapBlockSize
+}
 
 func (e *Extenter) getLastDMUSnap() *dmuSnapHeader {
 	p := atomic.LoadPointer(&e.lastDMUSnap)

@@ -16,6 +16,7 @@ import (
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 )
 
+// Creator is ext.v1's Creator.
 type Creator struct {
 	cfg     *Config
 	iosched xio.Scheduler
@@ -24,6 +25,7 @@ type Creator struct {
 	boxID   uint32
 }
 
+// NewCreator creates an ext.v1 Creator.
 func NewCreator(cfg *Config, iosched xio.Scheduler, fs vfs.FS, zai zai.Client, boxID uint32) *Creator {
 	return &Creator{
 		cfg:     cfg,
@@ -35,15 +37,14 @@ func NewCreator(cfg *Config, iosched xio.Scheduler, fs vfs.FS, zai zai.Client, b
 }
 
 // GetSize returns the space allocation of an extent.v1, including:
-// segments_file + header + boot_sector + max_DMU_snap * 4
-// 4 for keeping space enough, actually it won't use that much, so it includes extra space taken by file system or others.
+// segments_file + header + boot_sector + max_DMU_snap * 2
+// 2 for keeping space enough, actually it won't use that much, so it includes extra space taken by file system or others.
 func (c *Creator) GetSize() uint64 {
 
 	seg := uint64(c.cfg.SegmentSize * segmentCnt)
 	header := uint64(headerSize)
 	boot := uint64(extent.BootSectorSize)
-	pa := float64(seg/dmu.AlignSize) * 8 / 0.9 * 4
-	return seg + header + boot + uint64(pa)
+	return seg + header + boot + uint64(getMaxDMUSnapSize(uint64(c.cfg.SegmentSize), c.cfg.ReservedSeg))*2
 }
 
 const (
