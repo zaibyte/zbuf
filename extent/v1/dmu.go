@@ -70,7 +70,7 @@ func getMaxDMUSnapSize(segSize uint64, reservedSeg int) float64 {
 	maxObj := maxWritableSize / dmu.AlignSize
 	maxEnSize := dmuSnapEntrySize * maxObj
 	maxBlks := math.Trunc(float64(maxEnSize)/dmuSnapBlockSize + 1)
-	return maxBlks * dmuSnapBlockSize
+	return maxBlks*dmuSnapBlockSize + dmuSnapHeaderSize
 }
 
 func (e *Extenter) getLastDMUSnap() *dmuSnapHeader {
