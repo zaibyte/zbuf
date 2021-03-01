@@ -53,12 +53,6 @@ const (
 	defaultDeepGCInterval = 30 * 24 * time.Hour // One month.
 )
 
-// TODO may no need to create get queue
-const (
-	defaultGetPending = 1024
-	defaultGetThread  = 4
-)
-
 // Config is the configs of v1 extent.
 type Config struct {
 	// SegmentSize is [16KB, 1GB].
