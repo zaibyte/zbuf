@@ -97,7 +97,7 @@ func (cfg *Config) adjust() {
 	config.Adjust(&cfg.UpdatesPending, defaultUpdatesPending)
 	config.Adjust(&cfg.SizePerWrite, defaultSizePerWrite)
 	config.Adjust(&cfg.SizePerRead, defaultSizePerRead)
-	config.Adjust(&cfg.MaxDirtyCount, defaultMaxDirtyCount)
+	config.Adjust(&cfg.MaxDirtyCount, int64(defaultMaxDirtyCount))
 	maxDirtyCount := cfg.SegmentSize / 4 * 1024 * 1024 / 2
 	if maxDirtyCount < 1 {
 		cfg.MaxDirtyCount = 1
