@@ -37,14 +37,15 @@ func NewCreator(cfg *Config, iosched xio.Scheduler, fs vfs.FS, zai zai.Client, b
 }
 
 // GetSize returns the space allocation of an extent.v1, including:
-// segments_file + header + boot_sector + max_DMU_snap * 2
+// segments_file + header + boot_sector + max_DMU_snap * 2 + dirty_delete_wal
 // 2 for keeping space enough, actually it won't use that much, so it includes extra space taken by file system or others.
 func (c *Creator) GetSize() uint64 {
 
 	seg := uint64(c.cfg.SegmentSize * segmentCnt)
 	header := uint64(headerSize)
 	boot := uint64(extent.BootSectorSize)
-	return seg + header + boot + uint64(getMaxDMUSnapSize(uint64(c.cfg.SegmentSize), c.cfg.ReservedSeg))*2
+	return seg + header + boot +
+		uint64(getMaxDMUSnapSize(uint64(c.cfg.SegmentSize), c.cfg.ReservedSeg))*2 + dirtyDeleteWALSize
 }
 
 const (

@@ -10,8 +10,8 @@
 // │              └── <ext_id2>
 // │                      ├── boot-sector
 // │                      ├── header
-// │                      ├── <timestamp>.idx-snap
-// │                      ├── <start-end>.idx-wal
+// │                      ├── <timestamp>.dmu_snap
+// │                      ├── dirty_del.wal
 // │                      └── segments
 
 package v1
