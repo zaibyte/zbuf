@@ -38,11 +38,21 @@ a good comparison of different I/O models in Linux).
 
 Direct I/O gets a balance of performance and application complexity.
 
-Others:
+####Write
+Only one goroutine could write objects sequentially, avoiding non-sequential state.(segments file plays the WAL role indeed,
+so we can't tolerate beyond failed write has succeeded one).
 
-1. Only one goroutine could write object sequentially, avoiding non-sequential state.(segments file plays the WAL role indeed,
-   so we can't tolerate beyond failed write has succeeded one).
-2. Read is thread-safe, because it has no side-effect
+####Read
+Read is thread-safe, because it has no side effect.
+
+####Delete
+Delete has a strict limitation. Each delete operation will be sync to WAL first until the DMU snapshot has synced these dirty orders.
+If the wal is full, rejecting all delete requests.
+
+The WAL helps to avoid inconsistency issues, and the limitation of WAL helping to reduce the code complexity.
+
+Although, the limitation is pretty strictly, it's enough for most cases which deletion is not heavy or could be under the control of
+a central server(e.g. Keeper) easily.
 
 ####Data Integrity
 
