@@ -109,3 +109,10 @@ func (cfg *Config) adjust() {
 	config.Adjust(&cfg.GCScanInterval, defaultGCScanInterval)
 	config.Adjust(&cfg.DeepGCInterval, defaultDeepGCInterval)
 }
+
+// getDefaultConfig gets Config with default values.
+func getDefaultConfig() *Config {
+	c := new(Config)
+	c.adjust()
+	return c
+}

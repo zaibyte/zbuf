@@ -27,6 +27,9 @@ type Creator struct {
 
 // NewCreator creates an ext.v1 Creator.
 func NewCreator(cfg *Config, iosched xio.Scheduler, fs vfs.FS, zai zai.Client, boxID uint32) *Creator {
+
+	cfg.adjust()
+
 	return &Creator{
 		cfg:     cfg,
 		iosched: iosched,
