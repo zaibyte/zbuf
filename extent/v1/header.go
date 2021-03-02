@@ -160,3 +160,13 @@ func (h *Header) Close() {
 	}
 	_ = h.f.Close()
 }
+
+func (h *Header) getReadySegCnt() int {
+	cnt := 0
+	for i := range h.nvh.SegStates {
+		if h.nvh.SegStates[i] == segReady {
+			cnt++
+		}
+	}
+	return cnt
+}

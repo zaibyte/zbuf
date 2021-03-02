@@ -132,7 +132,7 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 		cancel: cancel,
 		stopWg: new(sync.WaitGroup),
 	}
-	err = ext.makeDMUSnapSync(true)
+	err = ext.makeDMUSnapSync(true) // At least has one DMU snapshot.
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +154,7 @@ func (c *Creator) Load(ctx context.Context, extDir string, params extent.CreateP
 	return e, nil
 }
 
-// createBrokenExt creates an Extenter which is broken,
+// createBrokenExt creates an Extenter which state is broken,
 // but we still need it for heartbeat or other methods.
 func createBrokenExt() extent.Extenter {
 	return &Extenter{
@@ -189,11 +189,10 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 		fs:      fs,
 		extDir:  extDir,
 		info: &extent.Info{PbExt: &metapb.Extent{
-			State: metapb.ExtentState(h.nvh.State),
-			Id:    params.ExtID,
-			Size_: uint64(c.cfg.SegmentSize) * uint64(segmentCnt),
-			// TODO recalcute used & avail by header
-			Avail:      (segmentCnt - uint64(c.cfg.ReservedSeg)) * uint64(c.cfg.SegmentSize),
+			State:      metapb.ExtentState(h.nvh.State),
+			Id:         params.ExtID,
+			Size_:      uint64(c.cfg.SegmentSize) * uint64(segmentCnt),
+			Avail:      uint64(h.getReadySegCnt()) * uint64(c.cfg.SegmentSize),
 			Version:    uint32(extent.Version1),
 			DiskId:     params.DiskID,
 			InstanceId: params.InstanceID,

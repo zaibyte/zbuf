@@ -47,7 +47,7 @@ import (
 )
 
 type Extenter struct {
-	unhealthy bool // unhealthy indicates it's a unhealthy extent, which couldn't be started.
+	unhealthy bool // unhealthy indicates it's a unhealthy extent, which won't start any background resource.
 	isRunning int64
 
 	boxID uint32
