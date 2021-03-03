@@ -31,6 +31,7 @@ import (
 	"g.tesamc.com/IT/zaipkg/xlog"
 )
 
+// gcLoop does GC in infinite loops.
 func (e *Extenter) gcLoop() {
 
 	defer e.stopWg.Done()
@@ -77,6 +78,8 @@ func (e *Extenter) gcLoop() {
 	}
 }
 
+// deepGC recalculates the removed size of segments by traversing DMU.
+// The realy GC job will be done in tryGC.
 func (e *Extenter) deepGC() {
 	used := make([]uint32, segmentCnt)
 	d := e.dmu
@@ -99,6 +102,7 @@ func (e *Extenter) deepGC() {
 	e.rwMutex.Unlock()
 }
 
+// deepGCDMUTbl traverses a certain table in DMU, ignore the existed OID.
 func (e *Extenter) deepGCDMUTbl(tbl []uint64, used []uint32, seen *bloom.BloomFilter) {
 	digestBuf := make([]byte, 4)
 	for i := range tbl {
@@ -115,6 +119,7 @@ func (e *Extenter) deepGCDMUTbl(tbl []uint64, used []uint32, seen *bloom.BloomFi
 	}
 }
 
+// DoGC is waiting for caller's GC order with GC ratio.
 func (e *Extenter) DoGC(ratio float64) {
 
 	select {
@@ -135,11 +140,10 @@ func (e *Extenter) DoGC(ratio float64) {
 }
 
 const (
-	// When we want to set new GC src /dst but meet inconsistent between GC process & DMU snapshot,
+	// When we want to set new GC src/dst but meet inconsistent between GC process & DMU snapshot,
 	// wait for a while and check it again.
 	// GC will update Extenter.dirtyUpdates, and if (hasCheckedSnap) == true, tryGC will call make snapshot by force.
 	// so it won't block on checking forever unless extent unhealthy.
-	// If it's unhealthy, tryGC will break the loop and return.
 	checkSnapSyncGCInterval = 16 * time.Second
 	// gcDeadInterval is the interval when Extenter meets unexpected error and we should exit GC.
 	// Using a magic number to ensure the interval is unique.
@@ -154,17 +158,17 @@ func (e *Extenter) isSnapCatchGC() bool {
 	lastSrcCursor, lastDstCursor := e.gcSrcCursor, e.gcDstCursor
 
 	lastSnap := e.getLastDMUSnap()
-	var lastSrcInSnap, lastDstInSanp int64 = -1, -1
+	var lastSrcInSnap, lastDstInSnap int64 = -1, -1
 	var lastSrcCursorInSnap, lastDstCursorInSnap uint32 = 0, 0
 	if lastSnap != nil {
 		lastSrcInSnap = lastSnap.GcSrcSeg
 		lastSrcCursorInSnap = lastSnap.GcSrcCursor
-		lastDstInSanp = lastSnap.GcDstSeg
+		lastDstInSnap = lastSnap.GcDstSeg
 		lastDstCursorInSnap = lastSnap.GcDstCursor
 	}
 
 	if lastSrc != lastSrcInSnap || lastSrcCursor != lastSrcCursorInSnap ||
-		lastDst != lastDstInSanp || lastDstCursor != lastDstCursorInSnap {
+		lastDst != lastDstInSnap || lastDstCursor != lastDstCursorInSnap {
 		return false
 	}
 	return true
