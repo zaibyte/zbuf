@@ -10,6 +10,11 @@ import "g.tesamc.com/IT/zbuf/extent/v1/dmu"
 // Address is aligned to 16KB.
 // header takes 4KB
 // object_data is started at Address + 4KB.
+//
+// p.s.
+// The structure of Header is designed for the raw version of extent.v1,
+// the grains maybe meaningless in present, but it's not harmful.
+// Unless there is break change, I won't modify it.
 
 const (
 	oidSizeInSeg = 4 * 1024
