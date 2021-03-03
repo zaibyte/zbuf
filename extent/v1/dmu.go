@@ -341,8 +341,9 @@ func (e *Extenter) loadDMUSnap() error {
 		}
 	}
 
-	if createTS == 0 {
-		return nil
+	if createTS == 0 { // There is no snapshot, creating one.
+		e.dmu = dmu.New(0)
+		return e.makeDMUSnapSync(true) // At least has one DMU snapshot.
 	}
 
 	fn := makeDMUSnapFp(e.extDir, createTS)

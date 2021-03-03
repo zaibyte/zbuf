@@ -226,12 +226,28 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 		return nil, err
 	}
 
+	return ext, nil
 }
 
 // loadDMU loads DMU from disk,
 // after invoking, we'll have consistent DMU for this Extenter.
 func (e *Extenter) loadDMU() error {
 	err := e.loadDMUSnap()
+	if err != nil {
+		return err
+	}
+
+	err = e.traverseGC()
+	if err != nil {
+		return err
+	}
+
+	err = e.traverseWritableSeg()
+	if err != nil {
+		return err
+	}
+
+	err = e.traverseDirtyDeleteWAL()
 	if err != nil {
 		return err
 	}
