@@ -108,7 +108,7 @@ func (e *Extenter) deepGCDMUTbl(tbl []uint64, used []uint32, seen *bloom.BloomFi
 		binary.LittleEndian.PutUint32(digestBuf, digest)
 		if !seen.Test(digestBuf) {
 			seg := addrToSeg(addr, int64(e.cfg.SegmentSize))
-			used[seg] += uint32(xbytes.AlignSize(int64(grains+oidSizeInSeg/uid.GrainSize), dmu.AlignSize/uid.GrainSize))
+			used[seg] += uint32(xbytes.AlignSize(int64(grains+objHeaderSize/uid.GrainSize), dmu.AlignSize/uid.GrainSize))
 		} else {
 			seen.Add(digestBuf)
 		}
@@ -208,10 +208,10 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 
 	segSize := uint32(e.cfg.SegmentSize)
 
-	gcWriteBuf := directio.AlignedBlock(int(oidSizeInSeg + e.cfg.SizePerWrite))
-	gcObjBuf := gcWriteBuf[oidSizeInSeg:]
-	oidBuf := directio.AlignedBlock(oidSizeInSeg)
-	blankOID := directio.AlignedBlock(oidSizeInSeg) // For reset OID in segment.
+	gcWriteBuf := directio.AlignedBlock(int(objHeaderSize + e.cfg.SizePerWrite))
+	gcObjBuf := gcWriteBuf[objHeaderSize:]
+	oidBuf := directio.AlignedBlock(objHeaderSize)
+	blankOID := directio.AlignedBlock(objHeaderSize) // For reset OID in segment.
 
 	for _, c := range cs { // Deal with candidates one by one.
 
@@ -271,7 +271,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			entry := e.dmu.Search(digest)
 			if entry == 0 {
 				e.rwMutex.Lock()
-				e.gcSrcCursor += uint32(xbytes.AlignSize(int64(objSize+oidSizeInSeg), dmu.AlignSize))
+				e.gcSrcCursor += uint32(xbytes.AlignSize(int64(objSize+objHeaderSize), dmu.AlignSize))
 				e.rwMutex.Unlock()
 				continue
 			}
@@ -281,15 +281,15 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			// See https://g.tesamc.com/IT/zbuf/issues/142 for details.
 			if eaddr*dmu.AlignSize != uint32(readOffset) {
 				e.rwMutex.Lock()
-				e.gcSrcCursor += uint32(xbytes.AlignSize(int64(objSize+oidSizeInSeg), dmu.AlignSize))
+				e.gcSrcCursor += uint32(xbytes.AlignSize(int64(objSize+objHeaderSize), dmu.AlignSize))
 				if eaddr*dmu.AlignSize > e.gcDstCursor && addrToSeg(eaddr, int64(segSize)) == int(e.gcDstSeg) {
-					e.gcDstCursor = uint32(xbytes.AlignSize(int64(eaddr*dmu.AlignSize+objSize+oidSizeInSeg), dmu.AlignSize))
+					e.gcDstCursor = uint32(xbytes.AlignSize(int64(eaddr*dmu.AlignSize+objSize+objHeaderSize), dmu.AlignSize))
 				}
 				e.rwMutex.Unlock()
 				continue
 			}
 
-			if oidSizeInSeg+objSize > segSize-e.gcDstCursor || e.gcDstSeg == -1 { // Dst has no enough space or haven't had any GC job.
+			if objHeaderSize+objSize > segSize-e.gcDstCursor || e.gcDstSeg == -1 { // Dst has no enough space or haven't had any GC job.
 				// Destination will be changed, checking the snapshot.
 				if !e.isSnapCatchGC() {
 					if !checkedSnap {
@@ -317,7 +317,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			}
 
 			writeOffset := segCursorToOffset(e.gcDstSeg, int64(e.gcDstCursor), int64(segSize))
-			totalWritten, werr := e.objWriteAt(xio.ReqGCWrite, oid, writeOffset, gcObjBuf[:objSize], gcWriteBuf[:objSize+oidSizeInSeg])
+			totalWritten, werr := e.objWriteAt(xio.ReqGCWrite, oid, writeOffset, gcObjBuf[:objSize], gcWriteBuf[:objSize+objHeaderSize])
 			if werr != nil {
 				e.setState(err)
 				return gcDeadInterval, false
@@ -326,7 +326,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			// Set origin oid address to empty.
 			xor.Bytes(blankOID, blankOID, blankOID)
 			binary.LittleEndian.PutUint32(blankOID[8:], grains)
-			binary.LittleEndian.PutUint32(blankOID[oidSizeInSeg-4:], xdigest.Sum32(blankOID[:oidSizeInSeg-4]))
+			binary.LittleEndian.PutUint32(blankOID[objHeaderSize-4:], xdigest.Sum32(blankOID[:objHeaderSize-4]))
 			err = e.ioSched.DoSync(xio.ReqGCWrite, e.segsFile, readOffset, blankOID)
 			if err != nil {
 				e.setState(err)
@@ -336,7 +336,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			e.dmu.Update(digest, uint32(writeOffset))
 
 			e.rwMutex.Lock()
-			e.gcSrcCursor += uint32(xbytes.AlignSize(int64(objSize+oidSizeInSeg), dmu.AlignSize))
+			e.gcSrcCursor += uint32(xbytes.AlignSize(int64(objSize+objHeaderSize), dmu.AlignSize))
 			e.gcDstCursor += uint32(xbytes.AlignSize(int64(totalWritten), dmu.AlignSize))
 			e.rwMutex.Unlock()
 		}

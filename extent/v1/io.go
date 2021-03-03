@@ -83,7 +83,7 @@ func (e *Extenter) updatesLoop() {
 	// writeBuf.
 	// If the object size is large than SizePerWrite, the writeBuf is useless,
 	// we will pass the objData piece by piece directly.
-	writeBuf := directio.AlignedBlock(int(oidSizeInSeg + e.cfg.SizePerWrite))
+	writeBuf := directio.AlignedBlock(int(objHeaderSize + e.cfg.SizePerWrite))
 	segSize := int64(e.cfg.SegmentSize)
 
 	dirtyDel := &dirtyDelete{
@@ -151,7 +151,8 @@ func (e *Extenter) updatesLoop() {
 				continue
 			}
 
-			if e.writableCursor+int64(len(wr.objData))+oidSizeInSeg > segSize {
+			// There is no enough space in this segment for this uploading.
+			if e.writableCursor+int64(len(wr.objData))+objHeaderSize > segSize {
 				e.rwMutex.Lock()
 				nextSeg, err := e.getNextWritableSeg(e.writableSeg)
 				if err != nil {
@@ -222,7 +223,7 @@ func (e *Extenter) updatesLoop() {
 			rSeg := addrToSeg(rAddr, segSize)
 			e.rwMutex.Lock()
 			dirtyDel.lastMod = lastMod
-			e.header.nvh.Removed[rSeg] += uint32(xbytes.AlignSize(int64(grains+oidSizeInSeg/uid.GrainSize), dmu.AlignSize/uid.GrainSize))
+			e.header.nvh.Removed[rSeg] += uint32(xbytes.AlignSize(int64(grains+objHeaderSize/uid.GrainSize), dmu.AlignSize/uid.GrainSize))
 			e.rwMutex.Unlock()
 			dirtyWALOffset += n
 			atomic.AddInt64(&e.dirtyUpdates, 1)
@@ -253,7 +254,7 @@ func (e *Extenter) updatesLoop() {
 					dirtyDel.dirtyOneCnt++
 					rSeg := addrToSeg(rAddr, segSize)
 					dirtyDel.lastMod = lastMod
-					e.header.nvh.Removed[rSeg] += grains + oidSizeInSeg
+					e.header.nvh.Removed[rSeg] += grains + objHeaderSize
 					atomic.AddInt64(&e.dirtyUpdates, 1)
 				}
 			}
@@ -359,28 +360,38 @@ func (e *Extenter) preprocModifyRequest() error {
 func objHeaderWriteTo(oid uint64, size int, buf []byte) {
 	binary.LittleEndian.PutUint64(buf[:8], oid)
 	binary.LittleEndian.PutUint32(buf[8:12], uint32(size/uid.GrainSize))
-	hsum := xdigest.Sum32(buf[:oidSizeInSeg-4])
-	binary.LittleEndian.PutUint32(buf[oidSizeInSeg-4:], hsum)
+	hsum := xdigest.Sum32(buf[:objHeaderSize-4])
+	binary.LittleEndian.PutUint32(buf[objHeaderSize-4:], hsum)
 }
+
+// blankObjHeader is an empty object header(with max padding) for clean up the next place when writing.
+var blankObjHeader = make([]byte, dmu.AlignSize)
 
 // objWriteAt writes with a buffer in a certain offset.
 // Using objWriteAt split big data chunk into buffer size, avoiding stall.
 // Returns total_written(include oid & object_data) & error.
+//
+// All objects write in ext.v1 is sequentially, which means the next write must be follow the offset of the last object.
+// objWriteAt will set the next header(if there is enough space) blank for indicating there is no more object by using this property.
+// In this way, we could reduce unnecessary random write.
+// See: https://g.tesamc.com/IT/zbuf/issues/166 for details.
 func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte, buf []byte) (totalWritten int, err error) {
 
 	// Clean up space for oid.
-	xor.Bytes(buf[:oidSizeInSeg], buf[:oidSizeInSeg], buf[:oidSizeInSeg])
+	xor.Bytes(buf[:objHeaderSize], buf[:objHeaderSize], buf[:objHeaderSize])
+
+	// TODO
 
 	n := len(objData)
 	objHeaderWriteTo(oid, n, buf)
-	written := copy(buf[oidSizeInSeg:], objData)
+	written := copy(buf[objHeaderSize:], objData)
 
-	err = e.ioSched.DoSync(reqType, e.segsFile, offset, buf[:written+oidSizeInSeg])
+	err = e.ioSched.DoSync(reqType, e.segsFile, offset, buf[:written+objHeaderSize])
 	if err != nil {
 		return
 	}
 	offset += int64(written)
-	offset += oidSizeInSeg
+	offset += objHeaderSize
 
 	sizePerWrite := int(e.cfg.SizePerWrite)
 	for written != n {
@@ -395,7 +406,7 @@ func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte,
 		written += nn
 		offset += int64(nn)
 	}
-	return written + oidSizeInSeg, nil
+	return written + objHeaderSize, nil
 }
 
 // oidReadAt reads oid from disk at offset.
@@ -405,7 +416,7 @@ func (e *Extenter) oidReadAt(reqType uint64, offset int64, oidBuf []byte) (oid u
 		return 0, 0, err
 	}
 
-	if xdigest.Sum32(oidBuf[:oidSizeInSeg-4]) != binary.LittleEndian.Uint32(oidBuf[oidSizeInSeg-4:]) {
+	if xdigest.Sum32(oidBuf[:objHeaderSize-4]) != binary.LittleEndian.Uint32(oidBuf[objHeaderSize-4:]) {
 		return 0, 0, xerrors.WithMessage(orpc.ErrChecksumMismatch, fmt.Sprintf("read oid: %d", oid))
 	}
 
@@ -418,7 +429,7 @@ func (e *Extenter) oidReadAt(reqType uint64, offset int64, oidBuf []byte) (oid u
 // objReadAt reads Extent's segments file from a certain offset(its the oid offset).
 func (e *Extenter) objReadAt(reqType uint64, digest uint32, offset int64, objData []byte) error {
 
-	offset += oidSizeInSeg
+	offset += objHeaderSize
 
 	sizePerRead := int(e.cfg.SizePerRead)
 	n := len(objData)
@@ -450,7 +461,7 @@ func (e *Extenter) objReadAt(reqType uint64, digest uint32, offset int64, objDat
 // It won't return the data, just checks the I/O system and its checksum.
 // buf should be cfg.SizePerRead bytes block.
 func (e *Extenter) checkReadAt(offset int64, buf []byte) (oid uint64, grains uint32, err error) {
-	oid, grains, err = e.oidReadAt(xio.ReqObjRead, offset, buf[:oidSizeInSeg])
+	oid, grains, err = e.oidReadAt(xio.ReqObjRead, offset, buf[:objHeaderSize])
 	if err != nil {
 		return 0, 0, err
 	}
@@ -461,7 +472,7 @@ func (e *Extenter) checkReadAt(offset int64, buf []byte) (oid uint64, grains uin
 
 	_, _, _, digest, _, _ := uid.ParseOID(oid)
 
-	offset += oidSizeInSeg
+	offset += objHeaderSize
 
 	sizePerRead := len(buf)
 	n := int(uid.GrainsToBytes(grains))

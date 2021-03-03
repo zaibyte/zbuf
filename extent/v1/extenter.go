@@ -382,7 +382,7 @@ func (e *Extenter) traverseWritableSeg() error {
 			if err != nil {
 				return err
 			}
-			mov := xbytes.AlignSize(int64(uid.GrainsToBytes(grains)+oidSizeInSeg), dmu.AlignSize)
+			mov := xbytes.AlignSize(int64(uid.GrainsToBytes(grains)+objHeaderSize), dmu.AlignSize)
 			e.writableCursor += mov
 			addr += mov
 		}
@@ -394,7 +394,7 @@ func (e *Extenter) traverseWritableSeg() error {
 // traverseGC traverses segments which is in GC process,
 // try to replay the the changes caused by GC but haven't synced to DMU.
 //
-// Future GC will start from the traverse result.
+// Future GC will start from the traverse result. Helping to reduce redundancy I/O.
 func (e *Extenter) traverseGC() error {
 
 	var lastOID uint64
@@ -418,14 +418,14 @@ func (e *Extenter) traverseGC() error {
 	end := segCursorToOffset(gcDst, segSize, segSize)
 	for addr < end {
 
-		oid, grains, err := e.checkReadAt(addr, buf)
+		oid, grains, err := e.checkReadAt(addr, buf) // We must check the whole object here avoiding potential inconsistent issue.
 		if err != nil {
 			return err
 		}
-		if oid == 0 {
+		if oid == 0 { // Meet the end.
 			break
 		}
-		_, _, grains, digest, otype, _ := uid.ParseOID(oid)
+		_, _, _, digest, otype, _ := uid.ParseOID(oid)
 		err = e.dmu.Insert(digest, uint32(otype), grains, uint32(addr))
 		if errors.Is(err, orpc.ErrObjDigestExisted) { // Has synced in DMU.
 			err = nil
@@ -433,13 +433,13 @@ func (e *Extenter) traverseGC() error {
 		if err != nil {
 			return err
 		}
-		mov := xbytes.AlignSize(int64(uid.GrainsToBytes(grains)+oidSizeInSeg), dmu.AlignSize)
+		mov := xbytes.AlignSize(int64(uid.GrainsToBytes(grains)+objHeaderSize), dmu.AlignSize)
 		e.gcDstCursor += uint32(mov)
 		lastOID = oid
 		addr += mov
 	}
 
-	if lastOID == 0 {
+	if lastOID == 0 { // Haven't do any GC.
 		return nil
 	}
 
@@ -448,18 +448,18 @@ func (e *Extenter) traverseGC() error {
 	end = segCursorToOffset(gcSrc, segSize, segSize)
 	for addr < end {
 
-		oid, grains, err := e.checkReadAt(addr, buf)
+		oid, grains, err := e.oidReadAt(xio.ReqGCRead, addr, buf)
 		if err != nil {
 			return err
 		}
 		if oid == 0 {
-			break // Actually it shouldn't happen. If there is last_oid, it will be find before meeting 0.
+			mov := xbytes.AlignSize(int64(uid.GrainsToBytes(grains)+objHeaderSize), dmu.AlignSize)
+			addr += mov
+			continue
 		}
 
-		// TODO traverse need jump over grains
-
 		if oid == lastOID {
-			e.gcSrcCursor = uint32(addr)
+			e.gcSrcCursor = uint32(addr) + uint32(xbytes.AlignSize(int64(uid.GrainsToBytes(grains)+objHeaderSize), dmu.AlignSize))
 			break
 		}
 	}

@@ -17,7 +17,7 @@ import "g.tesamc.com/IT/zbuf/extent/v1/dmu"
 // Unless there is break change, I won't modify it.
 
 const (
-	oidSizeInSeg = 4 * 1024
+	objHeaderSize = 4 * 1024
 )
 
 // Segment states.
