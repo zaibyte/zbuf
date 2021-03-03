@@ -232,6 +232,7 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 // loadDMU loads DMU from disk,
 // after invoking, we'll have consistent DMU for this Extenter.
 func (e *Extenter) loadDMU() error {
+	// 1. Loading DMU, if there is no snapshot, creating a new empty DMU.
 	err := e.loadDMUSnap()
 	if err != nil {
 		return err
@@ -242,6 +243,7 @@ func (e *Extenter) loadDMU() error {
 		return err
 	}
 
+	// After invoking, we won't miss any written objects.
 	err = e.traverseWritableSeg()
 	if err != nil {
 		return err

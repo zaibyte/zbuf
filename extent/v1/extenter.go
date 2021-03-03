@@ -366,7 +366,7 @@ func (e *Extenter) traverseWritableSeg() error {
 				wcursor = 0
 				break
 			}
-			oid, err := e.checkReadAt(addr, buf)
+			oid, grains, err := e.checkReadAt(addr, buf)
 			if err != nil {
 				return err
 			}
@@ -391,6 +391,10 @@ func (e *Extenter) traverseWritableSeg() error {
 	return nil
 }
 
+// traverseGC traverses segments which is in GC process,
+// try to replay the the changes caused by GC but haven't synced to DMU.
+//
+// Future GC will start from the traverse result.
 func (e *Extenter) traverseGC() error {
 
 	var lastOID uint64
@@ -414,7 +418,7 @@ func (e *Extenter) traverseGC() error {
 	end := segCursorToOffset(gcDst, segSize, segSize)
 	for addr < end {
 
-		oid, err := e.checkReadAt(addr, buf)
+		oid, grains, err := e.checkReadAt(addr, buf)
 		if err != nil {
 			return err
 		}
@@ -444,7 +448,7 @@ func (e *Extenter) traverseGC() error {
 	end = segCursorToOffset(gcSrc, segSize, segSize)
 	for addr < end {
 
-		oid, err := e.checkReadAt(addr, buf)
+		oid, grains, err := e.checkReadAt(addr, buf)
 		if err != nil {
 			return err
 		}

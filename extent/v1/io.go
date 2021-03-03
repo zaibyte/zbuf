@@ -449,16 +449,17 @@ func (e *Extenter) objReadAt(reqType uint64, digest uint32, offset int64, objDat
 // checkReadAt checks Extent's segments file from a certain offset(oid offset).
 // It won't return the data, just checks the I/O system and its checksum.
 // buf should be cfg.SizePerRead bytes block.
-func (e *Extenter) checkReadAt(offset int64, buf []byte) (uint64, error) {
-	oid, _, err := e.oidReadAt(xio.ReqObjRead, offset, buf[:oidSizeInSeg])
-	if oid == 0 && err == nil { // Meet free space.
-		return 0, nil
-	}
+func (e *Extenter) checkReadAt(offset int64, buf []byte) (oid uint64, grains uint32, err error) {
+	oid, grains, err = e.oidReadAt(xio.ReqObjRead, offset, buf[:oidSizeInSeg])
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
-	_, _, grains, digest, _, _ := uid.ParseOID(oid)
+	if oid == 0 { // Meet deleted object.
+		return 0, grains, err
+	}
+
+	_, _, _, digest, _, _ := uid.ParseOID(oid)
 
 	offset += oidSizeInSeg
 
@@ -474,7 +475,7 @@ func (e *Extenter) checkReadAt(offset int64, buf []byte) (uint64, error) {
 		}
 		err = e.ioSched.DoSync(xio.ReqObjRead, e.segsFile, offset, buf[:nn])
 		if err != nil {
-			return 0, err
+			return 0, grains, err
 		}
 		_, _ = d.Write(buf[:nn])
 		read += nn
@@ -483,9 +484,9 @@ func (e *Extenter) checkReadAt(offset int64, buf []byte) (uint64, error) {
 
 	actDigest := d.Sum32()
 	if actDigest != digest {
-		return 0, orpc.ErrChecksumMismatch
+		return 0, grains, orpc.ErrChecksumMismatch
 	}
-	return oid, nil
+	return
 }
 
 // isDMUSnapBehind checks DMU snapshot is too far behind new writable segment.
