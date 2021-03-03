@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"g.tesamc.com/IT/zaipkg/xerrors"
+
 	"g.tesamc.com/IT/zaipkg/xdigest"
 	xor "github.com/templexxx/xorsimd"
 
@@ -214,8 +216,11 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 
 	gcWriteBuf := directio.AlignedBlock(int(objHeaderSize + e.cfg.SizePerWrite))
 	gcObjBuf := gcWriteBuf[objHeaderSize:]
+	// TODO could be removed.
 	oidBuf := directio.AlignedBlock(objHeaderSize)
 	blankOID := directio.AlignedBlock(objHeaderSize) // For reset OID in segment.
+
+	extID := e.info.PbExt.Id
 
 	for _, c := range cs { // Deal with candidates one by one.
 
@@ -233,6 +238,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 		if e.gcSrcCursor >= segSize { // If true, means last gc src finished; if not, we'll go on last gc src.
 			e.gcSrcCursor = 0
 		}
+		// We will meet e.gcSrcCursor < segSize when we get seg for cs, when we're going to finish last unfinished GC source.
 		e.rwMutex.Unlock()
 
 		// After source changed, checking the snapshot again.
@@ -240,7 +246,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			return checkSnapSyncGCInterval, false // Reset checked, avoiding makeDMUSnapAsync too frequently.
 		}
 
-		for {
+		for { // Deal with valid objects in GC source one by one until reach the end.
 
 			select {
 			case <-ctx.Done():
@@ -248,12 +254,12 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			default:
 			}
 
+			xlog.Info(fmt.Sprintf("begin GC in ext:%d, seg:%d", extID, e.gcSrcSeg))
+
 			if e.gcSrcCursor >= segSize { // Meet src end.
-				xlog.Info(fmt.Sprintf("done GC in ext:%d, seg:%d", e.info.PbExt.Id, e.gcSrcSeg))
+				xlog.Info(fmt.Sprintf("done GC in ext:%d, seg:%d", extID, e.gcSrcSeg))
 				break
 			}
-
-			xlog.Info(fmt.Sprintf("begin GC in ext:%d, seg:%d", e.info.PbExt.Id, e.gcSrcSeg))
 
 			readOffset := segCursorToOffset(e.gcSrcSeg, int64(e.gcSrcCursor), int64(segSize))
 			oid, _, err2 := e.oidReadAt(xio.ReqGCRead, readOffset, oidBuf)
@@ -283,13 +289,11 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			_, _, _, _, eaddr := dmu.ParseEntry(entry)
 			// It must be GC already,
 			// See https://g.tesamc.com/IT/zbuf/issues/142 for details.
+			// It must not be appeared in this process,
+			// because we must have traversed GC at Extenter.Start(),
+			// the cursor of GC src must not be fall behind with real cursor.
 			if eaddr*dmu.AlignSize != uint32(readOffset) {
-				e.rwMutex.Lock()
-				e.gcSrcCursor += uint32(xbytes.AlignSize(int64(objSize+objHeaderSize), dmu.AlignSize))
-				if eaddr*dmu.AlignSize > e.gcDstCursor && addrToSeg(eaddr, int64(segSize)) == int(e.gcDstSeg) {
-					e.gcDstCursor = uint32(xbytes.AlignSize(int64(eaddr*dmu.AlignSize+objSize+objHeaderSize), dmu.AlignSize))
-				}
-				e.rwMutex.Unlock()
+				e.setState(xerrors.WithMessage(orpc.ErrExtentBroken, "gc src is fall behind with real cursor"))
 				continue
 			}
 
