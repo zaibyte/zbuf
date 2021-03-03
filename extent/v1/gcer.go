@@ -308,7 +308,9 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 				}
 				e.rwMutex.Lock()
 				newDst := e.findGCDst() // Must have a valid dst, see GCRatio in config for details.
-				e.header.nvh.SegStates[e.gcDstSeg] = segSealed
+				if e.gcDstSeg != -1 {
+					e.header.nvh.SegStates[e.gcDstSeg] = segSealed
+				}
 				e.gcDstSeg = newDst
 				e.gcDstCursor = 0
 				e.rwMutex.Unlock()
