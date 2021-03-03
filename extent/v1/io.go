@@ -428,12 +428,16 @@ func (e *Extenter) oidReadAt(reqType uint64, offset int64, oidBuf []byte) (oid u
 		return 0, 0, err
 	}
 
+	oid = binary.LittleEndian.Uint64(oidBuf[:8])
+	grains = binary.LittleEndian.Uint32(oidBuf[8:12])
+
+	if oid == 0 && grains == 0 { // Empty header, no need checksum.
+		return 0, 0, nil
+	}
+
 	if xdigest.Sum32(oidBuf[:objHeaderSize-4]) != binary.LittleEndian.Uint32(oidBuf[objHeaderSize-4:]) {
 		return 0, 0, xerrors.WithMessage(orpc.ErrChecksumMismatch, fmt.Sprintf("read oid: %d", oid))
 	}
-
-	oid = binary.LittleEndian.Uint64(oidBuf[:8])
-	grains = binary.LittleEndian.Uint32(oidBuf[8:12])
 
 	return oid, grains, nil
 }
