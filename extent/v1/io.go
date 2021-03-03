@@ -411,6 +411,8 @@ func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte,
 	}
 	blankSize := nextAddr - offset + objHeaderSize
 	// Write 0 start from the offset which just written until fill the next header.
+	// Although we will have one more small I/O here, but it's okay for NVMe driver, it's fast.
+	// And this I/O is just follow the last one, sequential write is NVMe friendly.(Reducing internal GC)
 	err = e.ioSched.DoSync(reqType, e.segsFile, offset+int64(objHeaderSize)+int64(written), blankObjHeader[:blankSize])
 	if err != nil {
 		return 0, err
