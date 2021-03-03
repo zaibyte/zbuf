@@ -165,7 +165,7 @@ func createBrokenExt() extent.Extenter {
 	}
 }
 
-func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateParams) (extent.Extenter, error) {
+func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateParams) (*Extenter, error) {
 
 	fs := c.fs
 
@@ -220,9 +220,20 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 		stopWg: new(sync.WaitGroup),
 	}
 
-	err = ext.loadDMUSnap()
+	err = ext.loadDMU()
 	if err != nil {
+		ext.closeFiles()
 		return nil, err
+	}
+
+}
+
+// loadDMU loads DMU from disk,
+// after invoking, we'll have consistent DMU for this Extenter.
+func (e *Extenter) loadDMU() error {
+	err := e.loadDMUSnap()
+	if err != nil {
+		return err
 	}
 
 	// TODO get writable seg & its cursor
@@ -232,7 +243,7 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 
 	// TODO after open, write down happen and DMU snapshot
 	// TODO open snapshot
-	return ext, err
+	return err
 	// TODO start clone job in a goroutine before return
 	// TODO check clone state if done set extent readwrite
 }

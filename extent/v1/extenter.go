@@ -141,6 +141,13 @@ func (e *Extenter) Close() {
 	_ = e.header.Store(metapb.ExtentState(e.header.nvh.State))
 	_ = e.makeDMUSnapSync(true)
 
+	e.closeFiles()
+
+	xlog.Info(fmt.Sprintf("ext: %d is closed", e.info.PbExt.Id))
+}
+
+// closeFiles closes all files opened by Extenter.
+func (e *Extenter) closeFiles() {
 	if e.segsFile != nil {
 		_ = e.segsFile.Close()
 	}
@@ -148,8 +155,6 @@ func (e *Extenter) Close() {
 		_ = e.dirtyDeleteWAL.Close()
 	}
 	e.header.Close()
-
-	xlog.Info(fmt.Sprintf("ext: %d is closed", e.info.PbExt.Id))
 }
 
 func (e *Extenter) startBackgroundLoops() {
