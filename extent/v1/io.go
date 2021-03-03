@@ -365,7 +365,7 @@ func objHeaderWriteTo(oid uint64, size int, buf []byte) {
 }
 
 // blankObjHeader is an empty object header(with max padding) for clean up the next place when writing.
-var blankObjHeader = make([]byte, dmu.AlignSize)
+var blankObjHeader = directio.AlignedBlock(dmu.AlignSize)
 
 // objWriteAt writes with a buffer in a certain offset.
 // Using objWriteAt split big data chunk into buffer size, avoiding stall.
@@ -379,8 +379,6 @@ func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte,
 
 	// Clean up space for oid.
 	xor.Bytes(buf[:objHeaderSize], buf[:objHeaderSize], buf[:objHeaderSize])
-
-	// TODO
 
 	n := len(objData)
 	objHeaderWriteTo(oid, n, buf)
@@ -406,6 +404,18 @@ func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte,
 		written += nn
 		offset += int64(nn)
 	}
+
+	nextAddr := offset + xbytes.AlignSize(int64(written+objHeaderSize), dmu.AlignSize)
+	if nextAddr+objHeaderSize > int64(e.cfg.SegmentSize) { // It'll be easier to just check object header here and other places.
+		return written + objHeaderSize, nil // No more place for next write.
+	}
+	blankSize := nextAddr - offset + objHeaderSize
+	// Write 0 start from the offset which just written until fill the next header.
+	err = e.ioSched.DoSync(reqType, e.segsFile, offset+int64(objHeaderSize)+int64(written), blankObjHeader[:blankSize])
+	if err != nil {
+		return 0, err
+	}
+
 	return written + objHeaderSize, nil
 }
 
