@@ -41,9 +41,9 @@ func (e *Extenter) gcLoop() {
 	ratio := e.cfg.GCRatio
 
 	interval := e.cfg.GCScanInterval.Duration
-	t := time.NewTimer(interval)
+	tryT := time.NewTimer(interval)
+	deepT := time.NewTimer(e.cfg.DeepGCInterval.Duration)
 	var tryChan <-chan time.Time
-
 	var deepGC <-chan time.Time
 
 	hasCheckedSnap := false
@@ -53,10 +53,10 @@ func (e *Extenter) gcLoop() {
 		}
 
 		if tryChan == nil {
-			tryChan = xtime.GetTimerEvent(t, interval)
+			tryChan = xtime.GetTimerEvent(tryT, interval)
 		}
 		if deepGC == nil {
-			deepGC = xtime.GetTimerEvent(t, e.cfg.DeepGCInterval.Duration)
+			deepGC = xtime.GetTimerEvent(deepT, e.cfg.DeepGCInterval.Duration)
 		}
 		select {
 
