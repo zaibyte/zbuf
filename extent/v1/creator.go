@@ -186,6 +186,7 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 	dwf, err := fs.Open(filepath.Join(extDir, dirtyDelWalFileName))
 	if err != nil {
 		h.Close()
+		_ = segFile.Close()
 		return nil, err
 	}
 
@@ -218,9 +219,10 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 		gcSrcSeg: -1,
 		gcDstSeg: -1,
 
-		putObjChan: make(chan *putObjRequest, c.cfg.UpdatesPending),
-		modChan:    make(chan *modifyRequest, c.cfg.UpdatesPending), // Shares same config.
-		forceGC:    make(chan float64, 1),
+		putObjChan:     make(chan *putObjRequest, c.cfg.UpdatesPending),
+		modChan:        make(chan *modifyRequest, c.cfg.UpdatesPending), // Shares same config.
+		dirtyDeleteWAL: dwf,
+		forceGC:        make(chan float64, 1),
 
 		zai: c.zai,
 
