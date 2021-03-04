@@ -77,11 +77,14 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 	dwf, err := fs.Create(filepath.Join(extDir, dirtyDelWalFileName))
 	if err != nil {
 		h.Close()
+		_ = segFile.Close()
 		return nil, err
 	}
 	err = vfs.FAlloc(dwf.Fd(), dirtyDeleteWALSize)
 	if err != nil {
+		h.Close()
 		_ = dwf.Close()
+		_ = segFile.Close()
 		return nil, xerrors.WithMessage(err, "failed to alloc dirty_delete_wal")
 	}
 
@@ -175,6 +178,12 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 	}
 
 	segFile, err := fs.Open(filepath.Join(extDir, SegmentsFileName))
+	if err != nil {
+		h.Close()
+		return nil, err
+	}
+
+	dwf, err := fs.Open(filepath.Join(extDir, dirtyDelWalFileName))
 	if err != nil {
 		h.Close()
 		return nil, err
