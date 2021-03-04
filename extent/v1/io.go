@@ -511,7 +511,7 @@ func (e *Extenter) checkReadAt(offset int64, buf []byte) (oid uint64, grains uin
 
 	actDigest := d.Sum32()
 	if actDigest != digest {
-		return 0, grains, orpc.ErrChecksumMismatch
+		return oid, grains, orpc.ErrChecksumMismatch
 	}
 	return
 }

@@ -372,6 +372,17 @@ func (e *Extenter) traverseWritableSeg() error {
 			}
 			oid, grains, err := e.checkReadAt(addr, buf)
 			if err != nil {
+				if i != hwhi-1 {
+					return err
+				}
+				// Last writable segment meet checksum mismatch may by caused by short write.
+				// If DMU doesn't have this oid or oid is 0 we regard it's short write.
+				// See: https://g.tesamc.com/IT/zbuf/issues/169 for details.
+				if errors.Is(err, orpc.ErrChecksumMismatch) {
+					if oid == 0 || e.dmu.Search(uid.GetDigest(oid)) == 0 {
+						return nil
+					}
+				}
 				return err
 			}
 			if oid == 0 {
