@@ -277,10 +277,18 @@ func (e *Extenter) updatesLoop() {
 	}
 }
 
-const delWALChunkMinSize = directio.BlockSize
+const (
+	delWALChunkSingle  = 0
+	delWALChunkBatch   = 1
+	delWALChunkMinSize = directio.BlockSize
+)
 
 // Del WAL Chunk format(https://g.tesamc.com/IT/zbuf/issues/153):
+//
+// Local struct, from low bits -> high bits.
+// type, cnt, ts, digests, padding, checksum
 func makeDelWALChunk(odigest uint32, ts int64, buf []byte) int64 {
+	buf[0] = delWALChunkSingle
 	binary.LittleEndian.PutUint32(buf[1:5], 1)
 	binary.LittleEndian.PutUint64(buf[5:13], uint64(ts))
 	binary.LittleEndian.PutUint32(buf[13:17], odigest)
@@ -289,7 +297,7 @@ func makeDelWALChunk(odigest uint32, ts int64, buf []byte) int64 {
 }
 
 func makeDelBatchWALChunk(oids []uint64, ts int64, buf []byte) int64 {
-	buf[0] = 1
+	buf[0] = delWALChunkBatch
 	binary.LittleEndian.PutUint32(buf[1:5], uint32(len(oids)))
 	binary.LittleEndian.PutUint64(buf[5:13], uint64(ts))
 	for i, oid := range oids {
