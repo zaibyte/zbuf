@@ -10,9 +10,6 @@ import (
 
 	"g.tesamc.com/IT/zaipkg/xerrors"
 
-	"g.tesamc.com/IT/zaipkg/xdigest"
-	xor "github.com/templexxx/xorsimd"
-
 	"github.com/willf/bloom"
 
 	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
@@ -302,7 +299,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 					e.gcDstCursor = uint32(xbytes.AlignSize(int64(nowAddr*dmu.AlignSize+objSize+objHeaderSize), dmu.AlignSize))
 				} else {
 					e.setState(xerrors.WithMessage(orpc.ErrExtentBroken,
-						"gc oid has been done, but address is behind dst cursor"))
+						"object has been GC, but the address is behind dst cursor"))
 				}
 				e.rwMutex.Unlock()
 				continue
@@ -344,16 +341,8 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 				return gcDeadInterval, false
 			}
 
-			// Set origin oid address to empty.
-			xor.Bytes(blankOID, blankOID, blankOID)
-			binary.LittleEndian.PutUint32(blankOID[8:], grains)
-			binary.LittleEndian.PutUint32(blankOID[objHeaderSize-4:], xdigest.Sum32(blankOID[:objHeaderSize-4]))
-			err = e.ioSched.DoSync(xio.ReqGCWrite, e.segsFile, readOffset, blankOID)
-			if err != nil {
-				e.setState(err)
-				return gcDeadInterval, false
-			}
-
+			// If returns false, means object has been deleted during the read/write process,
+			// it's okay to move on the object will be GC later when the GC dst in present become src in future.
 			e.dmu.Update(digest, uint32(writeOffset))
 
 			e.rwMutex.Lock()
@@ -362,6 +351,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			e.rwMutex.Unlock()
 		}
 
+		// One source is finished.
 		e.rwMutex.Lock()
 		e.header.nvh.Removed[e.gcSrcSeg] = 0
 		srcNewState := segReserved
