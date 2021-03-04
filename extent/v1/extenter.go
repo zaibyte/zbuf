@@ -407,6 +407,25 @@ func (e *Extenter) traverseWritableSeg() error {
 }
 
 func (e *Extenter) traverseDirtyDeleteWAL() error {
+	lastSnap := e.getLastDMUSnap() // Must not be nil.
+
+	sCreate := lastSnap.createTS
+
+	fi, err := e.dirtyDeleteWAL.Stat()
+	if err != nil {
+		return err
+	}
+
+	if fi.Size() == 0 { // After truncate, then crashed.
+		err = vfs.TryFAlloc(e.dirtyDeleteWAL, dirtyDeleteWALSize)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	// Must be dirtyDeleteWALSize.
+
 	return nil
 }
 
