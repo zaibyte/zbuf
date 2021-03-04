@@ -216,9 +216,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 
 	gcWriteBuf := directio.AlignedBlock(int(objHeaderSize + e.cfg.SizePerWrite))
 	gcObjBuf := gcWriteBuf[objHeaderSize:]
-	// TODO could be removed.
 	oidBuf := directio.AlignedBlock(objHeaderSize)
-	blankOID := directio.AlignedBlock(objHeaderSize) // For reset OID in segment.
 
 	extID := e.info.PbExt.Id
 
@@ -279,21 +277,34 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			objSize := grains * uid.GrainSize
 
 			entry := e.dmu.Search(digest)
-			if entry == 0 {
+			if entry == 0 { // Has been removed.
 				e.rwMutex.Lock()
 				e.gcSrcCursor += uint32(xbytes.AlignSize(int64(objSize+objHeaderSize), dmu.AlignSize))
 				e.rwMutex.Unlock()
 				continue
 			}
 
-			_, _, _, _, eaddr := dmu.ParseEntry(entry)
-			// It must be GC already,
+			_, _, _, _, nowAddr := dmu.ParseEntry(entry)
+			// It must be GC already, and the DMU is go ahead of source cursor.
 			// See https://g.tesamc.com/IT/zbuf/issues/142 for details.
-			// It must not be appeared in this process,
-			// because we must have traversed GC at Extenter.Start(),
-			// the cursor of GC src must not be fall behind with real cursor.
-			if eaddr*dmu.AlignSize != uint32(readOffset) {
-				e.setState(xerrors.WithMessage(orpc.ErrExtentBroken, "gc src is fall behind with real cursor"))
+			if nowAddr*dmu.AlignSize != uint32(readOffset) {
+
+				if addrToSeg(nowAddr, int64(segSize)) != int(e.gcDstSeg) {
+					e.setState(xerrors.WithMessage(orpc.ErrExtentBroken,
+						fmt.Sprintf("gc src & dst is not matched: oid: %d has been moved to seg: %d, but seg: %d is wanted",
+							oid, addrToSeg(nowAddr, int64(segSize)), e.gcDstSeg)))
+					continue
+				}
+
+				e.rwMutex.Lock()
+				if nowAddr*dmu.AlignSize >= e.gcDstCursor {
+					e.gcSrcCursor += uint32(xbytes.AlignSize(int64(objSize+objHeaderSize), dmu.AlignSize))
+					e.gcDstCursor = uint32(xbytes.AlignSize(int64(nowAddr*dmu.AlignSize+objSize+objHeaderSize), dmu.AlignSize))
+				} else {
+					e.setState(xerrors.WithMessage(orpc.ErrExtentBroken,
+						"gc oid has been done, but address is behind dst cursor"))
+				}
+				e.rwMutex.Unlock()
 				continue
 			}
 
