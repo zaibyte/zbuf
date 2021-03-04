@@ -43,7 +43,7 @@ func (c *Creator) CreateHeader(extDir string, params extent.CreateParams) (*Head
 	if err != nil {
 		return nil, err
 	}
-	err = vfs.FAlloc(f.Fd(), headerSize)
+	err = vfs.TryFAlloc(f, headerSize)
 	if err != nil {
 		_ = f.Close()
 		return nil, xerrors.WithMessage(err, "failed to alloc header")

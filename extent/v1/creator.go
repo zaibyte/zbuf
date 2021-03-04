@@ -68,7 +68,7 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 		h.Close()
 		return nil, err
 	}
-	err = vfs.FAlloc(segFile.Fd(), int64(c.cfg.SegmentSize*segmentCnt))
+	err = vfs.TryFAlloc(segFile, int64(c.cfg.SegmentSize*segmentCnt))
 	if err != nil {
 		_ = segFile.Close()
 		return nil, xerrors.WithMessage(err, "failed to alloc segments file")
@@ -80,7 +80,7 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 		_ = segFile.Close()
 		return nil, err
 	}
-	err = vfs.FAlloc(dwf.Fd(), dirtyDeleteWALSize)
+	err = vfs.TryFAlloc(dwf, dirtyDeleteWALSize)
 	if err != nil {
 		h.Close()
 		_ = dwf.Close()

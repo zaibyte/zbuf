@@ -58,7 +58,7 @@ func (d *dirtyDelete) reset() error {
 	d.lastMod = 0
 	d.dirtyOneCnt = 0
 	d.dirtyBatchCnt = 0
-	err = vfs.FAlloc(d.wal.Fd(), dirtyDeleteWALSize)
+	err = vfs.TryFAlloc(d.wal, dirtyDeleteWALSize)
 	return err
 }
 
