@@ -238,11 +238,6 @@ func (e *Extenter) loadDMU() error {
 		return err
 	}
 
-	err = e.traverseGC()
-	if err != nil {
-		return err
-	}
-
 	// After invoking, we won't miss any written objects.
 	err = e.traverseWritableSeg()
 	if err != nil {
