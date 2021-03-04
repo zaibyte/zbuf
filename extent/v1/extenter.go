@@ -293,8 +293,12 @@ func (e *Extenter) DeleteObj(_reqid, oid uint64) error {
 	return e.callModify(modReqRemove, oid, nil, 0)
 }
 
-func (e *Extenter) DeleteBatch(reqid uint64, oids []uint64) error {
+func (e *Extenter) DeleteBatch(_reqid uint64, oids []uint64) error {
 	return e.callModify(modReqRmBatch, 0, oids, 0)
+}
+
+func (e *Extenter) ModifyObjAddr(oid uint64, newAddr uint32) error {
+	return e.callModify(modReqResetAddr, oid, nil, newAddr)
 }
 
 func (e *Extenter) callModify(reqType uint8, oid uint64, oids []uint64, newAddr uint32) error {

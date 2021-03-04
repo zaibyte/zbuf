@@ -343,7 +343,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 
 			// If returns false, means object has been deleted during the read/write process,
 			// it's okay to move on the object will be GC later when the GC dst in present become src in future.
-			e.dmu.Update(digest, uint32(writeOffset))
+			_ = e.ModifyObjAddr(oid, uint32(writeOffset))
 
 			e.rwMutex.Lock()
 			e.gcSrcCursor += uint32(xbytes.AlignSize(int64(objSize+objHeaderSize), dmu.AlignSize))
