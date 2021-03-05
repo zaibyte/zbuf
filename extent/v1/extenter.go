@@ -409,8 +409,6 @@ func (e *Extenter) traverseWritableSeg() error {
 func (e *Extenter) traverseDirtyDeleteWAL() error {
 	lastSnap := e.getLastDMUSnap() // Must not be nil.
 
-	sCreate := lastSnap.createTS
-
 	fi, err := e.dirtyDeleteWAL.Stat()
 	if err != nil {
 		return err
@@ -425,8 +423,35 @@ func (e *Extenter) traverseDirtyDeleteWAL() error {
 	}
 
 	// Must be dirtyDeleteWALSize.
+	buf := directio.AlignedBlock(dirtyDeleteWALSize)
+	err = e.ioSched.DoSync(xio.ReqChunkRead, e.dirtyDeleteWAL, 0, buf)
+	if err != nil {
+		return err
+	}
 
-	return nil
+	done := 0
+	for done <= dirtyDeleteWALSize {
+		isEnd , ts , digests, n , err2 := readDelWALChunk(buf[done:])
+		if err2 != nil {
+			// Ignore err here, but need to reset the WAL.
+			return  resetDirtyDelWALF(e.dirtyDeleteWAL)
+		}
+		if isEnd {
+			return resetDirtyDelWALF(e.dirtyDeleteWAL)
+		}
+
+		if ts < lastSnap.createTS {
+			done += n
+			continue
+		}
+
+		for _, digest := range digests {
+			e.dmu.Remove(digest)
+		}
+		done += n
+	}
+
+	return resetDirtyDelWALF(e.dirtyDeleteWAL)
 }
 
 // cleanDirtyUpdates set dirtyUpdates 0 directly.
