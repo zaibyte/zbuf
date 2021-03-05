@@ -141,8 +141,6 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 	return ext, err
 }
 
-// TODO traverse segment should first oid and its checksum, maybe dirty. If dirty, means over.
-// TODO reconstruct used, object count by snapshot & traverse.
 // Traverse start at the write_cursor, if meet checksum mismatched, stopping but not regard as broken,
 // because it may caused by power off, and because of we wouldn't return ok in this situation, the consistence won't be broken.
 // Traverse should check oid checksum
