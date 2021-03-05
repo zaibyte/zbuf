@@ -50,7 +50,7 @@ type dirtyDelete struct {
 }
 
 func (d *dirtyDelete) reset() error {
-	err := d.wal.Truncate(0)
+	err := resetDirtyDelWALF(d.wal)
 	if err != nil {
 		return err
 	}
@@ -58,8 +58,15 @@ func (d *dirtyDelete) reset() error {
 	d.lastMod = 0
 	d.dirtyOneCnt = 0
 	d.dirtyBatchCnt = 0
-	err = vfs.TryFAlloc(d.wal, dirtyDeleteWALSize)
 	return err
+}
+
+func resetDirtyDelWALF(f vfs.File) error{
+	err := f.Truncate(0)
+	if err != nil {
+		return err
+	}
+	return vfs.TryFAlloc(f, dirtyDeleteWALSize)
 }
 
 // updatesLoop keeps trying to get new updates request and handle it.
@@ -314,7 +321,6 @@ func makeDelBatchWALChunk(oids []uint64, ts int64, buf []byte) int64 {
 // isEnd(indicates reach the end or not)
 // digests(all digests in this chunk)
 // n(bytes read, chunk size too)
-// err(if checksum mismatched, return err)
 func readDelWALChunk(buf []byte) (isEnd bool, ts int64, digests []uint32, n int, err error) {
 	t := buf[0]
 	switch t {
