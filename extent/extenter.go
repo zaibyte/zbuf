@@ -20,6 +20,8 @@ type Extenter interface {
 
 	Cloner
 
+	GetDir() string
+
 	Close()
 }
 

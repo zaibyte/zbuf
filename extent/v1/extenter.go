@@ -100,6 +100,10 @@ type Extenter struct {
 	stopWg *sync.WaitGroup
 }
 
+func (e *Extenter) GetDir() string {
+	return e.extDir
+}
+
 func (e *Extenter) Start() error {
 	if e.unhealthy {
 		return nil
@@ -431,10 +435,10 @@ func (e *Extenter) traverseDirtyDeleteWAL() error {
 
 	done := 0
 	for done <= dirtyDeleteWALSize {
-		isEnd , ts , digests, n , err2 := readDelWALChunk(buf[done:])
+		isEnd, ts, digests, n, err2 := readDelWALChunk(buf[done:])
 		if err2 != nil {
 			// Ignore err here, but need to reset the WAL.
-			return  resetDirtyDelWALF(e.dirtyDeleteWAL)
+			return resetDirtyDelWALF(e.dirtyDeleteWAL)
 		}
 		if isEnd {
 			return resetDirtyDelWALF(e.dirtyDeleteWAL)
