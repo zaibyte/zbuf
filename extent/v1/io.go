@@ -278,8 +278,8 @@ func (e *Extenter) updatesLoop() {
 }
 
 const (
-	delWALChunkSingle  = 0
-	delWALChunkBatch   = 1
+	delWALChunkSingle  = 1
+	delWALChunkBatch   = 2
 	delWALChunkMinSize = directio.BlockSize
 )
 
@@ -307,6 +307,46 @@ func makeDelBatchWALChunk(oids []uint64, ts int64, buf []byte) int64 {
 	n := xbytes.AlignSize(13+int64(len(oids))*4+4, directio.BlockSize)
 	binary.LittleEndian.PutUint32(buf[n-4:n], xdigest.Sum32(buf[:n-4]))
 	return n
+}
+
+// readDelWALChunk reads one chunk in dirty delete WAL,
+// return:
+// isEnd(indicates reach the end or not)
+// digests(all digests in this chunk)
+// n(bytes read, chunk size too)
+// err(if checksum mismatched, return err)
+func readDelWALChunk(buf []byte) (isEnd bool, ts int64, digests []uint32, n int, err error) {
+	t := buf[0]
+	switch t {
+	case delWALChunkSingle:
+		if binary.LittleEndian.Uint32(buf[delWALChunkMinSize-4:]) != xdigest.Sum32(buf[:delWALChunkMinSize-4]) {
+			return false, 0, nil, delWALChunkMinSize,
+			xerrors.WithMessage(orpc.ErrChecksumMismatch, "failed to read dirty delete wal chunk")
+		}
+		ts = int64(binary.LittleEndian.Uint64(buf[5:13]))
+		oid := binary.LittleEndian.Uint32(buf[13:17])
+		return false, ts, []uint32{oid}, delWALChunkMinSize, nil
+	case delWALChunkBatch:
+		cnt := binary.LittleEndian.Uint32(buf[1:5])
+		if cnt == 0 {
+			return false, 0, nil, 0, xerrors.WithMessage(orpc.ErrExtentBroken,
+				"invalid dirty delete wal batch chunk with 0 oid")
+		}
+		chunkSize := xbytes.AlignSize(13+int64(cnt*4+4), directio.BlockSize)
+		if binary.LittleEndian.Uint32(buf[chunkSize-4:chunkSize]) != xdigest.Sum32(buf[:chunkSize-4]) {
+			return false, 0, nil, int(chunkSize),
+				xerrors.WithMessage(orpc.ErrChecksumMismatch, "failed to read dirty delete wal batch chunk")
+		}
+		ts = int64(binary.LittleEndian.Uint64(buf[5:13]))
+		digests = make([]uint32, cnt)
+		for i := 0; i < int(cnt); i++ {
+			digest := binary.LittleEndian.Uint32(buf[i*4+13:i*4+13+4])
+			digests[i] = digest
+		}
+		return false, ts, digests, int(chunkSize), nil
+	default:
+		return true, 0, nil, 0, nil
+	}
 }
 
 // preprocWriteReq preprocesses write request.
