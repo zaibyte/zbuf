@@ -40,6 +40,18 @@ func getExtDirParent(extDir string) string {
 	return filepath.Dir(extDir)
 }
 
+func (s *Server) cleanExt(extID uint32) {
+
+	ext := s.getExtenter(extID)
+	if ext == nil {
+		return
+	}
+
+	s.extenters.Delete(extID)
+
+	_ = s.fs.RemoveAll(ext.GetDir())
+}
+
 // createExtent creates new extent.
 func (s *Server) createExtent(version uint16, extID, diskID, state, objCount uint32) (err error) {
 
