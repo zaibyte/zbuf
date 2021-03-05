@@ -27,9 +27,8 @@ Based on Hopscotch Hashing with these optimizations:
 2. Wait-free Searching
 3. Online Scaling
 
-For a server with 8T/disk * 4disk, it will cost up to 16GB for index (with 16KB grain, and each file's size is 16KB).
-
-Which means 0.5GB/TB.
+For a server with 8T/disk * 4disk, it will cost up to 16GB for index (with 16KB grain, and each file's size is 16KB),
+which means 0.5GB/TB.
 
 ###I/O
 
@@ -72,5 +71,5 @@ logical block address (LBA) table (much like the MFT of an HDD). Inside the LBA 
 
 ####I/O
 
-I/O in GC is been done in a independent goroutine, so it won't block the object uploading requests.
+I/O in GC is been done in an independent goroutine, so it won't block the object uploading requests.
 

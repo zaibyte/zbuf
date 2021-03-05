@@ -414,7 +414,7 @@ const (
 //
 // coeff = e^(waitExpCoeff * waiting_time)
 func calcWaitCoeff(last, now int64) float64 {
-	delta := float64(now-last) / float64(int64(time.Millisecond))
+	delta := float64(now-last) / float64(time.Millisecond)
 	return math.Pow(math.E, waitExpCoeff*delta)
 }
 

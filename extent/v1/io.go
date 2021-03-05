@@ -35,7 +35,6 @@ const (
 	maxDirtyDelOne     = 512
 	maxDirtyDelBatch   = 8192
 	dirtyDeleteWALSize = 4 * 1024 * 1024
-	maxDirtyDelete     = maxDirtyDelOne + maxDirtyDelBatch
 	// False positive will be around 0.02.
 	maxDirtyBloomBits  = 65536
 	maxDirtyBloomHashK = 5
@@ -61,7 +60,7 @@ func (d *dirtyDelete) reset() error {
 	return err
 }
 
-func resetDirtyDelWALF(f vfs.File) error{
+func resetDirtyDelWALF(f vfs.File) error {
 	err := f.Truncate(0)
 	if err != nil {
 		return err
@@ -327,7 +326,7 @@ func readDelWALChunk(buf []byte) (isEnd bool, ts int64, digests []uint32, n int,
 	case delWALChunkSingle:
 		if binary.LittleEndian.Uint32(buf[delWALChunkMinSize-4:]) != xdigest.Sum32(buf[:delWALChunkMinSize-4]) {
 			return false, 0, nil, delWALChunkMinSize,
-			xerrors.WithMessage(orpc.ErrChecksumMismatch, "failed to read dirty delete wal chunk")
+				xerrors.WithMessage(orpc.ErrChecksumMismatch, "failed to read dirty delete wal chunk")
 		}
 		ts = int64(binary.LittleEndian.Uint64(buf[5:13]))
 		oid := binary.LittleEndian.Uint32(buf[13:17])
@@ -346,7 +345,7 @@ func readDelWALChunk(buf []byte) (isEnd bool, ts int64, digests []uint32, n int,
 		ts = int64(binary.LittleEndian.Uint64(buf[5:13]))
 		digests = make([]uint32, cnt)
 		for i := 0; i < int(cnt); i++ {
-			digest := binary.LittleEndian.Uint32(buf[i*4+13:i*4+13+4])
+			digest := binary.LittleEndian.Uint32(buf[i*4+13 : i*4+13+4])
 			digests[i] = digest
 		}
 		return false, ts, digests, int(chunkSize), nil

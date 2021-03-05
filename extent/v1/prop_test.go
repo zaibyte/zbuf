@@ -181,7 +181,7 @@ func TestCalcSnapCost(t *testing.T) {
 	var end int64 = dmu.MaxCap * 8
 	for n := start; n <= end; n *= 2 {
 		var last int64 = 0
-		var now int64 = 16 * int64(time.Second)
+		var now = 16 * int64(time.Second)
 		rets := make(map[int64]float64)
 		for l := last; l < now; l += int64(time.Second) {
 			c := calcSnapCost(n, l, now)

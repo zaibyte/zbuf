@@ -54,8 +54,6 @@ func (h *NVHeader) Unmarshal(b []byte) (err error) {
 	return h.CloneJob.Unmarshal(b[3601:])
 }
 
-const _maxNVHeaderSize = headerSize - 4 - 4
-
 // MarshalTo encodes o as NVHeader into buf and returns the number of bytes written.
 //
 // If the buffer is too small, MarshalTo will panic.
