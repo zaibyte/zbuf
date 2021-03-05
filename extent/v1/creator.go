@@ -5,10 +5,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"g.tesamc.com/IT/zaipkg/xerrors"
-
 	zai "g.tesamc.com/IT/zai/client"
-
+	"g.tesamc.com/IT/zaipkg/xerrors"
 	"g.tesamc.com/IT/zbuf/extent"
 	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
 	"g.tesamc.com/IT/zbuf/vfs"
@@ -260,14 +258,5 @@ func (e *Extenter) loadDMU() error {
 		return err
 	}
 
-	// TODO get writable seg & its cursor
-	// TODO open dmu by snapshot & traverse writable segments
-	// TODO traverse gc seg first for release slot in DMU, then writable seg
-	// TODO if seg is gc_src, skip writable replay(in writable history too)
-
-	// TODO after open, write down happen and DMU snapshot
-	// TODO open snapshot
 	return err
-	// TODO start clone job in a goroutine before return
-	// TODO check clone state if done set extent readwrite
 }
