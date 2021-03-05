@@ -148,19 +148,20 @@ func (c *Creator) Load(ctx context.Context, extDir string, params extent.CreateP
 
 	e, err := c.load(ctx, extDir, params)
 	if err != nil {
-		return createBrokenExt(), err
+		return createBrokenExt(extDir), err
 	}
 	return e, nil
 }
 
 // createBrokenExt creates an Extenter which state is broken,
 // but we still need it for heartbeat or other methods.
-func createBrokenExt() extent.Extenter {
+func createBrokenExt(extDir string) extent.Extenter {
 	return &Extenter{
 		unhealthy: true,
 		info: &extent.Info{PbExt: &metapb.Extent{
 			State: metapb.ExtentState_Extent_Broken,
 		}},
+		extDir: extDir,
 	}
 }
 
