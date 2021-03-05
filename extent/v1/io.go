@@ -48,6 +48,13 @@ type dirtyDelete struct {
 	dirtyBatchCnt int
 }
 
+func newDirtyDelete(wal vfs.File) *dirtyDelete {
+	return &dirtyDelete{
+		wal: wal,
+		bf:  bloom.New(maxDirtyBloomBits, maxDirtyBloomHashK),
+	}
+}
+
 func (d *dirtyDelete) reset() error {
 	err := resetDirtyDelWALF(d.wal)
 	if err != nil {
@@ -92,10 +99,7 @@ func (e *Extenter) updatesLoop() {
 	writeBuf := directio.AlignedBlock(int(objHeaderSize + e.cfg.SizePerWrite))
 	segSize := int64(e.cfg.SegmentSize)
 
-	dirtyDel := &dirtyDelete{
-		wal: e.dirtyDeleteWAL,
-		bf:  bloom.New(maxDirtyBloomBits, maxDirtyBloomHashK),
-	}
+	dirtyDel := newDirtyDelete(e.dirtyDeleteWAL)
 	digestBuf := make([]byte, 4)
 	var dirtyWALOffset int64 = 0
 
