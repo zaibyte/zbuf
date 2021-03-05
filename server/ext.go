@@ -57,7 +57,6 @@ func (s *Server) createExtent(version uint16, extID, diskID, state, objCount uin
 
 	extDir := getExtDir(extID, makeDiskDir(diskID, s.cfg.DataRoot))
 
-	// TODO create failed should clean up all dir & files but not search the extinfo
 	defer func() {
 		if err != nil {
 			_ = s.fs.RemoveAll(extDir)
