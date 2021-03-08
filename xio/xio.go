@@ -48,6 +48,8 @@ const (
 
 	// ReqChunkWrite/Read is I/O requests of big data chunk write/read or heavy I/O job(e.g. clone).
 	// Should have the lowest priority.
+	// Warn:
+	// In present, we only use it in clone job.
 	ReqChunkWrite = 2
 	ReqChunkRead  = 3
 
