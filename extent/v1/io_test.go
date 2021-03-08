@@ -63,7 +63,7 @@ func TestDeleteWALChunk(t *testing.T) {
 		assert.Equal(t, false, isEnd)
 		assert.Equal(t, expTS, ts)
 		assert.Equal(t, []uint32{digests[i]}, rdigests)
-		assert.Equal(t, delWALChunkMinSize, n)
+		assert.Equal(t, int64(delWALChunkMinSize), n)
 	}
 }
 
@@ -71,7 +71,21 @@ func TestDeleteBatchWALChunk(t *testing.T) {
 
 	cnt := maxDirtyDelBatch
 	buf := make([]byte, 128*1024) // Batch chunk won't > 128KB.
-	digests := uid.GenRandDigests(cnt)
+	oids := uid.GenRandOIDs(cnt)
 	expTS := tsc.UnixNano()
-	makeDelBatchWALChunk()
+	expN := makeDelBatchWALChunk(oids, expTS, buf)
+
+	isEnd, ts, rdigests, n, err := readDelWALChunk(buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expDigest := make([]uint32, cnt)
+	for i := range oids {
+		expDigest[i] = uid.GetDigest(oids[i])
+	}
+	assert.Equal(t, false, isEnd)
+	assert.Equal(t, expTS, ts)
+	assert.Equal(t, expDigest, rdigests)
+	assert.Equal(t, expN, n)
 }

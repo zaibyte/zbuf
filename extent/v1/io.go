@@ -324,7 +324,7 @@ func makeDelBatchWALChunk(oids []uint64, ts int64, buf []byte) int64 {
 // isEnd(indicates reach the end or not)
 // digests(all digests in this chunk)
 // n(bytes read, chunk size too)
-func readDelWALChunk(buf []byte) (isEnd bool, ts int64, digests []uint32, n int, err error) {
+func readDelWALChunk(buf []byte) (isEnd bool, ts int64, digests []uint32, n int64, err error) {
 	t := buf[0]
 	switch t {
 	case delWALChunkSingle:
@@ -343,7 +343,7 @@ func readDelWALChunk(buf []byte) (isEnd bool, ts int64, digests []uint32, n int,
 		}
 		chunkSize := xbytes.AlignSize(13+int64(cnt*4+4), directio.BlockSize)
 		if binary.LittleEndian.Uint32(buf[chunkSize-4:chunkSize]) != xdigest.Sum32(buf[:chunkSize-4]) {
-			return false, 0, nil, int(chunkSize),
+			return false, 0, nil, int64(int(chunkSize)),
 				xerrors.WithMessage(orpc.ErrChecksumMismatch, "failed to read dirty delete wal batch chunk")
 		}
 		ts = int64(binary.LittleEndian.Uint64(buf[5:13]))
@@ -352,7 +352,7 @@ func readDelWALChunk(buf []byte) (isEnd bool, ts int64, digests []uint32, n int,
 			digest := binary.LittleEndian.Uint32(buf[i*4+13 : i*4+13+4])
 			digests[i] = digest
 		}
-		return false, ts, digests, int(chunkSize), nil
+		return false, ts, digests, int64(int(chunkSize)), nil
 	default:
 		return true, 0, nil, 0, nil
 	}

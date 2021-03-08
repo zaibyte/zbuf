@@ -433,7 +433,7 @@ func (e *Extenter) traverseDirtyDeleteWAL() error {
 		return err
 	}
 
-	done := 0
+	var done int64 = 0
 	for done <= dirtyDeleteWALSize {
 		isEnd, ts, digests, n, err2 := readDelWALChunk(buf[done:])
 		if err2 != nil {
