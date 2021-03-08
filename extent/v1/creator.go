@@ -159,7 +159,8 @@ func createBrokenExt(extDir string) extent.Extenter {
 	return &Extenter{
 		unhealthy: true,
 		info: &extent.Info{PbExt: &metapb.Extent{
-			State: metapb.ExtentState_Extent_Broken,
+			State:   metapb.ExtentState_Extent_Broken,
+			Version: uint32(extent.Version1),
 		}},
 		extDir: extDir,
 	}
