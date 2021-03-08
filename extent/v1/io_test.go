@@ -2,12 +2,11 @@ package v1
 
 import (
 	"encoding/binary"
-	"math/rand"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"g.tesamc.com/IT/zaipkg/uid"
 
-	"g.tesamc.com/IT/zaipkg/xdigest"
+	"github.com/stretchr/testify/assert"
 	"github.com/templexxx/tsc"
 )
 
@@ -15,7 +14,7 @@ import (
 func TestDirtyDelete(t *testing.T) {
 	db := newDirtyDelete(nil)
 	cnt := maxDirtyDelBatch + maxDirtyDelOne
-	digests := generatesDigests(cnt * 10)
+	digests := uid.GenRandDigests(cnt * 10)
 
 	buf := make([]byte, 4)
 
@@ -50,7 +49,7 @@ func TestDeleteWALChunk(t *testing.T) {
 
 	cnt := 10
 	buf := make([]byte, delWALChunkMinSize*10)
-	digests := generatesDigests(10)
+	digests := uid.GenRandDigests(10)
 	expTS := tsc.UnixNano()
 	for i := 0; i < cnt; i++ {
 		makeDelWALChunk(digests[i], expTS, buf[i*delWALChunkMinSize:])
@@ -68,28 +67,11 @@ func TestDeleteWALChunk(t *testing.T) {
 	}
 }
 
-func generatesDigests(cnt int) []uint32 {
+func TestDeleteBatchWALChunk(t *testing.T) {
 
-	digests := make([]uint32, cnt)
-
-	buf := make([]byte, 8)
-	rand.Seed(tsc.UnixNano())
-
-	has := make(map[uint32]bool)
-
-	for i := 0; i < cnt; i++ {
-
-		for {
-			rand.Read(buf)
-			digest := xdigest.Sum32(buf)
-			if has[digest] {
-				continue
-			}
-			has[digest] = true
-			digests[i] = digest
-			break
-		}
-
-	}
-	return digests
+	cnt := maxDirtyDelBatch
+	buf := make([]byte, 128*1024) // Batch chunk won't > 128KB.
+	digests := uid.GenRandDigests(cnt)
+	expTS := tsc.UnixNano()
+	makeDelBatchWALChunk()
 }
