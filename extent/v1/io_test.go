@@ -5,6 +5,8 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"g.tesamc.com/IT/zaipkg/xdigest"
 	"github.com/templexxx/tsc"
 )
@@ -41,6 +43,28 @@ func TestDirtyDelete(t *testing.T) {
 
 	if float64(falsePositiveCnt)/float64(cnt*9) > 0.04 {
 		t.Fatal("false positive is > 0.04")
+	}
+}
+
+func TestDeleteWALChunk(t *testing.T) {
+
+	cnt := 10
+	buf := make([]byte, delWALChunkMinSize*10)
+	digests := generatesDigests(10)
+	expTS := tsc.UnixNano()
+	for i := 0; i < cnt; i++ {
+		makeDelWALChunk(digests[i], expTS, buf[i*delWALChunkMinSize:])
+	}
+
+	for i := 0; i < cnt; i++ {
+		isEnd, ts, rdigests, n, err := readDelWALChunk(buf[i*delWALChunkMinSize:])
+		if err != nil {
+			t.Fatal(err)
+		}
+		assert.Equal(t, false, isEnd)
+		assert.Equal(t, expTS, ts)
+		assert.Equal(t, []uint32{digests[i]}, rdigests)
+		assert.Equal(t, delWALChunkMinSize, n)
 	}
 }
 
