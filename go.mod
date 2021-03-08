@@ -22,3 +22,9 @@ require (
 	golang.org/x/mod v0.4.1 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 )
+
+// TODO GitLAB proxy issues
+replace (
+	g.tesamc.com/IT/zproto v0.0.0-20210223015400-40e6b2bc1b38 => ../zproto
+	g.tesamc.com/IT/zaipkg v0.0.0-20210221102003-7de4fb06bd59 => ../zaipkg
+)
