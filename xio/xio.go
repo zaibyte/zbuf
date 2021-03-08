@@ -53,6 +53,9 @@ const (
 	ReqChunkWrite = 2
 	ReqChunkRead  = 3
 
+	ReqCloneWrite = ReqChunkWrite
+	ReqCloneRead  = ReqChunkRead
+
 	// ReqGCWrite/Read is I/O requests of extent GC write/read.
 	// Should have low/mid priority.
 	ReqGCWrite = 4

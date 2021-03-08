@@ -368,6 +368,10 @@ func (e *Extenter) preprocWriteReq(reqType uint64) error {
 
 	state := e.info.GetState()
 
+	if reqType == xio.ReqCloneWrite && state != metapb.ExtentState_Extent_Clone {
+		return xerrors.WithMessage(orpc.ErrExtentClone, "clone extent only accept clone write")
+	}
+
 	switch state {
 	case metapb.ExtentState_Extent_Broken:
 		return orpc.ErrExtentBroken
@@ -376,8 +380,8 @@ func (e *Extenter) preprocWriteReq(reqType uint64) error {
 	case metapb.ExtentState_Extent_Ghost:
 		return orpc.ErrExtentGhost
 	case metapb.ExtentState_Extent_Clone:
-		if reqType != xio.ReqChunkWrite { // Else, it'll be a clone write.
-			return orpc.ErrExtentClone
+		if reqType != xio.ReqCloneWrite { // Else, it'll be a clone write.
+			return xerrors.WithMessage(orpc.ErrExtentClone, "clone extent only accept clone write")
 		}
 	case metapb.ExtentState_Extent_Sealed:
 		return orpc.ErrExtentSealed

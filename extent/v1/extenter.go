@@ -178,7 +178,7 @@ func (e *Extenter) PutObj(_reqid, oid uint64, objData []byte, isClone bool) erro
 
 	wr.reqType = xio.ReqObjWrite
 	if isClone {
-		wr.reqType = xio.ReqChunkWrite
+		wr.reqType = xio.ReqCloneWrite
 	}
 	wr.oid = oid
 	wr.objData = objData
@@ -232,7 +232,7 @@ func (e *Extenter) GetObj(_reqid, oid uint64, isClone bool) (objData []byte, err
 	objData = xbytes.GetAlignedBytes(size)
 	reqType := xio.ReqObjRead
 	if isClone {
-		reqType = xio.ReqChunkRead
+		reqType = xio.ReqCloneRead
 	}
 	err = e.objReadAt(uint64(reqType), digest, offset, objData)
 	if err != nil {
