@@ -48,8 +48,8 @@ func TestDirtyDelete(t *testing.T) {
 func TestDeleteWALChunk(t *testing.T) {
 
 	cnt := 10
-	buf := make([]byte, delWALChunkMinSize*10)
-	digests := uid.GenRandDigests(10)
+	buf := make([]byte, delWALChunkMinSize*cnt)
+	digests := uid.GenRandDigests(cnt)
 	expTS := tsc.UnixNano()
 	for i := 0; i < cnt; i++ {
 		makeDelWALChunk(digests[i], expTS, buf[i*delWALChunkMinSize:])
@@ -88,4 +88,60 @@ func TestDeleteBatchWALChunk(t *testing.T) {
 	assert.Equal(t, expTS, ts)
 	assert.Equal(t, expDigest, rdigests)
 	assert.Equal(t, expN, n)
+}
+
+func TestDeleteWALChunkMixed(t *testing.T) {
+	singleCnt0, singleCnt1 := maxDirtyDelOne/2, maxDirtyDelOne/2
+	batchCnt := maxDirtyDelBatch
+	buf := make([]byte, dirtyDeleteWALSize)
+	digests := uid.GenRandDigests(singleCnt0 + singleCnt1)
+	expTS0 := tsc.UnixNano()
+	for i := 0; i < singleCnt0; i++ {
+		makeDelWALChunk(digests[i], expTS0, buf[i*delWALChunkMinSize:])
+	}
+	oids := uid.GenRandOIDs(batchCnt)
+	expTSBatch := tsc.UnixNano()
+	batchN := makeDelBatchWALChunk(oids, expTSBatch, buf[singleCnt0*delWALChunkMinSize:])
+
+	expTS1 := tsc.UnixNano()
+	start := int64(singleCnt0*delWALChunkMinSize) + batchN
+	for i := 0; i < singleCnt1; i++ {
+		makeDelWALChunk(digests[singleCnt0+i], expTS1, buf[start+int64(i)*delWALChunkMinSize:start+(int64(i+1)*delWALChunkMinSize)])
+	}
+
+	var done int64 = 0
+	for i := 0; i < singleCnt0; i++ {
+		isEnd, ts, rdigests, n, err2 := readDelWALChunk(buf[done:])
+		assert.Nil(t, err2)
+		assert.Equal(t, isEnd, false)
+		assert.Equal(t, ts, expTS0)
+		assert.Equal(t, int64(delWALChunkMinSize), n)
+		assert.Equal(t, []uint32{digests[i]}, rdigests)
+		done += n
+	}
+
+	isEnd, ts, rdigests, n, err2 := readDelWALChunk(buf[done:])
+	assert.Nil(t, err2)
+	assert.Equal(t, isEnd, false)
+	assert.Equal(t, ts, expTSBatch)
+	assert.Equal(t, batchN, n)
+	expDigest := make([]uint32, batchCnt)
+	for i := range oids {
+		expDigest[i] = uid.GetDigest(oids[i])
+	}
+	assert.Equal(t, expDigest, rdigests)
+	done += n
+
+	for i := 0; i < singleCnt1; i++ {
+		isEnd, ts, rdigests, n, err2 = readDelWALChunk(buf[done:])
+		assert.Nil(t, err2)
+		assert.Equal(t, isEnd, false)
+		assert.Equal(t, ts, expTS1)
+		assert.Equal(t, int64(delWALChunkMinSize), n)
+		assert.Equal(t, []uint32{digests[singleCnt0+i]}, rdigests)
+		done += n
+	}
+
+	isEnd, _, _, _, _ = readDelWALChunk(buf[done:])
+	assert.True(t, isEnd)
 }
