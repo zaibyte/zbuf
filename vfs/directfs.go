@@ -60,7 +60,7 @@ func (directFS) Link(oldname, newname string) error {
 }
 
 func (directFS) Open(name string, opts ...lvfs.OpenOption) (File, error) {
-	file, err := directio.OpenFile(name, os.O_RDONLY|syscall.O_CLOEXEC|fnc.O_NOATIME, 0)
+	file, err := directio.OpenFile(name, os.O_RDWR|syscall.O_CLOEXEC|fnc.O_NOATIME, 0)
 	if err != nil {
 		return nil, err
 	}
