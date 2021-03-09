@@ -159,7 +159,7 @@ func writeDMUTblSnap(iosched xio.Scheduler, f vfs.File, offset int64, tbl []uint
 				digest := di.Sum32()
 				binary.LittleEndian.PutUint32(blockBuf[dmuSnapBlockSize-4:], digest)
 				di.Reset()
-				err := iosched.DoSync(xio.ReqMetaWrite, f, offset, blockBuf)
+				err = iosched.DoSync(xio.ReqMetaWrite, f, offset, blockBuf)
 				if err != nil {
 					return 0, 0, err
 				}

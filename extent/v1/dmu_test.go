@@ -30,6 +30,5 @@ func TestDMUSnapEntryMakeParse(t *testing.T) {
 		assert.Equal(t, ef.Otype, otype)
 		assert.Equal(t, ef.Grains, grains)
 		assert.Equal(t, ef.Addr, addr)
-
 	}
 }
