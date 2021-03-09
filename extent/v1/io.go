@@ -412,9 +412,9 @@ func (e *Extenter) preprocModifyRequest() error {
 // Their checksum will be put into the last 4Bytes in the first 4KB from the offset.
 //
 // Set grains 0, means this oid & the space taken after it could be collected.
-func makeObjHeader(oid uint64, size int, buf []byte) {
+func makeObjHeader(oid uint64, grains uint32, buf []byte) {
 	binary.LittleEndian.PutUint64(buf[:8], oid)
-	binary.LittleEndian.PutUint32(buf[8:12], uint32(size/uid.GrainSize))
+	binary.LittleEndian.PutUint32(buf[8:12], grains)
 	hsum := xdigest.Sum32(buf[:objHeaderSize-4])
 	binary.LittleEndian.PutUint32(buf[objHeaderSize-4:], hsum)
 }
@@ -452,7 +452,7 @@ func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte,
 	xor.Bytes(buf[:objHeaderSize], buf[:objHeaderSize], buf[:objHeaderSize])
 
 	n := len(objData)
-	makeObjHeader(oid, n, buf)
+	makeObjHeader(oid, uint32(n/uid.GrainSize), buf)
 	written := copy(buf[objHeaderSize:], objData)
 
 	err = e.ioSched.DoSync(reqType, e.segsFile, offset, buf[:written+objHeaderSize])
