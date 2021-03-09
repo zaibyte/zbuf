@@ -191,7 +191,7 @@ func (e *Extenter) loadDMUSnapBlock(f vfs.File, offset int64, buf []byte, di *xd
 	objCntInBlk := binary.LittleEndian.Uint32(buf[4:8])
 	for i := 0; i < int(objCntInBlk); i++ {
 		e0 := binary.LittleEndian.Uint64(buf[i*9+8 : i*9+16])
-		e1 := buf[objCntInBlk*9+16]
+		e1 := buf[i*9+16]
 		digest, otype, grains, addr := parseDmuSnapEntry(e0, e1)
 		_ = d.Insert(digest, otype, grains, addr) // May meet existed, just ignore.
 	}
