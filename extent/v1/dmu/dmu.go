@@ -56,11 +56,11 @@ import (
 	"github.com/templexxx/cpu"
 )
 
-// neighbour is the hopscotch hash neighbourhood size.
+// NeighBour is the hopscotch hash neighbourhood size.
 // 64 could reach high load factor(e.g. 0.9) and the performance is good.
 //
 // If there is no place to set key, try to resize to another bucket until meet MaxCap.
-const neighbour = 64
+const NeighBour = 64
 
 const (
 	// Start with a MinCap, saving memory.
@@ -112,7 +112,7 @@ func New(cap int) *DMU {
 		cap = MaxCap
 	}
 
-	cap = calcSlotCnt(cap)
+	cap = CalcSlotCnt(cap)
 	tbl0 := make([]uint64, cap, cap) // Create one table at the beginning.
 
 	return &DMU{
@@ -177,7 +177,7 @@ func (u *DMU) Insert(digest, otype, grains, addr uint32) error {
 
 		u.scale()
 		next := idx ^ 1
-		newTbl := make([]uint64, calcSlotCnt(oc*2))
+		newTbl := make([]uint64, CalcSlotCnt(oc*2))
 		atomic.StorePointer(&u.cycle[next], unsafe.Pointer(&newTbl))
 		u.setWritable(next)
 		_ = u.tryInsert(digest, otype, grains, addr) // First insert must be succeed.
@@ -202,8 +202,8 @@ func (u *DMU) Search(digest uint32) (entry uint64) {
 	if wt != nil {
 		slotCnt := len(wt)
 		slot := CalcSlot(slotCnt, digest)
-		n := neighbour
-		if slot+neighbour >= slotCnt {
+		n := NeighBour
+		if slot+NeighBour >= slotCnt {
 			n = slotCnt - slot
 		}
 
@@ -224,8 +224,8 @@ func (u *DMU) Search(digest uint32) (entry uint64) {
 	if nt != nil {
 		slotCnt := len(nt)
 		slot := CalcSlot(slotCnt, digest)
-		n := neighbour
-		if slot+neighbour >= slotCnt {
+		n := NeighBour
+		if slot+NeighBour >= slotCnt {
 			n = slotCnt - slot
 		}
 
@@ -284,8 +284,8 @@ func (u *DMU) Update(digest, newAddr uint32) bool {
 	if wt != nil {
 		slotCnt := len(wt)
 		slot := CalcSlot(slotCnt, digest)
-		n := neighbour
-		if slot+neighbour >= slotCnt {
+		n := NeighBour
+		if slot+NeighBour >= slotCnt {
 			n = slotCnt - slot
 		}
 
@@ -308,8 +308,8 @@ func (u *DMU) Update(digest, newAddr uint32) bool {
 	if nt != nil {
 		slotCnt := len(nt)
 		slot := CalcSlot(slotCnt, digest)
-		n := neighbour
-		if slot+neighbour >= slotCnt {
+		n := NeighBour
+		if slot+NeighBour >= slotCnt {
 			n = slotCnt - slot
 		}
 
@@ -407,8 +407,8 @@ func (u *DMU) tryRemove(digest uint32) (has bool, addr uint32) {
 		}
 		slotCnt := len(tbl)
 		slot := CalcSlot(slotCnt, digest)
-		n := neighbour
-		if slot+neighbour >= slotCnt {
+		n := NeighBour
+		if slot+NeighBour >= slotCnt {
 			n = slotCnt - slot
 		}
 
@@ -438,11 +438,11 @@ func (u *DMU) tryInsert(digest, otype, grains, addr uint32) error {
 	tbl := GetTbl(u, int(idx))
 
 	// 1. Try to find free slot within neighbourhood.
-	slotOff := neighbour // slotOff is the distance between avail slot from hashed slot.
+	slotOff := NeighBour // slotOff is the distance between avail slot from hashed slot.
 	slotCnt := len(tbl)
 	slot := CalcSlot(slotCnt, digest)
-	n := neighbour
-	if slot+neighbour >= slotCnt {
+	n := NeighBour
+	if slot+NeighBour >= slotCnt {
 		n = slotCnt - slot
 	}
 	for i := 0; i < n; i++ {
@@ -453,22 +453,22 @@ func (u *DMU) tryInsert(digest, otype, grains, addr uint32) error {
 		}
 	}
 
-	// 2. Try to Add within neighbour.
-	if slotOff < neighbour {
+	// 2. Try to Add within NeighBour.
+	if slotOff < NeighBour {
 		entry := MakeEntry(digest, uint32(slotOff), otype, grains, addr)
 		atomic.StoreUint64(&tbl[slot+slotOff], entry)
 		return nil
 	}
 
 	// 3. Linear probe to find an empty slot and swap.
-	j := slot + neighbour
+	j := slot + NeighBour
 	for { // Closer and closer.
 		free, status := u.swap(j, len(tbl), tbl)
 		if status == swapFull {
 			return ErrIsFull
 		}
 
-		if free-slot < neighbour {
+		if free-slot < NeighBour {
 			entry := MakeEntry(digest, uint32(free-slot), otype, grains, addr)
 			atomic.StoreUint64(&tbl[free], entry)
 			return nil
@@ -488,7 +488,7 @@ func (u *DMU) swap(start, slotCnt int, tbl []uint64) (int, uint8) {
 
 	for i := start; i < slotCnt; i++ {
 		if atomic.LoadUint64(&tbl[i]) == 0 { // Find a free one.
-			j := i - neighbour + 1
+			j := i - NeighBour + 1
 			if j < 0 {
 				j = 0
 			}
@@ -497,7 +497,7 @@ func (u *DMU) swap(start, slotCnt int, tbl []uint64) (int, uint8) {
 				tag, neighOff, otype, grains, addr := ParseEntry(e)
 				digest := BackToDigest(tag, uint32(slotCnt), uint32(j), neighOff)
 				jslot := CalcSlot(slotCnt, digest)
-				if i-jslot < neighbour {
+				if i-jslot < NeighBour {
 					e = MakeEntry(digest,
 						uint32(i)-uint32(jslot), otype, grains, addr)
 					// Put e first may cause meet same entry twice in traverse process temporally,

@@ -15,30 +15,30 @@ import (
 
 // calcMask calculates mask for slot = hash & mask.
 func calcMask(tableCap uint32) uint32 {
-	if tableCap <= neighbour {
+	if tableCap <= NeighBour {
 		return tableCap - 1
 	}
-	return tableCap - neighbour // Always has a virtual bucket with neigh slots.
+	return tableCap - NeighBour // Always has a virtual bucket with neigh slots.
 }
 
-// calcSlotCnt calculates the actual capacity of a table.
+// CalcSlotCnt calculates the actual capacity of a table.
 // This capacity will add a bit extra slots for improving load factor hugely in some cases:
 // If there two keys being hashed to the highest position, the DMU will have to be expanded
 // if there is no extra space.
-func calcSlotCnt(c int) int {
-	if c <= neighbour {
+func CalcSlotCnt(c int) int {
+	if c <= NeighBour {
 		return c
 	}
-	return c + neighbour - 1
+	return c + NeighBour - 1
 }
 
 // backToOriginCap calculates the origin capacity by actual capacity.
 // The origin capacity will be the visible capacity outside.
 func backToOriginCap(c int) int {
-	if c <= neighbour {
+	if c <= NeighBour {
 		return c
 	}
-	return c + 1 - neighbour
+	return c + 1 - NeighBour
 }
 
 func (u *DMU) getWritableTable() []uint64 {

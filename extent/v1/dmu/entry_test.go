@@ -34,7 +34,7 @@ func TestEntryMakeParse(t *testing.T) {
 		if ca < 16 {
 			ca = 16
 		}
-		slotCnt := calcSlotCnt(1 << ca)
+		slotCnt := CalcSlotCnt(1 << ca)
 		neighOff := uint32(rand.Intn(maxNeighOff + 1))
 		otype := uint32(rand.Intn(maxOtype + 1))
 		grains := uint32(rand.Intn(maxGrains + 1))
