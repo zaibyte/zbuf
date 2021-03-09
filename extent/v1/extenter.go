@@ -365,6 +365,10 @@ func (e *Extenter) traverseWritableSeg() error {
 
 	for i := swhi; i < hwhi; i++ {
 
+		if i == -1 {
+			continue
+		}
+
 		wseg := e.getWsegByHistoryIdx(i)
 		e.writableSeg = int64(wseg)
 		e.writableCursor = wcursor
