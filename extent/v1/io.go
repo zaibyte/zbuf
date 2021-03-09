@@ -679,14 +679,13 @@ type segStateClone struct {
 }
 
 // shuffleSegStates shuffles segments states for reducing the rate of always picking up segments which
-// position is in the beginning of segments when both of writing and deletion are frequent.
+// position is in the beginning of segments.
 func shuffleSegStates(states []uint8) []segStateClone {
 	c := make([]segStateClone, segmentCnt)
 	for i := range states {
 		c[i].originSeg = i
 		c[i].state = states[i]
 	}
-	rand.Seed(tsc.UnixNano())
 	rand.Shuffle(segmentCnt, func(i, j int) {
 		c[i], c[j] = c[j], c[i]
 	})
