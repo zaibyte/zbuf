@@ -4,6 +4,7 @@ import (
 	"context"
 	"path/filepath"
 	"sync"
+	"unsafe"
 
 	zai "g.tesamc.com/IT/zai/client"
 	"g.tesamc.com/IT/zaipkg/xerrors"
@@ -117,7 +118,7 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 		dmu: dmu.New(dmuCap),
 
 		writableSeg:    -1,
-		writableCursor: -1,
+		writableCursor: 0,
 
 		gcSrcSeg: -1,
 		gcDstSeg: -1,
@@ -127,7 +128,8 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 		forceGC:        make(chan float64, 1),
 		dirtyDeleteWAL: dwf,
 
-		zai: c.zai,
+		lastDMUSnap: unsafe.Pointer(new(dmuSnapHeader)),
+		zai:         c.zai,
 
 		ctx:    ctx2,
 		cancel: cancel,
@@ -212,7 +214,7 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 		header: h,
 
 		writableSeg:    -1,
-		writableCursor: -1,
+		writableCursor: 0,
 
 		gcSrcSeg: -1,
 		gcDstSeg: -1,
@@ -221,6 +223,7 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 		modChan:        make(chan *modifyRequest, c.cfg.UpdatesPending), // Shares same config.
 		dirtyDeleteWAL: dwf,
 		forceGC:        make(chan float64, 1),
+		lastDMUSnap:    unsafe.Pointer(new(dmuSnapHeader)),
 
 		zai: c.zai,
 
