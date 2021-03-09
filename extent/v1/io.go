@@ -410,7 +410,8 @@ func (e *Extenter) preprocModifyRequest() error {
 //
 // OID & its grains will be put into the first 12Bytes starting from the offset.
 // Their checksum will be put into the last 4Bytes in the first 4KB from the offset.
-// After GC, the oid will be reset to 0, and leaving the grains for future jumping in the loading process.
+//
+// Set grains 0, means this oid & the space taken after it could be collected.
 func makeObjHeader(oid uint64, size int, buf []byte) {
 	binary.LittleEndian.PutUint64(buf[:8], oid)
 	binary.LittleEndian.PutUint32(buf[8:12], uint32(size/uid.GrainSize))
