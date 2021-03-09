@@ -68,6 +68,7 @@ func (d *dirtyDelete) reset() error {
 }
 
 func resetDirtyDelWALF(f vfs.File) error {
+
 	err := f.Truncate(0)
 	if err != nil {
 		return err

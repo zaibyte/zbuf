@@ -6,9 +6,6 @@ import (
 	"os"
 	"testing"
 
-	"g.tesamc.com/IT/zbuf/vdisk"
-	"g.tesamc.com/IT/zproto/pkg/metapb"
-
 	"github.com/stretchr/testify/assert"
 
 	zai "g.tesamc.com/IT/zai/client"
@@ -47,15 +44,6 @@ func TestCreator_Create(t *testing.T) {
 
 	c := makeTestCreator()
 
-	diskInfo := &vdisk.Info{PbDisk: &metapb.Disk{
-		State:  metapb.DiskState_Disk_ReadWrite,
-		Id:     1,
-		Size_:  2,
-		Used:   3,
-		Weight: 4,
-		Type:   metapb.DiskType_Disk_NVMe,
-	}}
-
 	ext, err := c.Create(context.Background(), extDir, extent.CreateParams{
 		InstanceID: 1,
 		DiskID:     1,
@@ -63,11 +51,20 @@ func TestCreator_Create(t *testing.T) {
 		DiskInfo:   nil,
 		CloneJob:   nil,
 	})
-	c.Load(context.Background(), extDir, extent.CreateParams{
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ext.Close()
+
+	_, err = c.Load(context.Background(), extDir, extent.CreateParams{
 		InstanceID: 1,
 		DiskID:     1,
 		ExtID:      1,
 		DiskInfo:   nil,
 		CloneJob:   nil,
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 }
