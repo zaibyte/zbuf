@@ -27,13 +27,13 @@ func TestDMU_Search(t *testing.T) {
 		go func(cnt *int64) {
 			defer wg.Done()
 			for _, en := range ens {
-				err := dmu.Insert(en.digest, en.otype, en.grains, en.addr)
+				err := dmu.Insert(en.Digest, en.Otype, en.Grains, en.Addr)
 				if err != nil {
 					break
 				}
 				atomic.AddInt64(cnt, 1)
 
-				sen := dmu.Search(en.digest)
+				sen := dmu.Search(en.Digest)
 				checkSearchResult(t, sen, en)
 			}
 		}(&cnt)
@@ -45,7 +45,7 @@ func TestDMU_Search(t *testing.T) {
 			if int64(i) >= hasCnt {
 				break
 			}
-			actEn := dmu.Search(en.digest)
+			actEn := dmu.Search(en.Digest)
 			checkSearchResult(t, actEn, ens[i])
 		}
 	}
@@ -53,9 +53,9 @@ func TestDMU_Search(t *testing.T) {
 
 func checkSearchResult(t *testing.T, actEn uint64, expEn EntryField) {
 	_, _, otype, grains, addr := ParseEntry(actEn)
-	assert.Equal(t, expEn.otype, otype)
-	assert.Equal(t, expEn.grains, grains)
-	assert.Equal(t, expEn.addr, addr)
+	assert.Equal(t, expEn.Otype, otype)
+	assert.Equal(t, expEn.Grains, grains)
+	assert.Equal(t, expEn.Addr, addr)
 }
 
 func TestDMU_Remove(t *testing.T) {
@@ -65,17 +65,17 @@ func TestDMU_Remove(t *testing.T) {
 		ens := GenEntriesFast(n / 2)
 		dmu := New(n)
 		for _, en := range ens {
-			err := dmu.Insert(en.digest, en.otype, en.grains, en.addr)
+			err := dmu.Insert(en.Digest, en.Otype, en.Grains, en.Addr)
 			if err != nil {
 				t.Fatal(err)
 			}
-			dmu.Remove(en.digest)
-			if dmu.Search(en.digest) != 0 {
+			dmu.Remove(en.Digest)
+			if dmu.Search(en.Digest) != 0 {
 				t.Fatal("should be removed")
 			}
 		}
 		for _, en := range ens {
-			if dmu.Search(en.digest) != 0 {
+			if dmu.Search(en.Digest) != 0 {
 				t.Fatal("should be removed")
 			}
 		}
@@ -97,17 +97,17 @@ func TestDMU_Update(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for i, en := range ens {
-				err := dmu.Insert(en.digest, en.otype, en.grains, en.addr)
+				err := dmu.Insert(en.Digest, en.Otype, en.Grains, en.Addr)
 				if err != nil {
 					t.Fatal(err, i, n)
 				}
 
-				if !dmu.Update(en.digest, en.addr+1) {
+				if !dmu.Update(en.Digest, en.Addr+1) {
 					t.Fatal("should find")
 				}
 
-				actEn := dmu.Search(en.digest)
-				en.addr += 1
+				actEn := dmu.Search(en.Digest)
+				en.Addr += 1
 				checkSearchResult(t, actEn, en)
 			}
 		}()
@@ -115,8 +115,8 @@ func TestDMU_Update(t *testing.T) {
 		wg.Wait()
 
 		for _, en := range ens {
-			actEn := dmu.Search(en.digest)
-			en.addr += 1
+			actEn := dmu.Search(en.Digest)
+			en.Addr += 1
 			checkSearchResult(t, actEn, en)
 		}
 	}
@@ -129,7 +129,7 @@ func TestDMU_Concurrent(t *testing.T) {
 	dmu := New(n)
 	ens := GenEntriesFast(n * 2)
 	for i := range ens[:n] {
-		err := dmu.Insert(ens[i].digest, ens[i].otype, ens[i].grains, ens[i].addr)
+		err := dmu.Insert(ens[i].Digest, ens[i].Otype, ens[i].Grains, ens[i].Addr)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -141,7 +141,7 @@ func TestDMU_Concurrent(t *testing.T) {
 		defer wg.Done()
 		insertEns := ens[n : n+1024]
 		for i := range insertEns {
-			err := dmu.Insert(insertEns[i].digest, insertEns[i].otype, insertEns[i].grains, insertEns[i].addr)
+			err := dmu.Insert(insertEns[i].Digest, insertEns[i].Otype, insertEns[i].Grains, insertEns[i].Addr)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -151,7 +151,7 @@ func TestDMU_Concurrent(t *testing.T) {
 		defer wg.Done()
 		updateEns := ens[0:1024]
 		for i := range updateEns {
-			if !dmu.Update(updateEns[i].digest, updateEns[i].addr+1) {
+			if !dmu.Update(updateEns[i].Digest, updateEns[i].Addr+1) {
 				t.Fatal("should find")
 			}
 		}
@@ -160,7 +160,7 @@ func TestDMU_Concurrent(t *testing.T) {
 		defer wg.Done()
 		removeEns := ens[1024:2048]
 		for i := range removeEns {
-			dmu.Remove(removeEns[i].digest)
+			dmu.Remove(removeEns[i].Digest)
 		}
 	}()
 	wg.Wait()
@@ -171,10 +171,10 @@ func TestDMU_Concurrent(t *testing.T) {
 	}
 
 	for i := range ens[:n+1024] {
-		e := dmu.Search(ens[i].digest)
+		e := dmu.Search(ens[i].Digest)
 		if i < 1024 {
 			exp := ens[i]
-			exp.addr += 1
+			exp.Addr += 1
 			checkSearchResult(t, e, exp)
 		} else if i >= 1024 && i < 2048 {
 			if e != 0 {
@@ -191,11 +191,11 @@ func TestDMU_InsertSameDigest(t *testing.T) {
 	n := MinCap
 	dmu := New(n)
 	ens := GenEntriesFast(1)
-	err := dmu.Insert(ens[0].digest, ens[0].otype, ens[0].grains, ens[0].addr)
+	err := dmu.Insert(ens[0].Digest, ens[0].Otype, ens[0].Grains, ens[0].Addr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = dmu.Insert(ens[0].digest, ens[0].otype, ens[0].grains, ens[0].addr)
+	err = dmu.Insert(ens[0].Digest, ens[0].Otype, ens[0].Grains, ens[0].Addr)
 	assert.EqualError(t, err, orpc.ErrObjDigestExisted.Error())
 }
 
@@ -209,7 +209,7 @@ func TestDMU_Expand(t *testing.T) {
 
 	ok := 0
 	for i := 0; i < len(ens); i++ {
-		err2 := dmu.Insert(ens[i].digest, ens[i].otype, ens[i].grains, ens[i].addr)
+		err2 := dmu.Insert(ens[i].Digest, ens[i].Otype, ens[i].Grains, ens[i].Addr)
 		if errors.Is(err2, orpc.ErrExtentFull) {
 			ok = i
 			break // Now DMU is full, any new entry will trigger scaling.
@@ -222,17 +222,17 @@ func TestDMU_Expand(t *testing.T) {
 	dmu.unScale()
 	widx := dmu.GetWritableIdx()
 	// Cannot expand because the digest is existed.
-	err := dmu.Insert(ens[0].digest, ens[0].otype, ens[0].grains, ens[0].addr)
+	err := dmu.Insert(ens[0].Digest, ens[0].Otype, ens[0].Grains, ens[0].Addr)
 	assert.EqualError(t, err, orpc.ErrObjDigestExisted.Error())
 	nwidx := dmu.GetWritableIdx()
 	assert.Equal(t, widx, nwidx)
 
 	// Trigger expand.
-	err = dmu.Insert(ens[ok].digest, ens[ok].otype, ens[ok].grains, ens[ok].addr)
+	err = dmu.Insert(ens[ok].Digest, ens[ok].Otype, ens[ok].Grains, ens[ok].Addr)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Try to add existed key must be in last writable table.
-	err = dmu.Insert(ens[ok-1].digest, ens[ok-1].otype, ens[ok-1].grains, ens[ok-1].addr)
+	err = dmu.Insert(ens[ok-1].Digest, ens[ok-1].Otype, ens[ok-1].Grains, ens[ok-1].Addr)
 	assert.EqualError(t, err, orpc.ErrObjDigestExisted.Error())
 }

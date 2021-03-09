@@ -28,7 +28,7 @@ func TestDMUExpand(t *testing.T) {
 
 	mitFull := 0
 	for i, en := range ens {
-		err := dmu.Insert(en.digest, en.otype, en.grains, en.addr)
+		err := dmu.Insert(en.Digest, en.Otype, en.Grains, en.Addr)
 		if errors.Is(err, orpc.ErrExtentFull) {
 			mitFull = i
 			break
@@ -40,7 +40,7 @@ func TestDMUExpand(t *testing.T) {
 
 	mitFull2 := 0
 	for i, en := range ens {
-		err := dmu2.Insert(en.digest, en.otype, en.grains, en.addr)
+		err := dmu2.Insert(en.Digest, en.Otype, en.Grains, en.Addr)
 		if errors.Is(err, orpc.ErrExtentFull) {
 			mitFull2 = i
 			break
@@ -81,7 +81,7 @@ func testMitFull(ens []EntryField) int {
 
 	dmu.scale()
 	for i, en := range ens {
-		err := dmu.Insert(en.digest, en.otype, en.grains, en.addr)
+		err := dmu.Insert(en.Digest, en.Otype, en.Grains, en.Addr)
 		if errors.Is(err, orpc.ErrExtentFull) {
 			return i
 		}

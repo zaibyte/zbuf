@@ -70,10 +70,10 @@ func nextPower2(n uint64) uint64 {
 }
 
 type EntryField struct {
-	digest uint32
-	otype  uint32
-	grains uint32
-	addr   uint32
+	Digest uint32
+	Otype  uint32
+	Grains uint32
+	Addr   uint32
 }
 
 // GenEntriesFast generates entries using rand number.
@@ -121,7 +121,7 @@ func generatesEntries(cnt int, fast bool) []EntryField {
 			if _, ok := digests[digest]; ok {
 				continue
 			}
-			ens[i].digest = digest
+			ens[i].Digest = digest
 			digests[digest] = struct{}{}
 			break
 		}
@@ -130,13 +130,13 @@ func generatesEntries(cnt int, fast bool) []EntryField {
 		if otype == 0 {
 			otype = 1
 		}
-		ens[i].otype = otype
+		ens[i].Otype = otype
 		grains := uint32(rand.Intn(maxGrains)) // Force updates testing will add grains by 1, for avoiding overflow, using maxGrains.
 		if grains == 0 {
 			grains = 1
 		}
-		ens[i].grains = grains
-		ens[i].addr = uint32(rand.Intn(MaxAddr + 1))
+		ens[i].Grains = grains
+		ens[i].Addr = uint32(rand.Intn(MaxAddr + 1))
 	}
 	return ens
 }
