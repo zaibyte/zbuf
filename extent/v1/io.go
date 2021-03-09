@@ -701,6 +701,9 @@ func (e *Extenter) fastDiskHealthCheck() error {
 }
 
 // offsetToAddr transfers offset in segments file to address in DMU.
+//
+// Warn:
+// This offset has been aligned to dmu.AlignSize.
 func offsetToAddr(offset int64) uint32 {
 	return uint32(offset / dmu.AlignSize)
 }
