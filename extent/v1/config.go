@@ -100,7 +100,7 @@ func (cfg *Config) adjust() {
 	config.Adjust(&cfg.MaxDirtyCount, int64(defaultMaxDirtyCount))
 	maxDirtyCount := cfg.SegmentSize / 4 * 1024 * 1024 / 2
 	if maxDirtyCount < 1 {
-		cfg.MaxDirtyCount = 1
+		cfg.MaxDirtyCount = 1 // Only meaningful for testing.
 	} else {
 		cfg.MaxDirtyCount = int64(maxDirtyCount)
 	}
