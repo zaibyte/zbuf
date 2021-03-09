@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"math"
 	"math/rand"
 	"sort"
 	"testing"
@@ -19,10 +20,22 @@ func TestGcCandidates(t *testing.T) {
 		cs[i] = gcCandidate{
 			seg:      int64(i),
 			removed:  uint32(rand.Intn(1024)),
-			sealedTS: rand.Int63(),
+			sealedTS: rand.Int63() + 1, // At least 1.,
 		}
 	}
 
 	sort.Sort(gcCandidates(cs))
 	assert.True(t, sort.IsSorted(gcCandidates(cs)))
+
+	cs[255].removed = math.MaxUint32
+	sort.Sort(gcCandidates(cs))
+
+	assert.Equal(t, uint32(math.MaxUint32), cs[0].removed)
+
+	cs[255].removed = math.MaxUint32
+	cs[255].sealedTS = 0
+	sort.Sort(gcCandidates(cs))
+
+	assert.Equal(t, uint32(math.MaxUint32), cs[0].removed)
+	assert.Equal(t, int64(0), cs[0].sealedTS)
 }
