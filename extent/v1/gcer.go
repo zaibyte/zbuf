@@ -504,7 +504,7 @@ func (e *Extenter) getGCSrcCandidates(ratio float64) []gcCandidate {
 
 	cs = cs[:cnt]
 	if cnt != 0 {
-		e.sortGCCandidates(cs)
+		sort.Sort(gcCandidates(cs))
 	}
 
 	return cs
@@ -520,8 +520,4 @@ func isInUint8(n uint8, s []uint8) bool {
 		}
 	}
 	return false
-}
-
-func (e *Extenter) sortGCCandidates(cs gcCandidates) {
-	sort.Sort(cs)
 }
