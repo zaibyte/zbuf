@@ -24,7 +24,7 @@ func TestDMUExpand(t *testing.T) {
 	dmu := New(cnt)
 	dmu.scale()
 
-	ens := generatesEntriesFast(cnt * 2)
+	ens := GenEntriesFast(cnt * 2)
 
 	mitFull := 0
 	for i, en := range ens {
@@ -65,7 +65,7 @@ func TestMitFull(t *testing.T) {
 
 	rets := make(map[int]int)
 
-	ens := generatesEntriesFast(end)
+	ens := GenEntriesFast(end)
 
 	for n := start; n <= end; n *= 2 {
 		tens := ens[:n]
@@ -76,7 +76,7 @@ func TestMitFull(t *testing.T) {
 	printMitFullRets(rets)
 }
 
-func testMitFull(ens []entryFields) int {
+func testMitFull(ens []EntryField) int {
 	dmu := New(len(ens))
 
 	dmu.scale()

@@ -1,22 +1,15 @@
 package dmu
 
 import (
-	"encoding/binary"
 	"errors"
-	"math"
-	"math/rand"
 	"sync"
 	"sync/atomic"
 	"testing"
 
-	"g.tesamc.com/IT/zaipkg/config/settings"
 	"g.tesamc.com/IT/zaipkg/orpc"
-	"g.tesamc.com/IT/zaipkg/uid"
-	"g.tesamc.com/IT/zaipkg/xdigest"
 	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/templexxx/tsc"
 )
 
 func TestDMU_Search(t *testing.T) {
@@ -24,7 +17,7 @@ func TestDMU_Search(t *testing.T) {
 	start := MinCap
 	for n := start; n <= MinCap*2; n *= 2 {
 
-		ens := generatesEntriesFast(int(float64(n) * 2))
+		ens := GenEntriesFast(int(float64(n) * 2))
 		dmu := New(n)
 
 		wg := new(sync.WaitGroup)
@@ -58,7 +51,7 @@ func TestDMU_Search(t *testing.T) {
 	}
 }
 
-func checkSearchResult(t *testing.T, actEn uint64, expEn entryFields) {
+func checkSearchResult(t *testing.T, actEn uint64, expEn EntryField) {
 	_, _, otype, grains, addr := ParseEntry(actEn)
 	assert.Equal(t, expEn.otype, otype)
 	assert.Equal(t, expEn.grains, grains)
@@ -69,7 +62,7 @@ func TestDMU_Remove(t *testing.T) {
 
 	start := MinCap
 	for n := start; n <= MinCap*2; n *= 2 {
-		ens := generatesEntriesFast(n / 2)
+		ens := GenEntriesFast(n / 2)
 		dmu := New(n)
 		for _, en := range ens {
 			err := dmu.Insert(en.digest, en.otype, en.grains, en.addr)
@@ -96,7 +89,7 @@ func TestDMU_Remove(t *testing.T) {
 func TestDMU_Update(t *testing.T) {
 	start := MinCap
 	for n := start; n <= MinCap*2; n *= 2 {
-		ens := generatesEntriesFast(n)
+		ens := GenEntriesFast(n)
 		dmu := New(n)
 
 		wg := new(sync.WaitGroup)
@@ -134,7 +127,7 @@ func TestDMU_Concurrent(t *testing.T) {
 
 	n := MinCap
 	dmu := New(n)
-	ens := generatesEntriesFast(n * 2)
+	ens := GenEntriesFast(n * 2)
 	for i := range ens[:n] {
 		err := dmu.Insert(ens[i].digest, ens[i].otype, ens[i].grains, ens[i].addr)
 		if err != nil {
@@ -194,82 +187,10 @@ func TestDMU_Concurrent(t *testing.T) {
 	}
 }
 
-type entryFields struct {
-	digest uint32
-	otype  uint32
-	grains uint32
-	addr   uint32
-}
-
-// generatesEntriesFast generates entries using rand number.
-func generatesEntriesFast(cnt int) []entryFields {
-
-	return generatesEntries(cnt, true)
-}
-
-// generatesEntriesSlow generates entries using rand bytes(with n length).
-func generatesEntriesSlow(cnt int) []entryFields {
-
-	return generatesEntries(cnt, false)
-}
-
-func generatesEntries(cnt int, fast bool) []entryFields {
-	rand.Seed(tsc.UnixNano())
-
-	ens := make([]entryFields, cnt)
-
-	digests := make(map[uint32]struct{})
-
-	seedBuf := make([]byte, settings.MaxObjectSize) // Max length.
-	rand.Seed(tsc.UnixNano())
-	rand.Read(seedBuf)
-	for i := range ens {
-		for {
-
-			salt := rand.Intn(math.MaxInt64)
-
-			binary.LittleEndian.PutUint64(seedBuf[:8], uint64(salt))
-
-			var digest uint32
-			if !fast {
-				size := rand.Intn(settings.MaxObjectSize + 1)
-				if size < 8 {
-					size = 8
-				}
-
-				digest = xdigest.Sum32(seedBuf[:size])
-			} else {
-
-				digest = xdigest.Sum32(seedBuf[:8])
-			}
-
-			if _, ok := digests[digest]; ok {
-				continue
-			}
-			ens[i].digest = digest
-			digests[digest] = struct{}{}
-			break
-		}
-
-		otype := uint32(rand.Intn(uid.MaxOType + 1))
-		if otype == 0 {
-			otype = 1
-		}
-		ens[i].otype = otype
-		grains := uint32(rand.Intn(maxGrains)) // Force updates testing will add grains by 1, for avoiding overflow, using maxGrains.
-		if grains == 0 {
-			grains = 1
-		}
-		ens[i].grains = grains
-		ens[i].addr = uint32(rand.Intn(MaxAddr + 1))
-	}
-	return ens
-}
-
 func TestDMU_InsertSameDigest(t *testing.T) {
 	n := MinCap
 	dmu := New(n)
-	ens := generatesEntriesFast(1)
+	ens := GenEntriesFast(1)
 	err := dmu.Insert(ens[0].digest, ens[0].otype, ens[0].grains, ens[0].addr)
 	if err != nil {
 		t.Fatal(err)
@@ -282,7 +203,7 @@ func TestDMU_InsertSameDigest(t *testing.T) {
 func TestDMU_Expand(t *testing.T) {
 	n := MinCap
 	dmu := New(n)
-	ens := generatesEntriesFast(n)
+	ens := GenEntriesFast(n)
 
 	dmu.scale()
 
