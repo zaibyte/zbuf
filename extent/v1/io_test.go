@@ -2,8 +2,10 @@ package v1
 
 import (
 	"encoding/binary"
+	"errors"
 	"testing"
 
+	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/uid"
 
 	"github.com/stretchr/testify/assert"
@@ -144,4 +146,24 @@ func TestDeleteWALChunkMixed(t *testing.T) {
 
 	isEnd, _, _, _, _ = readDelWALChunk(buf[done:])
 	assert.True(t, isEnd)
+}
+
+func TestObjHeaderMakeRead(t *testing.T) {
+	buf := make([]byte, objHeaderSize)
+
+	oids := uid.GenRandOIDs(1024)
+
+	for i := range oids {
+		oid := oids[i]
+		makeObjHeader(oid, uid.GetGrains(oid), buf)
+		aoid, grains, err := readObjHeaderFromBuf(buf)
+		assert.Nil(t, err)
+		assert.Equal(t, oid, aoid)
+		assert.Equal(t, uid.GetGrains(oid), grains)
+	}
+
+	makeObjHeader(oids[0], uid.GetGrains(oids[0]), buf)
+	buf[0] += 1
+	_, _, err := readObjHeaderFromBuf(buf)
+	assert.True(t, errors.Is(err, orpc.ErrChecksumMismatch))
 }

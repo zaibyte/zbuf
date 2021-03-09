@@ -1,11 +1,7 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 g.tesamc.com/IT/zai v0.0.0-20210223033300-3ff542d347f8 h1:5nTvdsx0d9UQ6Yl7QvqxZj2HZGZf6BP1OuImcXxIfy8=
 g.tesamc.com/IT/zai v0.0.0-20210223033300-3ff542d347f8/go.mod h1:rWBczMCzZ7R8FCwfMIgDq5PtW8B0N3GaE+BMapvY728=
-g.tesamc.com/IT/zaipkg v0.0.0-20210221102003-7de4fb06bd59 h1:w4uRNJSnYSsOFyKuEhfM21k0QxsXgLXQJ9TKy4FBoLc=
-g.tesamc.com/IT/zaipkg v0.0.0-20210221102003-7de4fb06bd59/go.mod h1:Wx5yYTCSm//V4+mpErGLMbbO/lx5Tm3dyKF3d7UOHPE=
 g.tesamc.com/IT/zproto v0.0.0-20210114071438-1018be4c55d3/go.mod h1:cOpEEu7RT7ocVlcIh/c4JmLSyIFQoPGbzU+77RVg1NE=
-g.tesamc.com/IT/zproto v0.0.0-20210223015400-40e6b2bc1b38 h1:c17oc7nZuBIO6byXfyvCmbc4UslZka4sR14sIMOarOY=
-g.tesamc.com/IT/zproto v0.0.0-20210223015400-40e6b2bc1b38/go.mod h1:unN6cXdfgSoM/q2tYIk+JcEF5cxsYY18b587H7k0QYo=
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
