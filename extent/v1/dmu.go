@@ -227,6 +227,7 @@ func (e *Extenter) writeDMUSnap(done chan<- error, lastFn string) {
 	}
 	defer f.Close()
 
+	h.f = f
 	h.fn = fn
 	h.createTS = createTS
 
@@ -238,7 +239,9 @@ func (e *Extenter) writeDMUSnap(done chan<- error, lastFn string) {
 	h.GcDstSeg = e.gcDstSeg
 	h.GcSrcCursor = e.gcSrcCursor
 	h.GcDstCursor = e.gcDstCursor
-	h.CloneJobDoneCnt = uint32(e.header.nvh.CloneJob.DoneCnt)
+	if e.header.nvh.CloneJob != nil {
+		h.CloneJobDoneCnt = uint32(e.header.nvh.CloneJob.DoneCnt)
+	}
 	e.rwMutex.RUnlock()
 
 	d := e.dmu
@@ -286,7 +289,6 @@ func (h *dmuSnapHeader) writeDown(iosched xio.Scheduler, buf []byte, di *xdigest
 	_, _ = di.Write(buf[:dmuSnapHeaderSize-4])
 	binary.LittleEndian.PutUint32(buf[dmuSnapHeaderSize-4:], di.Sum32())
 	di.Reset()
-
 	return iosched.DoSync(xio.ReqMetaWrite, h.f, 0, buf)
 }
 
@@ -357,7 +359,7 @@ func (e *Extenter) loadDMUSnap() error {
 	h.f = f
 	di := xdigest.New()
 	buf := directio.AlignedBlock(dmuSnapBlockSize)
-	err = h.load(e.ioSched, buf, di)
+	err = h.load(e.ioSched, buf[:dmuSnapHeaderSize], di)
 	if err != nil {
 		return err
 	}
@@ -377,7 +379,9 @@ func (e *Extenter) loadDMUSnap() error {
 	e.gcDstSeg = h.GcDstSeg
 	e.gcSrcCursor = h.GcSrcCursor
 	e.gcDstCursor = h.GcDstCursor
-	e.header.nvh.CloneJob.DoneCnt = uint64(h.CloneJobDoneCnt)
+	if e.header.nvh.CloneJob != nil {
+		e.header.nvh.CloneJob.DoneCnt = uint64(h.CloneJobDoneCnt)
+	}
 
 	atomic.StorePointer((*unsafe.Pointer)(e.lastDMUSnap), unsafe.Pointer(h))
 
