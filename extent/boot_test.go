@@ -13,7 +13,7 @@ import (
 	"g.tesamc.com/IT/zbuf/vfs"
 )
 
-func TestCreateOpenBootSector(t *testing.T) {
+func TestCreateLoadBootSector(t *testing.T) {
 	extPath, err := ioutil.TempDir(os.TempDir(), "boot-sector")
 	if err != nil {
 		t.Fatal(err)
