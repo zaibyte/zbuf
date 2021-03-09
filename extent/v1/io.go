@@ -404,18 +404,34 @@ func (e *Extenter) preprocModifyRequest() error {
 	return nil
 }
 
-// objHeaderWriteTo writes object header to buf.
+// makeObjHeader writes object header to buf.
 //
 // The elements inside the header: oid, grains, checksum:
 //
 // OID & its grains will be put into the first 12Bytes starting from the offset.
 // Their checksum will be put into the last 4Bytes in the first 4KB from the offset.
 // After GC, the oid will be reset to 0, and leaving the grains for future jumping in the loading process.
-func objHeaderWriteTo(oid uint64, size int, buf []byte) {
+func makeObjHeader(oid uint64, size int, buf []byte) {
 	binary.LittleEndian.PutUint64(buf[:8], oid)
 	binary.LittleEndian.PutUint32(buf[8:12], uint32(size/uid.GrainSize))
 	hsum := xdigest.Sum32(buf[:objHeaderSize-4])
 	binary.LittleEndian.PutUint32(buf[objHeaderSize-4:], hsum)
+}
+
+// readObjHeaderFromBuf reads object header from bytes buf.
+func readObjHeaderFromBuf(buf []byte) (oid uint64, grains uint32, err error) {
+	oid = binary.LittleEndian.Uint64(buf[:8])
+	grains = binary.LittleEndian.Uint32(buf[8:12])
+
+	if oid == 0 && grains == 0 { // Empty header, no need checksum.
+		return 0, 0, nil
+	}
+
+	if xdigest.Sum32(buf[:objHeaderSize-4]) != binary.LittleEndian.Uint32(buf[objHeaderSize-4:]) {
+		return 0, 0, xerrors.WithMessage(orpc.ErrChecksumMismatch, fmt.Sprintf("read oid: %d", oid))
+	}
+
+	return oid, grains, nil
 }
 
 // blankObjHeader is an empty object header(with max padding) for clean up the next place when writing.
@@ -435,7 +451,7 @@ func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte,
 	xor.Bytes(buf[:objHeaderSize], buf[:objHeaderSize], buf[:objHeaderSize])
 
 	n := len(objData)
-	objHeaderWriteTo(oid, n, buf)
+	makeObjHeader(oid, n, buf)
 	written := copy(buf[objHeaderSize:], objData)
 
 	err = e.ioSched.DoSync(reqType, e.segsFile, offset, buf[:written+objHeaderSize])
@@ -482,18 +498,7 @@ func (e *Extenter) oidReadAt(reqType uint64, offset int64, oidBuf []byte) (oid u
 		return 0, 0, err
 	}
 
-	oid = binary.LittleEndian.Uint64(oidBuf[:8])
-	grains = binary.LittleEndian.Uint32(oidBuf[8:12])
-
-	if oid == 0 && grains == 0 { // Empty header, no need checksum.
-		return 0, 0, nil
-	}
-
-	if xdigest.Sum32(oidBuf[:objHeaderSize-4]) != binary.LittleEndian.Uint32(oidBuf[objHeaderSize-4:]) {
-		return 0, 0, xerrors.WithMessage(orpc.ErrChecksumMismatch, fmt.Sprintf("read oid: %d", oid))
-	}
-
-	return oid, grains, nil
+	return readObjHeaderFromBuf(oidBuf)
 }
 
 // objReadAt reads Extent's segments file from a certain offset(its the oid offset).
