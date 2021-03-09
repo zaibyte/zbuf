@@ -167,3 +167,14 @@ func TestObjHeaderMakeRead(t *testing.T) {
 	_, _, err := readObjHeaderFromBuf(buf)
 	assert.True(t, errors.Is(err, orpc.ErrChecksumMismatch))
 }
+
+// We don't want the shuffle is too slow,
+// several us is acceptable, because the major cost in the process of selecting new writable segment
+// is sync header.
+func BenchmarkShuffleSegStates(b *testing.B) {
+	states := make([]uint8, segmentCnt)
+
+	for i := 0; i < b.N; i++ {
+		_ = shuffleSegStates(states)
+	}
+}
