@@ -19,9 +19,12 @@ package main
 import (
 	"context"
 	"log"
+	"math/rand"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/templexxx/tsc"
 
 	"g.tesamc.com/IT/zaipkg/xerrors"
 	"g.tesamc.com/IT/zbuf/server"
@@ -69,7 +72,9 @@ func main() {
 		cancel()
 	}()
 
-	if err := svr.Run(); err != nil {
+	rand.Seed(tsc.UnixNano())
+
+	if err = svr.Run(); err != nil {
 		xlog.Fatal(xerrors.WithMessage(err, "run server failed").Error())
 	}
 
