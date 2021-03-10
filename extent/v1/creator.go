@@ -117,7 +117,7 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 
 		dmu: dmu.New(dmuCap),
 
-		writableSeg:    -1,
+		writableSeg:    0, // At beginning, setting 0 as writable seg.
 		writableCursor: 0,
 
 		gcSrcSeg: -1,
