@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
 	"g.tesamc.com/IT/zbuf/extent"
 )
 

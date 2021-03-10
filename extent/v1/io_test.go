@@ -3,10 +3,13 @@ package v1
 import (
 	"encoding/binary"
 	"errors"
+	"math/rand"
+	"os"
 	"testing"
 
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/uid"
+	"g.tesamc.com/IT/zaipkg/xdigest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/templexxx/tsc"
@@ -166,6 +169,34 @@ func TestObjHeaderMakeRead(t *testing.T) {
 	buf[0] += 1
 	_, _, err := readObjHeaderFromBuf(buf)
 	assert.True(t, errors.Is(err, orpc.ErrChecksumMismatch))
+}
+
+func TestExtenter_PutGetObj(t *testing.T) {
+	cfg := getDefaultConfig()
+	cfg.SegmentSize = 256 * 1024
+	ext, err := createTestExtenter(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(ext.extDir)
+
+	rand.Seed(tsc.UnixNano())
+
+	cnt := 256
+	maxGrains := (cfg.SegmentSize / uid.GrainSize) - 1 // It's the max object which 256KB segment could have.
+	buf := make([]byte, maxGrains*uid.GrainSize)
+	for i := 0; i < cnt; i++ {
+		// TODO it should work well with various of object sizes.
+		binary.LittleEndian.PutUint64(buf[:8], uint64(i))
+		oid := uid.MakeOID(1, 1, 1, xdigest.Sum32(buf), uid.NormalObj)
+		err = ext.PutObj(0, oid, buf, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// TODO after put using get
+	}
+
+	// TODO run get in multi goroutine
 }
 
 // We don't want the shuffle is too slow,
