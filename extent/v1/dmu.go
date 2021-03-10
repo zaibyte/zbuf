@@ -357,6 +357,7 @@ func (e *Extenter) loadDMUSnap() error {
 
 	h := new(dmuSnapHeader)
 	h.f = f
+	h.fn = fn
 	di := xdigest.New()
 	buf := directio.AlignedBlock(dmuSnapBlockSize)
 	err = h.load(e.ioSched, buf[:dmuSnapHeaderSize], di)

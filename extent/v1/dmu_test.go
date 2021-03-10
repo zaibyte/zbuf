@@ -79,7 +79,6 @@ func TestDMUSnapMakeLoad(t *testing.T) {
 	for i := 0; i < cnt; i++ {
 		binary.LittleEndian.PutUint64(buf[:8], uint64(i))
 		oid := uid.MakeOID(1, 1, 1, xdigest.Sum32(buf), uid.NormalObj)
-		// TODO seem block here.
 		err = ext.PutObj(0, oid, buf, false)
 		if err != nil {
 			t.Fatal(err)
@@ -138,5 +137,10 @@ func TestDMUSnapMakeLoad(t *testing.T) {
 		t.Fatal("after loading oid lost")
 	}
 
-	// TODO compare two dmu snapshot header
+	h1 := ext1.getLastDMUSnap()
+	h1.f = nil
+	h2 := ext2.getLastDMUSnap()
+	h2.f = nil
+
+	assert.Equal(t, h1, h2)
 }
