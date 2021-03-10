@@ -207,13 +207,13 @@ func (e *Extenter) writeDMUSnap(done chan<- error, lastFn string) {
 	h := new(dmuSnapHeader)
 
 	defer func() {
-		e.setState(err)
-		done <- err
 		if err == nil {
-			atomic.StorePointer((*unsafe.Pointer)(e.lastDMUSnap), unsafe.Pointer(h))
+			atomic.StorePointer(&e.lastDMUSnap, unsafe.Pointer(h))
 			_ = e.fs.Remove(lastFn)
 			e.cleanDirtyUpdates()
 		}
+		e.setState(err)
+		done <- err
 		atomic.StoreInt64(&e.isMakingDMUSnap, 0)
 	}()
 
@@ -301,7 +301,7 @@ func (h *dmuSnapHeader) load(iosched xio.Scheduler, buf []byte, di *xdigest.Dige
 
 	_, _ = di.Write(buf[:dmuSnapHeaderSize-4])
 	if di.Sum32() != binary.LittleEndian.Uint32(buf[dmuSnapHeaderSize-4:]) {
-		err := xerrors.WithMessage(orpc.ErrChecksumMismatch, "failed to load dmu snapshot header")
+		err = xerrors.WithMessage(orpc.ErrChecksumMismatch, "failed to load dmu snapshot header")
 		return err
 	}
 	di.Reset()
@@ -383,7 +383,7 @@ func (e *Extenter) loadDMUSnap() error {
 		e.header.nvh.CloneJob.DoneCnt = uint64(h.CloneJobDoneCnt)
 	}
 
-	atomic.StorePointer((*unsafe.Pointer)(e.lastDMUSnap), unsafe.Pointer(h))
+	atomic.StorePointer(&e.lastDMUSnap, unsafe.Pointer(h))
 
 	return nil
 }
