@@ -1,5 +1,11 @@
 # ZBuf
 
+## Platform
+
+MacOS or Linux with X86-64 supports.
+
+**Could meet weird issues on Windows, Do NOT waste time on it!**
+
 ## Filesystem Layout
 
 ```shell

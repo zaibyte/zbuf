@@ -160,6 +160,7 @@ func IsDirExisted(fs FS, dir string) bool {
 
 // SyncDir syncs directory.
 func SyncDir(fs FS, dir string) error {
+
 	f, err := fs.OpenDir(dir)
 	if err != nil {
 		return err
