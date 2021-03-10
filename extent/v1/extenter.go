@@ -114,7 +114,6 @@ func (e *Extenter) Start() error {
 	if !atomic.CompareAndSwapInt64(&e.isRunning, 0, 1) {
 		return errors.New("already started")
 	}
-
 	e.startBackgroundLoops()
 
 	xlog.Info(fmt.Sprintf("ext: %d has started", e.info.PbExt.Id))

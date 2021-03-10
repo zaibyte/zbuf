@@ -129,6 +129,8 @@ func (e *Extenter) updatesLoop() {
 
 		// We must be sure loop blocking on select, otherwise the loop will do nothing & wasting the CPU.
 		select {
+		case <-ctx.Done():
+			return
 		case wr = <-e.putObjChan:
 		case mr = <-e.modChan:
 		default:
@@ -144,6 +146,7 @@ func (e *Extenter) updatesLoop() {
 		}
 
 		if wr != nil {
+
 			if err := e.preprocWriteReq(wr.reqType); err != nil {
 				wr.done <- err
 				continue
@@ -194,6 +197,8 @@ func (e *Extenter) updatesLoop() {
 				e.setState(err)
 				continue
 			}
+
+			wr.done <- nil
 
 			atomic.AddInt64(&e.writableCursor, xbytes.AlignSize(int64(written), dmu.AlignSize))
 			atomic.AddInt64(&e.dirtyUpdates, 1)
