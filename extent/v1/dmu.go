@@ -55,7 +55,7 @@ const (
 	dmuSnapHeaderSize = 4096
 	dmuSnapBlockSize  = 32 * 1024
 	// maxObjCntInSnapBlk = (dmuSnapBlockSize - objCntInBlk - checksum_size - table_slot_cnt) / entry_size
-	maxObjCntInSnapBlk = (dmuSnapBlockSize - 2 - 4 - 4) / 8
+	maxObjCntInSnapBlk = (dmuSnapBlockSize - 2 - 4 - 4) / 9
 )
 
 const (
@@ -137,29 +137,17 @@ func parseDmuSnapEntry(e0 uint64, e1 uint8) (digest, otype, grains, addr uint32)
 	return
 }
 
+// writeDMUTblSnap writes one DMU table down to a certain file.
 func writeDMUTblSnap(iosched xio.Scheduler, f vfs.File, offset int64, tbl []uint64,
 	blockBuf []byte, di *xdigest.Digest) (newOffset int64, totalObjCnt uint32, err error) {
 	if tbl != nil {
 		slotCnt := len(tbl)
-		binary.LittleEndian.PutUint32(blockBuf[:4], uint32(len(tbl)))
+		binary.LittleEndian.PutUint32(blockBuf[:4], uint32(slotCnt))
 		objCntInBlk := 0
 		for i := range tbl {
 
-			en := atomic.LoadUint64(&tbl[i])
-			if en != 0 {
-				objCntInBlk++
-				e0, e1 := makeDMUSnapEntry(en, uint32(slotCnt), uint32(i))
-				binary.LittleEndian.PutUint64(blockBuf[objCntInBlk*9+8:objCntInBlk*9+16], e0)
-				blockBuf[objCntInBlk*9+16] = e1
-			}
-
-			if objCntInBlk == maxObjCntInSnapBlk || ((i == len(tbl)-1) && (objCntInBlk > 0)) {
-				binary.LittleEndian.PutUint32(blockBuf[4:8], uint32(objCntInBlk))
-				_, _ = di.Write(blockBuf[:dmuSnapBlockSize-4])
-				digest := di.Sum32()
-				binary.LittleEndian.PutUint32(blockBuf[dmuSnapBlockSize-4:], digest)
-				di.Reset()
-				err = iosched.DoSync(xio.ReqMetaWrite, f, offset, blockBuf)
+			if objCntInBlk == maxObjCntInSnapBlk {
+				err = writeDMUSnapBlock(iosched, f, offset, objCntInBlk, blockBuf, di)
 				if err != nil {
 					return 0, 0, err
 				}
@@ -167,9 +155,37 @@ func writeDMUTblSnap(iosched xio.Scheduler, f vfs.File, offset int64, tbl []uint
 				totalObjCnt += uint32(objCntInBlk)
 				objCntInBlk = 0
 			}
+
+			en := atomic.LoadUint64(&tbl[i])
+			if en != 0 {
+				e0, e1 := makeDMUSnapEntry(en, uint32(slotCnt), uint32(i))
+				binary.LittleEndian.PutUint64(blockBuf[objCntInBlk*9+8:objCntInBlk*9+16], e0)
+				blockBuf[objCntInBlk*9+16] = e1
+				objCntInBlk++
+			}
+		}
+		if objCntInBlk > 0 { // Still has some objects dirty.
+			err = writeDMUSnapBlock(iosched, f, offset, objCntInBlk, blockBuf, di)
+			if err != nil {
+				return 0, 0, err
+			}
+			offset += dmuSnapBlockSize
+			totalObjCnt += uint32(objCntInBlk)
+			objCntInBlk = 0
 		}
 	}
 	return offset, totalObjCnt, nil
+}
+
+func writeDMUSnapBlock(iosched xio.Scheduler, f vfs.File, offset int64,
+	objCntInBlk int, blockBuf []byte, di *xdigest.Digest) error {
+
+	binary.LittleEndian.PutUint32(blockBuf[4:8], uint32(objCntInBlk))
+	_, _ = di.Write(blockBuf[:dmuSnapBlockSize-4])
+	digest := di.Sum32()
+	binary.LittleEndian.PutUint32(blockBuf[dmuSnapBlockSize-4:], digest)
+	di.Reset()
+	return iosched.DoSync(xio.ReqMetaWrite, f, offset, blockBuf)
 }
 
 func (e *Extenter) loadDMUSnapBlock(f vfs.File, offset int64, buf []byte, di *xdigest.Digest) (err error) {
