@@ -11,6 +11,7 @@ import (
 
 	"g.tesamc.com/IT/zaipkg/uid"
 	"g.tesamc.com/IT/zaipkg/xdigest"
+	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
 	"g.tesamc.com/IT/zaipkg/xmath"
 	"g.tesamc.com/IT/zbuf/extent"
 	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
@@ -64,6 +65,11 @@ func TestDMUSnapMakeLoad(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	err = ext.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ext.Close()
 
 	rand.Seed(tsc.UnixNano())
 
