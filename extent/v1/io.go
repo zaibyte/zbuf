@@ -601,9 +601,9 @@ func (e *Extenter) isDMUSnapBehind() bool {
 	snapIdx := lastSnap.WritableHistoryIdx
 
 	if nvh.WritableHistoryNextIdx-wsegHistroyCnt >= snapIdx {
-		return false
+		return true
 	}
-	return true
+	return false
 }
 
 // listSnapBehind lists segments which are in writable history, but
