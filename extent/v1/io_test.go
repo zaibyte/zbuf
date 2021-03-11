@@ -1,14 +1,18 @@
 package v1
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"math/rand"
 	"os"
+	"runtime"
+	"sync"
 	"testing"
 
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/uid"
+	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zaipkg/xdigest"
 
 	"github.com/stretchr/testify/assert"
@@ -180,23 +184,62 @@ func TestExtenter_PutGetObj(t *testing.T) {
 	}
 	defer os.RemoveAll(ext.extDir)
 
+	ext.Start()
+	defer ext.Close()
+
 	rand.Seed(tsc.UnixNano())
 
 	cnt := 256
 	maxGrains := (cfg.SegmentSize / uid.GrainSize) - 1 // It's the max object which 256KB segment could have.
 	buf := make([]byte, maxGrains*uid.GrainSize)
+
+	oids := make([]uint64, cnt)
+	okCnt := 0
 	for i := 0; i < cnt; i++ {
-		// TODO it should work well with various of object sizes.
-		binary.LittleEndian.PutUint64(buf[:8], uint64(i))
-		oid := uid.MakeOID(1, 1, 1, xdigest.Sum32(buf), uid.NormalObj)
-		err = ext.PutObj(0, oid, buf, false)
+		grains := rand.Intn(int(maxGrains))
+		if grains == 0 {
+			grains = 1
+		}
+		objData := buf[:grains*uid.GrainSize]
+		rand.Read(objData)
+		oid := uid.MakeOID(1, 1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
+		err = ext.PutObj(0, oid, objData, false)
+		if errors.Is(err, orpc.ErrObjDigestExisted) {
+			err = nil
+		}
 		if err != nil {
 			t.Fatal(err)
 		}
-		// TODO after put using get
+		oids[okCnt] = oid
+		okCnt++
+
+		getRet, err := ext.GetObj(1, oid, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(objData, getRet) {
+			t.Fatal("get result mismatched")
+		}
+		xbytes.PutAlignedBytes(getRet)
 	}
 
-	// TODO run get in multi goroutine
+	wg := new(sync.WaitGroup)
+	wg.Add(runtime.NumCPU())
+	for i := 0; i < runtime.NumCPU(); i++ {
+		go func() {
+			defer wg.Done()
+			oids = oids[:okCnt]
+			for _, oid := range oids {
+				getRet, err := ext.GetObj(1, oid, false)
+				if err != nil {
+					t.Fatal(err)
+				}
+				xbytes.PutAlignedBytes(getRet)
+			}
+
+		}()
+	}
+	wg.Wait()
 }
 
 // We don't want the shuffle is too slow,
