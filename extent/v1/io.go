@@ -155,6 +155,7 @@ func (e *Extenter) updatesLoop() {
 			_, _, grains, digest, otype, _ := uid.ParseOID(wr.oid) // ignore err here, because the oid should have been checked.
 
 			binary.LittleEndian.PutUint32(digestBuf, digest)
+
 			if dirtyDel.bf.Test(digestBuf) {
 				wr.done <- orpc.ErrObjDigestExisted
 				continue
@@ -486,11 +487,13 @@ func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte,
 	if nextAddr+objHeaderSize > int64(e.cfg.SegmentSize) { // It'll be easier to just check object header here and other places.
 		return written + objHeaderSize, nil // No more place for next write.
 	}
-	blankSize := nextAddr - offset + objHeaderSize
+	objEnd := offset + int64(objHeaderSize) + int64(written)
+	blankSize := nextAddr - objEnd + objHeaderSize
+
 	// Write 0 start from the offset which just written until fill the next header.
 	// Although we will have one more small I/O here, but it's okay for NVMe driver, it's fast.
 	// And this I/O is just follow the last one, sequential write is NVMe friendly.(Reducing internal GC)
-	err = e.ioSched.DoSync(reqType, e.segsFile, offset+int64(objHeaderSize)+int64(written), blankObjHeader[:blankSize])
+	err = e.ioSched.DoSync(reqType, e.segsFile, objEnd, blankObjHeader[:blankSize])
 	if err != nil {
 		return 0, err
 	}
