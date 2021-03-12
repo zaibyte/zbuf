@@ -456,6 +456,8 @@ var blankObjHeader = directio.AlignedBlock(dmu.AlignSize)
 func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte, buf []byte) (totalWritten int, err error) {
 
 	// Clean up space for oid.
+	// buf maybe dirty, maybe not. It's annoyed that checking buf usage everywhere.
+	// TODO may no more xor after checking carefully.
 	xor.Bytes(buf[:objHeaderSize], buf[:objHeaderSize], buf[:objHeaderSize])
 
 	n := len(objData)
