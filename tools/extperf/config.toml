@@ -1,6 +1,7 @@
-title = "zbuf-v1-perf"
+title = "zbuf-ext-perf"
 
-extents = 29    # P4510 8TB will have 29 extents(256GB) at most.
+version = 1
+extents_per_disk = 1    # P4510 8TB will have 29 extents(256GB) at most.
 data_root = "/Users/templex/Downloads"
 
 block_size = 0  # Use default value.
@@ -17,5 +18,4 @@ segment_size = 1024 # 1GB
 put_pending = 0
 size_per_write = 0
 
-write_threads_per_disk = 29
-read_threads_per_disk = 64
+io_threads = 32

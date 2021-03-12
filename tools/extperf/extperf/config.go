@@ -1,8 +1,9 @@
-package v1perf
+package extperf
 
 type Config struct {
-	Extents  int    `toml:"extents"`
-	DataRoot string `toml:"data_root"`
+	Version        int    `toml:"version"`
+	ExtentsPerDisk int    `toml:"extents_per_disk"`
+	DataRoot       string `toml:"data_root"`
 
 	BlockSize int64  `toml:"block_size"`
 	JobType   string `toml:"job_type"`
@@ -21,8 +22,7 @@ type Config struct {
 	SizePerWrite int64 `toml:"size_per_write"`
 
 	// Scheduler configs.
-	WriteThreadsPerDisk int `toml:"write_threads_per_disk"`
-	ReadThreadsPerDisk  int `toml:"read_threads_per_disk"`
+	IOThreads int `toml:"io_threads"`
 }
 
 var jobTypes = map[string]int{
