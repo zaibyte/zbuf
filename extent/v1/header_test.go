@@ -25,7 +25,7 @@ func TestCreateLoadHeader(t *testing.T) {
 	}
 	defer os.RemoveAll(extDir)
 
-	c := NewCreator(new(Config), sched, vfs.GetFS(), new(zai.NopClient), 1)
+	c := NewCreator(new(Config), new(testCreatorSched), vfs.GetFS(), new(zai.NopClient), 1)
 
 	h, err := c.CreateHeader(extDir, extent.CreateParams{
 		InstanceID: 1,

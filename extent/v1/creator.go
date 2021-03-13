@@ -2,9 +2,12 @@ package v1
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"sync"
 	"unsafe"
+
+	"g.tesamc.com/IT/zaipkg/orpc"
 
 	zai "g.tesamc.com/IT/zai/client"
 	"g.tesamc.com/IT/zaipkg/xerrors"
@@ -17,24 +20,41 @@ import (
 
 // Creator is ext.v1's Creator.
 type Creator struct {
-	cfg     *Config
-	iosched xio.Scheduler
-	fs      vfs.FS
-	zai     zai.Client
-	boxID   uint32
+	cfg    *Config
+	scheds creatorScheduler
+	fs     vfs.FS
+	zai    zai.Client
+	boxID  uint32
+}
+
+type creatorScheduler interface {
+	getSched(diskID uint32) (xio.Scheduler, error)
+}
+
+type mapSched struct {
+	scheds *sync.Map
+}
+
+func (m *mapSched) getSched(diskID uint32) (xio.Scheduler, error) {
+	schedv, ok := m.scheds.Load(diskID)
+	if !ok {
+		return nil, xerrors.WithMessage(orpc.ErrNotFound, fmt.Sprintf("disk: %d scheduler", diskID))
+	}
+	sched := schedv.(xio.Scheduler)
+	return sched, nil
 }
 
 // NewCreator creates an ext.v1 Creator.
-func NewCreator(cfg *Config, iosched xio.Scheduler, fs vfs.FS, zai zai.Client, boxID uint32) *Creator {
+func NewCreator(cfg *Config, scheds creatorScheduler, fs vfs.FS, zai zai.Client, boxID uint32) *Creator {
 
 	cfg.adjust()
 
 	return &Creator{
-		cfg:     cfg,
-		iosched: iosched,
-		fs:      fs,
-		zai:     zai,
-		boxID:   boxID,
+		cfg:    cfg,
+		scheds: scheds,
+		fs:     fs,
+		zai:    zai,
+		boxID:  boxID,
 	}
 }
 
@@ -55,6 +75,11 @@ const (
 )
 
 func (c *Creator) Create(ctx context.Context, extDir string, params extent.CreateParams) (extent.Extenter, error) {
+
+	sched, err := c.scheds.getSched(params.DiskID)
+	if err != nil {
+		return nil, err
+	}
 
 	fs := c.fs
 	h, err := c.CreateHeader(extDir, params)
@@ -110,7 +135,7 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 			InstanceId: params.InstanceID,
 		}},
 		diskInfo: params.DiskInfo,
-		ioSched:  c.iosched,
+		ioSched:  sched,
 		segsFile: segFile,
 
 		header: h,
@@ -172,22 +197,27 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 
 	fs := c.fs
 
-	h, err := LoadHeader(c.iosched, fs, extDir)
+	sched, err := c.scheds.getSched(params.DiskID)
 	if err != nil {
 		return nil, err
+	}
+
+	h, err := LoadHeader(sched, fs, extDir)
+	if err != nil {
+		return nil, xerrors.WithMessage(err, "failed to load header")
 	}
 
 	segFile, err := fs.Open(filepath.Join(extDir, SegmentsFileName))
 	if err != nil {
 		h.Close()
-		return nil, err
+		return nil, xerrors.WithMessage(err, "failed to open segments file")
 	}
 
 	dwf, err := fs.Open(filepath.Join(extDir, dirtyDelWalFileName))
 	if err != nil {
 		h.Close()
 		_ = segFile.Close()
-		return nil, err
+		return nil, xerrors.WithMessage(err, "failed to open dirty delete wal")
 	}
 
 	ctx2, cancel := context.WithCancel(ctx)
@@ -208,7 +238,7 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 			InstanceId: params.InstanceID,
 		}},
 		diskInfo: params.DiskInfo,
-		ioSched:  c.iosched,
+		ioSched:  sched,
 		segsFile: segFile,
 
 		header: h,
@@ -247,18 +277,18 @@ func (e *Extenter) loadDMU() error {
 	// 1. Loading DMU, if there is no snapshot, creating a new empty DMU.
 	err := e.loadDMUSnap()
 	if err != nil {
-		return err
+		return xerrors.WithMessage(err, "failed to load DMU snapshot")
 	}
 
 	// After invoking, we won't miss any written objects.
 	err = e.traverseWritableSeg()
 	if err != nil {
-		return err
+		return xerrors.WithMessage(err, "failed to traverse writable segments")
 	}
 
 	err = e.traverseDirtyDeleteWAL()
 	if err != nil {
-		return err
+		return xerrors.WithMessage(err, "failed to traverse dirty delete wal")
 	}
 
 	return err

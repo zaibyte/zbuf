@@ -37,7 +37,12 @@ type Header struct {
 func (c *Creator) CreateHeader(extDir string, params extent.CreateParams) (*Header, error) {
 	h := new(Header)
 
-	h.iosched = c.iosched
+	sched, err := c.scheds.getSched(params.DiskID)
+	if err != nil {
+		return nil, err
+	}
+
+	h.iosched = sched
 	fs := c.fs
 	f, err := fs.Create(filepath.Join(extDir, HeaderFileName))
 	if err != nil {

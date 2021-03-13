@@ -23,14 +23,22 @@ import (
 	"github.com/templexxx/tsc"
 )
 
+type testCreatorSched struct {
+	sched xio.Scheduler
+}
+
+func (s *testCreatorSched) getSched(diskID uint32) (xio.Scheduler, error) {
+	return s.sched, nil
+}
+
 func makeTestCreator(cfg *Config) extent.Creator {
 
 	return &Creator{
-		cfg:     cfg,
-		iosched: new(xio.NopScheduler),
-		fs:      vfs.GetTestFS(),
-		zai:     new(zai.NopClient),
-		boxID:   1,
+		cfg:    cfg,
+		scheds: &testCreatorSched{sched: new(xio.NopScheduler)},
+		fs:     vfs.GetTestFS(),
+		zai:    new(zai.NopClient),
+		boxID:  1,
 	}
 }
 
