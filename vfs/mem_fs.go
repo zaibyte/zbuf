@@ -653,6 +653,13 @@ func (f *memFile) Close() error {
 	return nil
 }
 
+func (f *memFile) PreAllocate(length int64) {
+	f.n.mu.Lock()
+	defer f.n.mu.Unlock()
+
+	f.n.mu.data = make([]byte, length)
+}
+
 func (f *memFile) Read(p []byte) (int, error) {
 	if !f.read {
 		return 0, errors.New("pebble/vfs: file was not opened for reading")

@@ -23,6 +23,7 @@ import "syscall"
 // greater than the file size.
 const FALLOC_FL_DEFAULT = 0
 
-func FAlloc(fd uintptr, length int64) error {
+func FAlloc(f File, length int64) error {
+	fd := f.Fd()
 	return syscall.Fallocate(int(fd), FALLOC_FL_DEFAULT, 0, length)
 }

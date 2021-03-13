@@ -18,6 +18,6 @@
 
 package vfs
 
-func FAlloc(fd uintptr, length int64) error {
+func FAlloc(f File, length int64) error {
 	return nil
 }
