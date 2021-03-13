@@ -1,4 +1,4 @@
-// +build !linux
+// +build !linux,!darwin
 
 /*
  * Copyright (c) 2020. Temple3x (temple3x@gmail.com)
