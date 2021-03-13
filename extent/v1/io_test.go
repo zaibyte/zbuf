@@ -163,7 +163,7 @@ func TestObjHeaderMakeRead(t *testing.T) {
 	for i := range oids {
 		oid := oids[i]
 		makeObjHeader(oid, uid.GetGrains(oid), buf)
-		aoid, grains, err := readObjHeaderFromBuf(buf)
+		aoid, grains, _, err := readObjHeaderFromBuf(buf)
 		assert.Nil(t, err)
 		assert.Equal(t, oid, aoid)
 		assert.Equal(t, uid.GetGrains(oid), grains)
@@ -171,7 +171,7 @@ func TestObjHeaderMakeRead(t *testing.T) {
 
 	makeObjHeader(oids[0], uid.GetGrains(oids[0]), buf)
 	buf[0] += 1
-	_, _, err := readObjHeaderFromBuf(buf)
+	_, _, _, err := readObjHeaderFromBuf(buf)
 	assert.True(t, errors.Is(err, orpc.ErrChecksumMismatch))
 }
 

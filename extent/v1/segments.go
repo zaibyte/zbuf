@@ -1,11 +1,20 @@
 package v1
 
-import "g.tesamc.com/IT/zbuf/extent/v1/dmu"
+import (
+	"encoding/binary"
+	"fmt"
+
+	"g.tesamc.com/IT/zaipkg/orpc"
+	"g.tesamc.com/IT/zaipkg/xdigest"
+	"g.tesamc.com/IT/zaipkg/xerrors"
+	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
+	"github.com/templexxx/tsc"
+)
 
 // Segments layout on local file system:
 //
-// Address                                    Address+4KB
-// | oid(8B) grains(4B) padding(4080B) checksum(4B) |  object_data |
+// Address                                                   Address+4KB
+// | oid(8B) grains(4B) create_ts(8B) padding(4072B) checksum(4B) |  object_data |
 //
 // Address is aligned to 16KB.
 // header takes 4KB
@@ -19,6 +28,41 @@ import "g.tesamc.com/IT/zbuf/extent/v1/dmu"
 const (
 	objHeaderSize = 4 * 1024
 )
+
+// makeObjHeader writes object header to buf.
+//
+// The elements inside the header: oid, grains, create_ts, checksum:
+//
+// OID & its grains will be put into the first 12Bytes starting from the offset.
+// Create Timestamp will be follow them.
+//
+// Their checksum will be put into the last 4Bytes in the first 4KB from the offset.
+//
+// Set grains 0, means this oid & the space taken after it could be collected.
+func makeObjHeader(oid uint64, grains uint32, buf []byte) {
+	binary.LittleEndian.PutUint64(buf[:8], oid)
+	binary.LittleEndian.PutUint32(buf[8:12], grains)
+	binary.LittleEndian.PutUint64(buf[12:20], uint64(tsc.UnixNano()))
+	hsum := xdigest.Sum32(buf[:objHeaderSize-4])
+	binary.LittleEndian.PutUint32(buf[objHeaderSize-4:], hsum)
+}
+
+// readObjHeaderFromBuf reads object header from bytes buf.
+func readObjHeaderFromBuf(buf []byte) (oid uint64, grains uint32, createTS int64, err error) {
+	oid = binary.LittleEndian.Uint64(buf[:8])
+	grains = binary.LittleEndian.Uint32(buf[8:12])
+	createTS = int64(binary.LittleEndian.Uint64(buf[12:20]))
+
+	if oid == 0 && grains == 0 { // Empty header, no need calc checksum.
+		return 0, 0, 0, nil
+	}
+
+	if xdigest.Sum32(buf[:objHeaderSize-4]) != binary.LittleEndian.Uint32(buf[objHeaderSize-4:]) {
+		return 0, 0, 0, xerrors.WithMessage(orpc.ErrChecksumMismatch, fmt.Sprintf("read oid: %d", oid))
+	}
+
+	return oid, grains, createTS, nil
+}
 
 // Segment states.
 const (

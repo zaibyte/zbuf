@@ -411,37 +411,6 @@ func (e *Extenter) preprocModifyRequest() error {
 	return nil
 }
 
-// makeObjHeader writes object header to buf.
-//
-// The elements inside the header: oid, grains, checksum:
-//
-// OID & its grains will be put into the first 12Bytes starting from the offset.
-// Their checksum will be put into the last 4Bytes in the first 4KB from the offset.
-//
-// Set grains 0, means this oid & the space taken after it could be collected.
-func makeObjHeader(oid uint64, grains uint32, buf []byte) {
-	binary.LittleEndian.PutUint64(buf[:8], oid)
-	binary.LittleEndian.PutUint32(buf[8:12], grains)
-	hsum := xdigest.Sum32(buf[:objHeaderSize-4])
-	binary.LittleEndian.PutUint32(buf[objHeaderSize-4:], hsum)
-}
-
-// readObjHeaderFromBuf reads object header from bytes buf.
-func readObjHeaderFromBuf(buf []byte) (oid uint64, grains uint32, err error) {
-	oid = binary.LittleEndian.Uint64(buf[:8])
-	grains = binary.LittleEndian.Uint32(buf[8:12])
-
-	if oid == 0 && grains == 0 { // Empty header, no need checksum.
-		return 0, 0, nil
-	}
-
-	if xdigest.Sum32(buf[:objHeaderSize-4]) != binary.LittleEndian.Uint32(buf[objHeaderSize-4:]) {
-		return 0, 0, xerrors.WithMessage(orpc.ErrChecksumMismatch, fmt.Sprintf("read oid: %d", oid))
-	}
-
-	return oid, grains, nil
-}
-
 // blankObjHeader is an empty object header(with max padding) for clean up the next place when writing.
 var blankObjHeader = directio.AlignedBlock(dmu.AlignSize)
 
@@ -504,10 +473,10 @@ func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte,
 }
 
 // oidReadAt reads oid from disk at offset.
-func (e *Extenter) oidReadAt(reqType uint64, offset int64, oidBuf []byte) (oid uint64, grains uint32, err error) {
+func (e *Extenter) oidReadAt(reqType uint64, offset int64, oidBuf []byte) (oid uint64, grains uint32, createTS int64, err error) {
 
 	if err = e.ioSched.DoSync(reqType, e.segsFile, offset, oidBuf); err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
 
 	return readObjHeaderFromBuf(oidBuf)
@@ -548,7 +517,7 @@ func (e *Extenter) objReadAt(reqType uint64, digest uint32, offset int64, objDat
 // It won't return the data, just checks the I/O system and its checksum.
 // buf should be cfg.SizePerRead bytes block.
 func (e *Extenter) checkReadAt(offset int64, buf []byte) (oid uint64, grains uint32, err error) {
-	oid, grains, err = e.oidReadAt(xio.ReqObjRead, offset, buf[:objHeaderSize])
+	oid, grains, _, err = e.oidReadAt(xio.ReqObjRead, offset, buf[:objHeaderSize])
 	if err != nil {
 		return 0, 0, err
 	}

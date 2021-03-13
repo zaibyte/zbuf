@@ -38,8 +38,8 @@ type Server struct {
 
 	availExtentVersion []uint16
 
-	diskInfos sync.Map // Disks info
-	scheds    sync.Map // Each disk has its own scheduler.
+	diskInfos sync.Map  // Disks info
+	scheds    *sync.Map // Each disk has its own scheduler.
 
 	// creators is the collector that this server supports extent versions.
 	creators map[uint16]extent.Creator

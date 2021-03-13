@@ -257,7 +257,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			}
 
 			readOffset := segCursorToOffset(e.gcSrcSeg, int64(e.gcSrcCursor), int64(segSize))
-			oid, _, err2 := e.oidReadAt(xio.ReqGCRead, readOffset, oidBuf)
+			oid, _, _, err2 := e.oidReadAt(xio.ReqGCRead, readOffset, oidBuf)
 			if err2 != nil {
 				e.setState(err2)
 				return gcDeadInterval, false
