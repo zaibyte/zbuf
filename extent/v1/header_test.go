@@ -6,7 +6,6 @@ import (
 	"os"
 	"testing"
 
-	zai "g.tesamc.com/IT/zai/client"
 	"g.tesamc.com/IT/zbuf/extent"
 
 	"g.tesamc.com/IT/zbuf/vfs"
@@ -25,7 +24,11 @@ func TestCreateLoadHeader(t *testing.T) {
 	}
 	defer os.RemoveAll(extDir)
 
-	c := NewCreator(new(Config), new(testCreatorSched), vfs.GetFS(), new(zai.NopClient), 1)
+	cfg := getDefaultConfig()
+	cfg.SegmentSize = 256 * 1024 // We don't take too much space only for non-I/O testing.
+
+	cv := makeTestCreator(cfg)
+	c := cv.(*Creator)
 
 	h, err := c.CreateHeader(extDir, extent.CreateParams{
 		InstanceID: 1,

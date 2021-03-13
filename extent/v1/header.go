@@ -53,7 +53,6 @@ func (c *Creator) CreateHeader(extDir string, params extent.CreateParams) (*Head
 		_ = f.Close()
 		return nil, xerrors.WithMessage(err, "failed to alloc header")
 	}
-
 	h.f = f
 
 	h.nvh = new(NVHeader)
