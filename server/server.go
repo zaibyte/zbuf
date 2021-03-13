@@ -25,9 +25,10 @@ import (
 )
 
 // Server is the ZBuf server.
+// It's the container which holds all interface for outside using.
 type Server struct {
 	isRunning   int64
-	development bool
+	development bool // If true, means in development mode, could use some configs which are forbidden in production env.
 
 	cfg *config.Config
 
@@ -40,12 +41,12 @@ type Server struct {
 
 	availExtentVersion []uint16
 
-	diskInfos  sync.Map // Disks info
-	schedulers sync.Map
+	diskInfos sync.Map // Disks info
+	scheds    sync.Map // Each disk has its own scheduler.
 
 	// creators is the collector that this server supports extent versions.
-	creators  map[uint16]extent.Creator
-	extenters sync.Map
+	creators map[uint16]extent.Creator
+	exts     sync.Map
 
 	ctx    context.Context
 	cancel func()
@@ -139,7 +140,7 @@ func (s *Server) Close() {
 
 	s.stopBgLoops()
 
-	s.extenters.Range(func(key, value interface{}) bool {
+	s.exts.Range(func(key, value interface{}) bool {
 		ext := value.(extent.Extenter)
 		_ = ext.Close()
 		return true

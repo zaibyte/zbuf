@@ -23,7 +23,7 @@ import (
 // TODO it's better to deal with this error in extent
 func (s *Server) handleIOError(err error, extID, diskID uint32) {
 	if errors.Is(err, orpc.ErrChecksumMismatch) {
-		v, ok := s.extenters.Load(extID)
+		v, ok := s.exts.Load(extID)
 		if !ok {
 			return
 		}

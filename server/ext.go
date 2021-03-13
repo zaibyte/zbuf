@@ -47,7 +47,7 @@ func (s *Server) cleanExt(extID uint32) {
 		return
 	}
 
-	s.extenters.Delete(extID)
+	s.exts.Delete(extID)
 
 	_ = s.fs.RemoveAll(ext.GetDir())
 }
@@ -104,7 +104,7 @@ func (s *Server) createExtent(version uint16, extID, diskID, state, objCount uin
 		return err
 	}
 
-	s.extenters.Store(extID, ext)
+	s.exts.Store(extID, ext)
 	diskInfo.AddUsed(int64(taken))
 
 	return nil
@@ -143,7 +143,7 @@ func (s *Server) listExtents() {
 					s.handleIOError(err3, extID, diskID)
 					continue
 				}
-				s.extenters.Store(extID, ext)
+				s.exts.Store(extID, ext)
 			}
 		}
 
@@ -190,7 +190,7 @@ func (s *Server) verifyExtID() bool {
 
 // getExtenter gets Extenter by extID.
 func (s *Server) getExtenter(extID uint32) extent.Extenter {
-	v, ok := s.extenters.Load(extID)
+	v, ok := s.exts.Load(extID)
 	if !ok {
 		return nil
 	}
