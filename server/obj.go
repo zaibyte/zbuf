@@ -14,7 +14,11 @@ func (s *Server) PutObj(reqid, oid uint64, extID uint32, objData []byte) error {
 	panic("implement me")
 }
 
-func (s *Server) GetObj(reqid, oid uint64, extID uint32) (objData []byte, err error) {
+func (s *Server) DeleteBatch(reqid uint64, extID uint32, oids []byte) error {
+	panic("implement me")
+}
+
+func (s *Server) GetObj(reqid, oid uint64, extID uint32, isClone bool) (objData []byte, err error) {
 
 	groupID, err := isValidOID(s.cfg.App.BoxID, oid)
 	if err != nil {

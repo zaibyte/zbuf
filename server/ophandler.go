@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/VictoriaMetrics/metrics"
+
 	"g.tesamc.com/IT/zaipkg/orpc"
 
 	"g.tesamc.com/IT/zaipkg/xerrors"
@@ -21,6 +23,11 @@ import (
 
 func (s *Server) addOpHandlers() {
 	s.opSvr.AddHandler(http.MethodPut, "/v1/extent/create/:version/:disk_id/:ext_id/:state/:obj_cnt", s.createExtentHandler)
+
+	// Add prometheus metrics handler.
+	s.opSvr.AddHandler(http.MethodGet, "/v1/metrics", func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
+		metrics.WritePrometheus(w, s.cfg.ExposeProcessMetrics)
+	})
 }
 
 // Path: /v1/extent/create/:version/:disk_id/:ext_id/:state/:obj_cnt

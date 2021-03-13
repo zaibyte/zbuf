@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"net/http"
 	"sync"
 	"sync/atomic"
 
@@ -19,8 +18,6 @@ import (
 	"g.tesamc.com/IT/zbuf/vdisk"
 	"g.tesamc.com/IT/zbuf/vfs"
 
-	"github.com/VictoriaMetrics/metrics"
-	"github.com/julienschmidt/httprouter"
 	"github.com/templexxx/tsc"
 )
 
@@ -66,7 +63,7 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 	s.opSvr = xhttp.NewServer(&xhttp.ServerConfig{
 		Address: cfg.App.HTTPServerAddr,
 	})
-	s.addHandlers()
+	s.addOpHandlers()
 
 	s.availExtentVersion = extent.AvailVersions
 
@@ -78,15 +75,6 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 	s.listExtents()
 
 	return s, nil
-}
-
-func (s *Server) addHandlers() {
-	s.addOpHandlers()
-
-	// Add prometheus metrics handler.
-	s.opSvr.AddHandler(http.MethodGet, "/v1/metrics", func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
-		metrics.WritePrometheus(w, s.cfg.ExposeProcessMetrics)
-	})
 }
 
 // TODO should start tsc.Calibrate()
