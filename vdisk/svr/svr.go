@@ -147,6 +147,33 @@ func (d *ZBufDisks) StartSched(diskIDs ...uint32) {
 	}
 }
 
+// CloseSched closes disk I/O scheduler.
+// If diskIDs is not empty, using diskIDs, if diskID is not found, ignore.
+// If it's empty, closing all schedulers which have started.
+func (d *ZBufDisks) CloseSched(diskIDs ...uint32) {
+	if len(diskIDs) != 0 {
+		for _, diskID := range diskIDs {
+			zd := d.GetDisk(diskID)
+			if zd == nil {
+				continue // Just ignore not found disk.
+			}
+			if !zd.SchedStarted {
+				continue
+			}
+			zd.Sched.Close()
+		}
+	} else {
+		d.Disks.Range(func(key, value interface{}) bool {
+			disk := value.(*ZBufDisk)
+			if !disk.SchedStarted {
+				return true
+			}
+			disk.Sched.Close()
+			return true
+		})
+	}
+}
+
 // MakeDiskDir makes disk path according diskID
 func MakeDiskDir(diskID uint32, root string) string {
 	return filepath.Join(root, diskNamePrefix+cast.ToString(diskID))
