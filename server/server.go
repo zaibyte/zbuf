@@ -67,11 +67,12 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 
 	s.availExtentVersion = extent.AvailVersions
 
+	s.listDisks()
+
 	s.creators = map[uint16]extent.Creator{
 		extent.Version1: v1.NewCreator(&s.cfg.ExtV1Config),
 	}
 
-	s.listDisks()
 	s.listExtents()
 
 	return s, nil

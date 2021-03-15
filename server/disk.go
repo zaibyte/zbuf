@@ -4,6 +4,9 @@ import (
 	"errors"
 	"path/filepath"
 	"strings"
+	"sync"
+
+	"g.tesamc.com/IT/zbuf/xio/sched"
 
 	"g.tesamc.com/IT/zbuf/vdisk"
 
@@ -31,9 +34,14 @@ func (s *Server) listDisks() {
 	root := s.cfg.DataRoot
 
 	diskIDs, _ := listDiskIDs(s.fs, root)
-
 	s.getDisksInfo(diskIDs)
-	// TODO start disk io scheduler
+
+	s.scheds = new(sync.Map)
+	for _, diskID := range diskIDs {
+		v, _ := s.diskInfos.Load(diskID) // Must be ok here.
+		dv := v.(*vdisk.Info)
+		s.scheds.Store(diskID, sched.New(s.ctx, &s.cfg.Scheduler, dv))
+	}
 }
 
 func listDiskIDs(fs vfs.FS, root string) (diskIDs []uint32, err error) {
