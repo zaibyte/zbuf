@@ -188,7 +188,7 @@ func (d *ZBufDisks) GetInfo(diskID uint32) *vdisk.Info {
 	return di.(*ZBufDisk).Info
 }
 
-// GetSched gets scheduler by diskID and its state.
+// GetSched gets scheduler by diskID and started or not.
 func (d *ZBufDisks) GetSched(diskID uint32) (xio.Scheduler, bool) {
 	di, ok := d.Disks.Load(diskID)
 	if !ok {
