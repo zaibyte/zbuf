@@ -188,13 +188,14 @@ func (d *ZBufDisks) GetInfo(diskID uint32) *vdisk.Info {
 	return di.(*ZBufDisk).Info
 }
 
-// GetSched gets scheduler by diskID.
-func (d *ZBufDisks) GetSched(diskID uint32) xio.Scheduler {
+// GetSched gets scheduler by diskID and its state.
+func (d *ZBufDisks) GetSched(diskID uint32) (xio.Scheduler, bool) {
 	di, ok := d.Disks.Load(diskID)
 	if !ok {
-		return nil
+		return nil, false
 	}
-	return di.(*ZBufDisk).Sched
+	zd := di.(*ZBufDisk)
+	return zd.Sched, zd.SchedStarted
 }
 
 // GetDisk gets ZBufDisk by diskID.
@@ -204,4 +205,18 @@ func (d *ZBufDisks) GetDisk(diskID uint32) *ZBufDisk {
 		return nil
 	}
 	return di.(*ZBufDisk)
+}
+
+// ListDiskIDs lists all disk IDs in this ZBuf server.
+func (d *ZBufDisks) ListDiskIDs() []uint32 {
+
+	ids := make([]uint32, 0, 32)
+	cnt := 0
+	d.Disks.Range(func(key, value interface{}) bool {
+		id := key.(uint32)
+		ids = append(ids, id)
+		cnt++
+		return true
+	})
+	return ids[:cnt]
 }
