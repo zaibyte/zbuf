@@ -416,12 +416,11 @@ var blankObjHeader = directio.AlignedBlock(dmu.AlignSize)
 
 // objWriteAt writes with a buffer in a certain offset.
 // Using objWriteAt split big data chunk into buffer size, avoiding stall.
-// Returns total_written(include oid & object_data) & error.
+// Returns total_written(include object_header & object_data) & error.
 //
-// All objects write in ext.v1 is sequentially, which means the next write must be follow the offset of the last object.
-// objWriteAt will set the next header(if there is enough space) blank for indicating there is no more object by using this property.
-// In this way, we could reduce unnecessary random write.
-// See: https://g.tesamc.com/IT/zbuf/issues/166 for details.
+// objWriteAt will fill up the the whole segment until reach the next one,
+// helping to ensure there is only sequential writing, the I/O penalize in FTL GC inside NVMe device won't be triggered frequently,
+// unless we just miss the whole block in NVMe device.
 func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte, buf []byte) (totalWritten int, err error) {
 
 	// Clean up space for oid.
@@ -433,40 +432,44 @@ func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte,
 	makeObjHeader(oid, uint32(n/uid.GrainSize), buf)
 	written := copy(buf[objHeaderSize:], objData)
 
-	err = e.ioSched.DoSync(reqType, e.segsFile, offset, buf[:written+objHeaderSize])
-	if err != nil {
-		return
+	// objEnd is this object's last bytes address.
+	objEnd := offset + int64(objHeaderSize) + int64(n)
+	// nextAddr is the next object's address(if has).
+	nextAddr := xbytes.AlignSize(objEnd, dmu.AlignSize)
+
+	if int64(written)+objHeaderSize+(nextAddr-objEnd) < int64(len(buf)) { // If object is small, using single I/O to write all digits.
+		copy(buf[written+objHeaderSize:], blankObjHeader[:nextAddr-objEnd])
+		err = e.ioSched.DoSync(reqType, e.segsFile, offset, buf[:written+objHeaderSize])
+		if err != nil {
+			return
+		}
+		return written + objHeaderSize, err
 	}
+
 	offset += int64(written)
 	offset += objHeaderSize
 
 	sizePerWrite := int(e.cfg.SizePerWrite)
 	for written != n {
 		nn := sizePerWrite
+		var p []byte
 		if n-written < nn {
 			nn = n - written
+			p = objData[written : written+nn]
+			if n-written+int(nextAddr-objEnd) < sizePerWrite {
+				copy(buf[:], objData[written:])
+				copy(buf[nn:], blankObjHeader[:nextAddr-objEnd])
+				p = buf[:nn+int(nextAddr-objEnd)]
+			}
+		} else {
+			p = objData[written : written+nn]
 		}
-		err = e.ioSched.DoSync(reqType, e.segsFile, offset, objData[written:written+nn])
+		err = e.ioSched.DoSync(reqType, e.segsFile, offset, p)
 		if err != nil {
 			return
 		}
 		written += nn
 		offset += int64(nn)
-	}
-
-	nextAddr := offset + xbytes.AlignSize(int64(written+objHeaderSize), dmu.AlignSize)
-	if nextAddr+objHeaderSize > int64(e.cfg.SegmentSize) { // It'll be easier to just check object header here and other places.
-		return written + objHeaderSize, nil // No more place for next write.
-	}
-	objEnd := offset + int64(objHeaderSize) + int64(written)
-	blankSize := nextAddr - objEnd + objHeaderSize
-
-	// Write 0 start from the offset which just written until fill the next header.
-	// Although we will have one more small I/O here, but it's okay for NVMe driver, it's fast.
-	// And this I/O is just follow the last one, sequential write is NVMe friendly.(Reducing internal GC)
-	err = e.ioSched.DoSync(reqType, e.segsFile, objEnd, blankObjHeader[:blankSize])
-	if err != nil {
-		return 0, err
 	}
 
 	return written + objHeaderSize, nil
