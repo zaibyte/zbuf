@@ -416,63 +416,64 @@ var blankObjHeader = directio.AlignedBlock(dmu.AlignSize)
 
 // objWriteAt writes with a buffer in a certain offset.
 // Using objWriteAt split big data chunk into buffer size, avoiding stall.
-// Returns total_written(include object_header & object_data) & error.
+// Returns written(include object_header & object_data) & error.
 //
 // objWriteAt will fill up the the whole segment until reach the next one,
 // helping to ensure there is only sequential writing, the I/O penalize in FTL GC inside NVMe device won't be triggered frequently,
 // unless we just miss the whole block in NVMe device.
-func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte, buf []byte) (totalWritten int, err error) {
+func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte, buf []byte) (written int, err error) {
 
 	// Clean up space for oid.
 	// buf maybe dirty, maybe not. It's annoyed that checking buf usage everywhere.
 	// TODO may no more xor after checking carefully.
 	xor.Bytes(buf[:objHeaderSize], buf[:objHeaderSize], buf[:objHeaderSize])
 
-	n := len(objData)
-	makeObjHeader(oid, uint32(n/uid.GrainSize), buf)
-	written := copy(buf[objHeaderSize:], objData)
+	objN := len(objData)
+	makeObjHeader(oid, uint32(objN/uid.GrainSize), buf)
+	objWritten := copy(buf[objHeaderSize:], objData)
 
-	// objEnd is this object's last bytes address.
-	objEnd := offset + int64(objHeaderSize) + int64(n)
-	// nextAddr is the next object's address(if has).
+	// objEnd is the last non-zero byte address.
+	objEnd := offset + int64(objHeaderSize) + int64(objN)
+	// nextAddr is the next object's address(or reach the segment end).
 	nextAddr := xbytes.AlignSize(objEnd, dmu.AlignSize)
 
-	if int64(written)+objHeaderSize+(nextAddr-objEnd) < int64(len(buf)) { // If object is small, using single I/O to write all digits.
-		copy(buf[written+objHeaderSize:], blankObjHeader[:nextAddr-objEnd])
-		err = e.ioSched.DoSync(reqType, e.segsFile, offset, buf[:written+objHeaderSize])
+	// If object is small, using single I/O to write all digits.
+	if int64(objN)+objHeaderSize+(nextAddr-objEnd) < int64(len(buf)) {
+		copy(buf[objN+objHeaderSize:], blankObjHeader[:nextAddr-objEnd])
+		err = e.ioSched.DoSync(reqType, e.segsFile, offset, buf[:objN+objHeaderSize+int(nextAddr-objEnd)])
 		if err != nil {
 			return
 		}
-		return written + objHeaderSize, err
+		return objWritten + objHeaderSize, err
 	}
 
-	offset += int64(written)
+	offset += int64(objWritten)
 	offset += objHeaderSize
 
 	sizePerWrite := int(e.cfg.SizePerWrite)
-	for written != n {
+	for objWritten != objN {
 		nn := sizePerWrite
 		var p []byte
-		if n-written < nn {
-			nn = n - written
-			p = objData[written : written+nn]
-			if n-written+int(nextAddr-objEnd) < sizePerWrite {
-				copy(buf[:], objData[written:])
+		if objN-objWritten < nn {
+			nn = objN - objWritten
+			p = objData[objWritten : objWritten+nn]
+			if objN-objWritten+int(nextAddr-objEnd) < sizePerWrite {
+				copy(buf[:], objData[objWritten:])
 				copy(buf[nn:], blankObjHeader[:nextAddr-objEnd])
 				p = buf[:nn+int(nextAddr-objEnd)]
 			}
 		} else {
-			p = objData[written : written+nn]
+			p = objData[objWritten : objWritten+nn]
 		}
 		err = e.ioSched.DoSync(reqType, e.segsFile, offset, p)
 		if err != nil {
 			return
 		}
-		written += nn
+		objWritten += nn
 		offset += int64(nn)
 	}
 
-	return written + objHeaderSize, nil
+	return objWritten + objHeaderSize, nil
 }
 
 // oidReadAt reads oid from disk at offset.
@@ -511,7 +512,7 @@ func (e *Extenter) objReadAt(reqType uint64, digest uint32, offset int64, objDat
 
 	actDigest := d.Sum32()
 	if actDigest != digest {
-		return orpc.ErrChecksumMismatch
+		return xerrors.WithMessage(orpc.ErrChecksumMismatch, "failed to read")
 	}
 	return nil
 }
