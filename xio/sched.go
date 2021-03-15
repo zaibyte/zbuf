@@ -6,6 +6,8 @@ import (
 
 // Scheduler is the ZBuf I/O queue. Each disk/core has one(depends on implementations).
 type Scheduler interface {
+	Start()
+	Close()
 	// DoAsync does I/O request async.
 	DoAsync(reqType uint64, f vfs.File, offset int64, d []byte) (ar *AsyncRequest, err error)
 	// DoSync does I/O request waiting until succeed.
@@ -14,6 +16,14 @@ type Scheduler interface {
 
 // NopScheduler wraps Scheduler but actually no scheduler working just write/read directly.
 type NopScheduler struct {
+}
+
+func (s *NopScheduler) Start() {
+	return
+}
+
+func (s *NopScheduler) Close() {
+	return
 }
 
 func (s *NopScheduler) DoAsync(reqType uint64, f vfs.File, offset int64, d []byte) (ar *AsyncRequest, err error) {
