@@ -444,7 +444,12 @@ func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte,
 		if err != nil {
 			return
 		}
-		return objWritten + objHeaderSize, err
+		return objN + objHeaderSize, err
+	}
+
+	err = e.ioSched.DoSync(reqType, e.segsFile, offset, buf[:objWritten+objHeaderSize])
+	if err != nil {
+		return 0, err
 	}
 
 	offset += int64(objWritten)
