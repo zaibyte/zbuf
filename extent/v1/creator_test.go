@@ -43,7 +43,7 @@ func makeTestCreator(cfg *Config) extent.Creator {
 }
 
 func TestCreator_GetSize(t *testing.T) {
-	c := makeTestCreator(getDefaultConfig())
+	c := makeTestCreator(GetDefaultConfig())
 	// Expected after / 1GiB, equal segments file size(256GB).
 	assert.Equal(t, uint64(256), c.GetSize()/1024/1024/1024)
 }
@@ -56,7 +56,7 @@ func TestCreator_Create(t *testing.T) {
 	}
 	defer os.RemoveAll(extDir)
 
-	cfg := getDefaultConfig()
+	cfg := GetDefaultConfig()
 	cfg.SegmentSize = 256 * 1024 // We don't take too much space only for non-I/O testing.
 
 	c := makeTestCreator(cfg)
@@ -93,7 +93,7 @@ func TestCreator_CreateLoad(t *testing.T) {
 	}
 	defer os.RemoveAll(extDir)
 
-	cfg := getDefaultConfig()
+	cfg := GetDefaultConfig()
 	cfg.SegmentSize = 256 * 1024 // We don't take too much space only for non-I/O testing.
 
 	c := makeTestCreator(cfg)

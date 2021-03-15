@@ -24,7 +24,7 @@ func TestCreateLoadHeader(t *testing.T) {
 	}
 	defer os.RemoveAll(extDir)
 
-	cfg := getDefaultConfig()
+	cfg := GetDefaultConfig()
 	cfg.SegmentSize = 256 * 1024 // We don't take too much space only for non-I/O testing.
 
 	cv := makeTestCreator(cfg)

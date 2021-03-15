@@ -176,7 +176,7 @@ func TestObjHeaderMakeRead(t *testing.T) {
 }
 
 func TestExtenter_PutGetObj(t *testing.T) {
-	cfg := getDefaultConfig()
+	cfg := GetDefaultConfig()
 	cfg.SegmentSize = 256 * 1024
 	ext, err := createTestExtenter(cfg)
 	if err != nil {

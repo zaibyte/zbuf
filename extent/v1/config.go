@@ -110,8 +110,8 @@ func (cfg *Config) adjust() {
 	config.Adjust(&cfg.DeepGCInterval, defaultDeepGCInterval)
 }
 
-// getDefaultConfig gets Config with default values.
-func getDefaultConfig() *Config {
+// GetDefaultConfig gets Config with default values.
+func GetDefaultConfig() *Config {
 	c := new(Config)
 	c.adjust()
 	return c
