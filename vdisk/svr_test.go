@@ -1,4 +1,4 @@
-package server
+package vdisk
 
 import (
 	"io/ioutil"
@@ -17,7 +17,7 @@ import (
 func TestMakeDiskPath(t *testing.T) {
 	root := "/root"
 	var diskID uint32 = 1024
-	p := makeDiskDir(diskID, root)
+	p := MakeDiskDir(diskID, root)
 	exp := filepath.Join(root, "disk_1024")
 	assert.Equal(t, exp, p)
 }
@@ -44,7 +44,7 @@ func TestListDiskIDs(t *testing.T) {
 		}
 	}
 
-	actIDs, err := listDiskIDs(vfs.GetFS(), root)
+	actIDs, err := ListDiskIDs(vfs.GetFS(), root)
 	if err != nil {
 		t.Fatal(err)
 	}

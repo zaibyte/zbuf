@@ -112,7 +112,7 @@ func (d *ZBufDisks) AddDisk(diskID uint32, weight float64) {
 
 	v.Info = info
 	v.DiskID = diskID
-	v.Sched = sched.New(d.ctx, d.schedCfg, v.Info)
+	v.Sched = sched.New(d.ctx, d.schedCfg)
 	d.Disks.Store(diskID, v)
 }
 
