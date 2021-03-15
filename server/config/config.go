@@ -19,6 +19,8 @@ package config
 import (
 	"runtime"
 
+	"g.tesamc.com/IT/zbuf/xio/sched"
+
 	"g.tesamc.com/IT/zaipkg/typeutil"
 
 	v1 "g.tesamc.com/IT/zbuf/extent/v1"
@@ -41,6 +43,8 @@ type Config struct {
 
 	// DiskWeights: disk_id: weight.
 	DiskWeights map[uint32]float64 `toml:"weights"`
+
+	Scheduler sched.Config `toml:"scheduler"`
 
 	ExtV1Config v1.Config `toml:"ext_v_1_config"`
 
