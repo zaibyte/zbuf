@@ -21,31 +21,19 @@ import (
 // Creator is ext.v1's Creator.
 type Creator struct {
 	cfg    *Config
-	scheds creatorScheduler
+	scheds CreatorScheduler
 	fs     vfs.FS
 	zai    zai.Client
 	boxID  uint32
 }
 
-type creatorScheduler interface {
-	getSched(diskID uint32) (xio.Scheduler, error)
-}
-
-type mapSched struct {
-	scheds *sync.Map
-}
-
-func (m *mapSched) getSched(diskID uint32) (xio.Scheduler, error) {
-	schedv, ok := m.scheds.Load(diskID)
-	if !ok {
-		return nil, xerrors.WithMessage(orpc.ErrNotFound, fmt.Sprintf("disk: %d scheduler", diskID))
-	}
-	sched := schedv.(xio.Scheduler)
-	return sched, nil
+type CreatorScheduler interface {
+	// GetSched gets scheduler by diskID and started or not.
+	GetSched(diskID uint32) (xio.Scheduler, bool)
 }
 
 // NewCreator creates an ext.v1 Creator.
-func NewCreator(cfg *Config, scheds creatorScheduler, fs vfs.FS, zai zai.Client, boxID uint32) *Creator {
+func NewCreator(cfg *Config, scheds CreatorScheduler, fs vfs.FS, zai zai.Client, boxID uint32) *Creator {
 
 	cfg.adjust()
 
@@ -76,9 +64,12 @@ const (
 
 func (c *Creator) Create(ctx context.Context, extDir string, params extent.CreateParams) (extent.Extenter, error) {
 
-	sched, err := c.scheds.getSched(params.DiskID)
-	if err != nil {
-		return nil, err
+	sched, started := c.scheds.GetSched(params.DiskID)
+	if sched == nil {
+		return nil, xerrors.WithMessage(orpc.ErrNotFound, fmt.Sprintf("failed to find disk: %d scheduler", params.DiskID))
+	}
+	if !started {
+		return nil, xerrors.WithMessage(orpc.ErrInternalServer, fmt.Sprintf("disk: %d scheduler haven't started", params.DiskID))
 	}
 
 	fs := c.fs
@@ -197,9 +188,12 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 
 	fs := c.fs
 
-	sched, err := c.scheds.getSched(params.DiskID)
-	if err != nil {
-		return nil, err
+	sched, started := c.scheds.GetSched(params.DiskID)
+	if sched == nil {
+		return nil, xerrors.WithMessage(orpc.ErrNotFound, fmt.Sprintf("failed to find disk: %d scheduler", params.DiskID))
+	}
+	if !started {
+		return nil, xerrors.WithMessage(orpc.ErrInternalServer, fmt.Sprintf("disk: %d scheduler haven't started", params.DiskID))
 	}
 
 	h, err := LoadHeader(sched, fs, extDir)

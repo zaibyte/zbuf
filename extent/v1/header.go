@@ -2,6 +2,7 @@ package v1
 
 import (
 	"encoding/binary"
+	"fmt"
 	"path/filepath"
 
 	"g.tesamc.com/IT/zaipkg/xerrors"
@@ -37,9 +38,12 @@ type Header struct {
 func (c *Creator) CreateHeader(extDir string, params extent.CreateParams) (*Header, error) {
 	h := new(Header)
 
-	sched, err := c.scheds.getSched(params.DiskID)
-	if err != nil {
-		return nil, err
+	sched, started := c.scheds.GetSched(params.DiskID)
+	if sched == nil {
+		return nil, xerrors.WithMessage(orpc.ErrNotFound, fmt.Sprintf("failed to find disk: %d scheduler", params.DiskID))
+	}
+	if !started {
+		return nil, xerrors.WithMessage(orpc.ErrInternalServer, fmt.Sprintf("disk: %d scheduler haven't started", params.DiskID))
 	}
 
 	h.iosched = sched

@@ -27,8 +27,8 @@ type testCreatorSched struct {
 	sched xio.Scheduler
 }
 
-func (s *testCreatorSched) getSched(diskID uint32) (xio.Scheduler, error) {
-	return s.sched, nil
+func (s *testCreatorSched) GetSched(diskID uint32) (xio.Scheduler, bool) {
+	return s.sched, true
 }
 
 func makeTestCreator(cfg *Config) extent.Creator {
