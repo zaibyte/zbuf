@@ -1,4 +1,4 @@
-package vdisk
+package svr
 
 import (
 	"context"
@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"g.tesamc.com/IT/zbuf/vdisk"
 
 	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zbuf/xio"
@@ -24,7 +26,7 @@ const (
 
 // ZBufDisks contains all avail disks on single ZBuf server.
 type ZBufDisks struct {
-	VDisk    Disk
+	VDisk    vdisk.Disk
 	DataRoot string
 	// Using sync.Map for online adding/removing disk.
 	Disks *sync.Map // k: diskID, v: ZBufDisk
@@ -37,12 +39,12 @@ type ZBufDisks struct {
 // ZBufDisk
 type ZBufDisk struct {
 	DiskID uint32
-	Info   *Info
+	Info   *vdisk.Info
 	Sched  xio.Scheduler
 }
 
 // NewZBufDisks creates a new ZBufDisks instance.
-func NewZBufDisks(ctx context.Context, vdisk Disk, dataRoot string, schedCfg *sched.Config) *ZBufDisks {
+func NewZBufDisks(ctx context.Context, vdisk vdisk.Disk, dataRoot string, schedCfg *sched.Config) *ZBufDisks {
 	d := &ZBufDisks{
 		VDisk:    vdisk,
 		DataRoot: dataRoot,
@@ -101,7 +103,7 @@ func (d *ZBufDisks) AddDisk(diskID uint32, weight float64) {
 
 	v := new(ZBufDisk)
 
-	info := new(Info)
+	info := new(vdisk.Info)
 	info.PbDisk.Id = diskID
 	path := MakeDiskDir(diskID, d.DataRoot)
 	info.PbDisk.Type = d.VDisk.GetType(path)
@@ -112,7 +114,7 @@ func (d *ZBufDisks) AddDisk(diskID uint32, weight float64) {
 
 	v.Info = info
 	v.DiskID = diskID
-	v.Sched = sched.New(d.ctx, d.schedCfg)
+	v.Sched = sched.New(d.ctx, d.schedCfg, v.Info)
 	d.Disks.Store(diskID, v)
 }
 
@@ -122,7 +124,7 @@ func MakeDiskDir(diskID uint32, root string) string {
 }
 
 // GetInfo gets disk info by diskID.
-func (d *ZBufDisks) GetInfo(diskID uint32) *Info {
+func (d *ZBufDisks) GetInfo(diskID uint32) *vdisk.Info {
 	di, ok := d.Disks.Load(diskID)
 	if !ok {
 		return nil

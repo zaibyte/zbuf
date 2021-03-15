@@ -85,7 +85,7 @@ func testSchedulerIsFairWithPriority(vfsSpeed, threads, reqSize int, reqCnts []r
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	wg := new(sync.WaitGroup)
-	s := New(ctx, wg, &Config{
+	s := New(ctx, &Config{
 		Threads:     threads,
 		QueueConfig: &QueueConfig{},
 	}, &vdisk.Info{PbDisk: &metapb.Disk{

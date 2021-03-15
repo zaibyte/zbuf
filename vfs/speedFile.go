@@ -9,6 +9,10 @@ type SpeedFile struct {
 	Speed int // MB/s.
 }
 
+func (s *SpeedFile) Truncate(size int64) error {
+	return nil
+}
+
 func (s *SpeedFile) Fd() uintptr {
 	return 0
 }

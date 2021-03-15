@@ -1,4 +1,4 @@
-package vdisk
+package svr
 
 import (
 	"io/ioutil"
