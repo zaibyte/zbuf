@@ -6,15 +6,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"g.tesamc.com/IT/zaipkg/diskutil"
 	"g.tesamc.com/IT/zbuf/vdisk"
-	"g.tesamc.com/IT/zproto/pkg/metapb"
 
 	"g.tesamc.com/IT/zbuf/xio/sched"
 
-	extent "g.tesamc.com/IT/zbuf/extent/v1"
-	"g.tesamc.com/IT/zbuf/vfs"
-	"g.tesamc.com/IT/zbuf/xio"
+	"g.tesamc.com/IT/zbuf/extent"
+	sdisk "g.tesamc.com/IT/zbuf/vdisk/svr"
 
 	"github.com/elastic/go-hdrhistogram"
 	"github.com/templexxx/tsc"
@@ -32,9 +29,8 @@ type Runner struct {
 	putJobers []*jober
 	getJobers []*jober
 
+	disks     *sdisk.ZBufDisks
 	extenters []extent.Extenter
-	disks     []string
-	scheds    map[string]*xioer
 
 	putDone int64
 
@@ -56,53 +52,14 @@ func Create(ctx context.Context, cfg *Config) (*Runner, error) {
 	r.putiops = make([]int64, r.cfg.JobTime)
 	r.getiops = make([]int64, r.cfg.JobTime)
 
-	disks, err := listDisks(vfs.GetFS(), cfg.DataRoot)
-	if err != nil {
-		return nil, err
-	}
-	r.disks = disks
+	r.disks = sdisk.NewZBufDisks(r.ctx, vdisk.GetDisk(), cfg.DataRoot, &sched.Config{
+		Threads:     r.cfg.IOThreads,
+		QueueConfig: new(sched.QueueConfig),
+	})
+
 	r.cfg.SkipTime = r.cfg.SkipTime * int64(time.Second)
 	r.cfg.JobTime = r.cfg.JobTime * int64(time.Second)
 	r.cfg.SegmentSize = r.cfg.SegmentSize * 1024 * 1024
-
-	r.scheds = make(map[string]*xioer, len(disks))
-	for i, disk := range disks {
-
-		diskutil.GetUsageState()
-
-		sched.New(r.ctx, &sched.Config{
-			Threads: r.cfg.IOThreads,
-		}, &vdisk.Info{&metapb.Disk{
-			State: metapb.DiskState_Disk_ReadWrite,
-			Id:    uint32(i),
-			Size_: diskutil.GetFreeSize(),
-			Used:  0,
-			Type:  metapb.DiskType_Disk_NVMe,
-		}})
-
-		xwg := new(sync.WaitGroup)
-		flushJobChan := make(chan *xio.FlushJob, xio.DefaultWriteDepth)
-		flusher := &xio.Flusher{
-			Jobs:   flushJobChan,
-			Ctx:    r.ctx,
-			StopWg: xwg,
-		}
-
-		getJobChan := make(chan *xio.GetJob, xio.DefaultReadDepth)
-		getter := &xio.Getter{
-			Jobs:   getJobChan,
-			Ctx:    r.ctx,
-			StopWg: xwg,
-		}
-
-		r.scheds[disk] = &xioer{
-			stopWg:       xwg,
-			flusher:      flusher,
-			flushJobChan: flushJobChan,
-			getter:       getter,
-			getJobChan:   getJobChan,
-		}
-	}
 
 	err = r.createExtents()
 	if err != nil {
