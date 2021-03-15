@@ -5,8 +5,8 @@ import (
 	"math/rand"
 	"sync"
 
-	"github.com/zaibyte/zbuf/extent"
-	v1 "github.com/zaibyte/zbuf/extent/v1"
+	"g.tesamc.com/IT/zbuf/extent"
+	v1 "g.tesamc.com/IT/zbuf/extent/v1"
 
 	"github.com/templexxx/xhex"
 	"github.com/zaibyte/pkg/xbytes"
@@ -18,13 +18,15 @@ import (
 	"github.com/zaibyte/pkg/xdigest"
 )
 
-// TODO Create extent
-// TODO start client
-// TODO write old obj
-
 func (r *Runner) createExtents() (err error) {
 
-	r.extenters = make([]extent.Extenter, r.cfg.Extents*len(r.disks))
+	diskIDs := r.disks.ListDiskIDs()
+
+	r.extenters = make([]extent.Extenter, r.cfg.ExtentsPerDisk*len(diskIDs))
+
+	cfg := v1.GetDefaultConfig()
+	cfg.UpdatesPending = r.cfg.PutPending
+	v1.NewCreator()
 
 	idx := 0
 	for _, disk := range r.disks {
