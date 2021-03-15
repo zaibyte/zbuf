@@ -38,9 +38,10 @@ type ZBufDisks struct {
 
 // ZBufDisk
 type ZBufDisk struct {
-	DiskID uint32
-	Info   *vdisk.Info
-	Sched  xio.Scheduler
+	DiskID       uint32
+	Info         *vdisk.Info
+	Sched        xio.Scheduler
+	SchedStarted bool
 }
 
 // NewZBufDisks creates a new ZBufDisks instance.
@@ -118,6 +119,34 @@ func (d *ZBufDisks) AddDisk(diskID uint32, weight float64) {
 	d.Disks.Store(diskID, v)
 }
 
+// StartSched starts disk I/O scheduler.
+// If diskIDs is not empty, using diskIDs, if diskID is not found, ignore.
+// If it's empty, starting all schedulers which haven't started.
+func (d *ZBufDisks) StartSched(diskIDs ...uint32) {
+
+	if len(diskIDs) != 0 {
+		for _, diskID := range diskIDs {
+			zd := d.GetDisk(diskID)
+			if zd == nil {
+				continue // Just ignore not found disk.
+			}
+			if zd.SchedStarted {
+				continue
+			}
+			zd.Sched.Start()
+		}
+	} else {
+		d.Disks.Range(func(key, value interface{}) bool {
+			disk := value.(*ZBufDisk)
+			if disk.SchedStarted {
+				return true
+			}
+			disk.Sched.Start()
+			return true
+		})
+	}
+}
+
 // MakeDiskDir makes disk path according diskID
 func MakeDiskDir(diskID uint32, root string) string {
 	return filepath.Join(root, diskNamePrefix+cast.ToString(diskID))
@@ -139,4 +168,13 @@ func (d *ZBufDisks) GetSched(diskID uint32) xio.Scheduler {
 		return nil
 	}
 	return di.(*ZBufDisk).Sched
+}
+
+// GetDisk gets ZBufDisk by diskID.
+func (d *ZBufDisks) GetDisk(diskID uint32) *ZBufDisk {
+	di, ok := d.Disks.Load(diskID)
+	if !ok {
+		return nil
+	}
+	return di.(*ZBufDisk)
 }
