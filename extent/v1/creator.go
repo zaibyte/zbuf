@@ -77,9 +77,11 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 	}
 
 	taken := c.GetSize()
-	if taken > params.DiskInfo.PbDisk.Size_-params.DiskInfo.PbDisk.Used {
-		return nil, xerrors.WithMessage(orpc.ErrInternalServer, fmt.Sprintf("disk: %d has no enough space: %d"+
-			" for creating ext: %d", taken, params.DiskID, params.ExtID))
+	if params.DiskInfo != nil { // In testing, it's nil.
+		if taken > params.DiskInfo.PbDisk.Size_-params.DiskInfo.PbDisk.Used {
+			return nil, xerrors.WithMessage(orpc.ErrInternalServer, fmt.Sprintf("disk: %d has no enough space: %d"+
+				" for creating ext: %d", taken, params.DiskID, params.ExtID))
+		}
 	}
 
 	fs := c.fs
@@ -166,7 +168,9 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 		return nil, err
 	}
 
-	params.DiskInfo.AddUsed(int64(taken))
+	if params.DiskInfo != nil {
+		params.DiskInfo.AddUsed(int64(taken))
+	}
 
 	return ext, nil
 }
