@@ -96,7 +96,7 @@ type Config struct {
 	DeepGCInterval typeutil.Duration `toml:"deep_gc_interval"`
 }
 
-func (cfg *Config) adjust() {
+func (cfg *Config) Adjust() {
 	if cfg.UpdateOrInsert {
 		if !cfg.Development {
 			cfg.UpdateOrInsert = false
@@ -123,6 +123,6 @@ func (cfg *Config) adjust() {
 // GetDefaultConfig gets Config with default values.
 func GetDefaultConfig() *Config {
 	c := new(Config)
-	c.adjust()
+	c.Adjust()
 	return c
 }

@@ -35,7 +35,7 @@ type CreatorScheduler interface {
 // NewCreator creates an ext.v1 Creator.
 func NewCreator(cfg *Config, scheds CreatorScheduler, fs vfs.FS, zai zai.Client, boxID uint32) *Creator {
 
-	cfg.adjust()
+	cfg.Adjust()
 
 	return &Creator{
 		cfg:    cfg,
