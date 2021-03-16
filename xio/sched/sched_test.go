@@ -129,7 +129,7 @@ func testSchedulerIsFairWithPriority(vfsSpeed, threads, reqSize int, reqCnts []r
 	wg2.Wait()
 }
 
-func formatFairTestRet(vfsSpeed, iodepth, reqSize int, reqType, reqCnt int, cost time.Duration) {
+func formatFairTestRet(vfsSpeed, threads, reqSize int, reqType, reqCnt int, cost time.Duration) {
 	rt := ""
 	switch reqType {
 	case xio.ReqObjRead:
@@ -147,6 +147,6 @@ func formatFairTestRet(vfsSpeed, iodepth, reqSize int, reqType, reqCnt int, cost
 	default:
 		rt = "meta_write"
 	}
-	fmt.Printf("%s cost: %v with vfs_speed: %dMB/s, io_depth: %d, req_size: %dKB, req_cnt: %d\n",
-		rt, cost, vfsSpeed, iodepth, reqSize/1024, reqCnt)
+	fmt.Printf("%s cost: %v with vfs_speed: %dMB/s, threads: %d, req_size: %dKB, req_cnt: %d\n",
+		rt, cost, vfsSpeed, threads, reqSize/1024, reqCnt)
 }
