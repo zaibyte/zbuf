@@ -5,7 +5,7 @@ type Config struct {
 	ExtentsPerDisk int    `toml:"extents_per_disk"`
 	DataRoot       string `toml:"data_root"`
 
-	BlockSize int64  `toml:"block_size"`
+	BlockSize int64  `toml:"block_size"` // KB.
 	JobType   string `toml:"job_type"`
 	JobTime   int64  `toml:"job_time"` // sec
 	// Ignore first SkipTime when collect result.
