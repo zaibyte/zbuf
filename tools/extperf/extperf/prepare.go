@@ -31,6 +31,7 @@ func (r *Runner) createExtents() (err error) {
 	cfg.UpdateOrInsert = true
 	cfg.SizePerWrite = typeutil.ByteSize(r.cfg.SizePerWrite)
 	cfg.SizePerRead = typeutil.ByteSize(r.cfg.SizePerRead)
+	cfg.SegmentSize = typeutil.ByteSize(r.cfg.SegmentSize)
 	cfg.Adjust()
 	c := v1.NewCreator(cfg, r.disks, fs, new(zai.NopClient), 1)
 
@@ -47,6 +48,10 @@ func (r *Runner) createExtents() (err error) {
 			}, fs, r.cfg.DataRoot)
 			if err2 != nil {
 				return err2
+			}
+			err = ext.Start()
+			if err != nil {
+				return err
 			}
 
 			r.extenters[idx] = ext
