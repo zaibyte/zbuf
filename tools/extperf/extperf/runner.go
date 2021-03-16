@@ -61,11 +61,6 @@ func Create(ctx context.Context, cfg *Config) (*Runner, error) {
 	r.cfg.JobTime = r.cfg.JobTime * int64(time.Second)
 	r.cfg.SegmentSize = r.cfg.SegmentSize * 1024 * 1024
 
-	err = r.createExtents()
-	if err != nil {
-		return nil, err
-	}
-
 	r.putJobers = make([]*jober, r.cfg.PutThreads)
 	for i := range r.putJobers {
 		r.putJobers[i] = newJober(r.extenters)
@@ -83,6 +78,9 @@ func Create(ctx context.Context, cfg *Config) (*Runner, error) {
 }
 
 func (r *Runner) Run() (err error) {
+
+	r.disks.StartSched()
+	r.createExtents()
 
 	for _, disk := range r.disks {
 		r.scheds[disk].start(r.cfg.WriteThreadsPerDisk, r.cfg.ReadThreadsPerDisk)

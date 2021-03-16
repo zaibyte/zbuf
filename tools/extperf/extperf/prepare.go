@@ -5,6 +5,9 @@ import (
 	"math/rand"
 	"sync"
 
+	zai "g.tesamc.com/IT/zai/client"
+	"g.tesamc.com/IT/zbuf/vfs"
+
 	"g.tesamc.com/IT/zbuf/extent"
 	v1 "g.tesamc.com/IT/zbuf/extent/v1"
 
@@ -26,23 +29,24 @@ func (r *Runner) createExtents() (err error) {
 
 	cfg := v1.GetDefaultConfig()
 	cfg.UpdatesPending = r.cfg.PutPending
-	v1.NewCreator()
+	c := v1.NewCreator(cfg, r.disks, vfs.GetFS(), new(zai.NopClient), 1)
 
 	idx := 0
-	for _, disk := range r.disks {
-		for i := 0; i < r.cfg.Extents; i++ {
+	for _, diskID := range diskIDs {
+		for i := 0; i < r.cfg.ExtentsPerDisk; i++ {
 
 			id := uint32(i)
+			c.Create(r.ctx)
 
 			cfg := &v1.ExtentConfig{
-				Path:         disk,
+				Path:         diskID,
 				SegmentSize:  r.cfg.SegmentSize,
 				InsertOnly:   false,
 				PutPending:   r.cfg.PutPending,
 				SizePerWrite: r.cfg.SizePerWrite,
 			}
 
-			ext, err := v1.New(cfg, id, r.scheds[disk].flushJobChan, r.scheds[disk].getJobChan)
+			ext, err := v1.New(cfg, id, r.scheds[diskID].flushJobChan, r.scheds[diskID].getJobChan)
 			if err != nil {
 				return err
 			}
