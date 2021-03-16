@@ -15,7 +15,7 @@ import (
 	"github.com/zaibyte/pkg/xbytes"
 	"github.com/zaibyte/pkg/xstrconv"
 
-	"github.com/zaibyte/pkg/uid"
+	"g.tesamc.com/IT/zaipkg/uid"
 
 	"github.com/templexxx/tsc"
 	"github.com/zaibyte/pkg/xdigest"
@@ -27,29 +27,27 @@ func (r *Runner) createExtents() (err error) {
 
 	r.extenters = make([]extent.Extenter, r.cfg.ExtentsPerDisk*len(diskIDs))
 
+	fs := vfs.GetFS()
+
 	cfg := v1.GetDefaultConfig()
 	cfg.UpdatesPending = r.cfg.PutPending
-	c := v1.NewCreator(cfg, r.disks, vfs.GetFS(), new(zai.NopClient), 1)
+	c := v1.NewCreator(cfg, r.disks, fs, new(zai.NopClient), 1)
 
 	idx := 0
 	for _, diskID := range diskIDs {
 		for i := 0; i < r.cfg.ExtentsPerDisk; i++ {
 
-			id := uint32(i)
-			c.Create(r.ctx)
-
-			cfg := &v1.ExtentConfig{
-				Path:         diskID,
-				SegmentSize:  r.cfg.SegmentSize,
-				InsertOnly:   false,
-				PutPending:   r.cfg.PutPending,
-				SizePerWrite: r.cfg.SizePerWrite,
+			ext, err2 := extent.CreateAll(r.ctx, c, extent.CreateParams{
+				InstanceID: 1,
+				DiskID:     diskID,
+				ExtID:      uid.MakeExtID(1, uint16(i)),
+				DiskInfo:   r.disks.GetInfo(diskID),
+				CloneJob:   nil,
+			}, fs, r.cfg.DataRoot)
+			if err2 != nil {
+				return err2
 			}
 
-			ext, err := v1.New(cfg, id, r.scheds[diskID].flushJobChan, r.scheds[diskID].getJobChan)
-			if err != nil {
-				return err
-			}
 			r.extenters[idx] = ext
 			idx++
 		}
