@@ -262,6 +262,15 @@ func (u *DMU) Remove(digest uint32) (has bool, addr uint32) {
 	return
 }
 
+// UpdateOrInsert updates entry if found, if not found, inserting it.
+// It should be only used for testing.(e.g. performance testing)
+func (u *DMU) UpdateOrInsert(digest, otype, grains, addr uint32) error {
+	if !u.Update(digest, addr) {
+		return u.Insert(digest, otype, grains, addr)
+	}
+	return nil
+}
+
 // Update updates existed entry with new address,
 // return false if not found.
 func (u *DMU) Update(digest, newAddr uint32) bool {
