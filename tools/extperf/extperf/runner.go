@@ -57,6 +57,10 @@ func Create(ctx context.Context, cfg *Config) (*Runner, error) {
 		QueueConfig: new(sched.QueueConfig),
 	})
 
+	if cfg.BlockSize == 0 {
+		cfg.BlockSize = 12
+	}
+
 	r.cfg.SkipTime = r.cfg.SkipTime * int64(time.Second)
 	r.cfg.JobTime = r.cfg.JobTime * int64(time.Second)
 	r.cfg.SegmentSize = r.cfg.SegmentSize * 1024 * 1024
@@ -95,7 +99,7 @@ func (r *Runner) Run() (err error) {
 	}
 	if jobTypes[r.cfg.JobType]&2 == Get {
 		r.stopWg.Add(r.cfg.GetThreads)
-		go r.runGetJobAll()
+		go r.runGetJob()
 	}
 
 	start := tsc.UnixNano()

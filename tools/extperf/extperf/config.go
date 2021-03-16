@@ -20,6 +20,7 @@ type Config struct {
 	SegmentSize  int64 `toml:"segment_size"` // mb
 	PutPending   int   `toml:"put_pending"`  // Extent put chan size.
 	SizePerWrite int64 `toml:"size_per_write"`
+	SizePerRead  int64 `toml:"size_per_read"`
 
 	// Scheduler configs.
 	IOThreads int `toml:"io_threads"`

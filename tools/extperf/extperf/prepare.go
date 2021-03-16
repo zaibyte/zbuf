@@ -5,6 +5,8 @@ import (
 	"math/rand"
 	"sync"
 
+	"g.tesamc.com/IT/zaipkg/typeutil"
+
 	zai "g.tesamc.com/IT/zai/client"
 	"g.tesamc.com/IT/zaipkg/uid"
 	"g.tesamc.com/IT/zaipkg/xdigest"
@@ -27,6 +29,9 @@ func (r *Runner) createExtents() (err error) {
 	cfg.UpdatesPending = r.cfg.PutPending
 	cfg.Development = true
 	cfg.UpdateOrInsert = true
+	cfg.SizePerWrite = typeutil.ByteSize(r.cfg.SizePerWrite)
+	cfg.SizePerRead = typeutil.ByteSize(r.cfg.SizePerRead)
+	cfg.Adjust()
 	c := v1.NewCreator(cfg, r.disks, fs, new(zai.NopClient), 1)
 
 	idx := 0

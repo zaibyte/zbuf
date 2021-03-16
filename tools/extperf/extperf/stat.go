@@ -16,16 +16,20 @@ func (r *Runner) printStat(cost int64) {
 }
 
 func (r *Runner) printSummary(cost int64) {
+	fmt.Println("config")
+	fmt.Println("-------------")
+	fmt.Println(fmt.Sprintf("%#v", r.cfg))
+	fmt.Println("-------------")
 	fmt.Println("summary")
 	fmt.Println("-------------")
 	fmt.Printf("job time: %.5fms\n", float64(cost)/float64(time.Millisecond))
 	putMb := r.cfg.MBPerPutThread * r.cfg.PutThreads
-	if r.cfg.PutGet&1 != 1 {
+	if jobTypes[r.cfg.JobType]&1 == Put {
 		putMb = 0
 	}
 	fmt.Printf("put: %dMB\n", putMb)
 	getMB := r.cfg.MBPerGetThread * r.cfg.GetThreads
-	if r.cfg.PutGet&2 != 2 {
+	if jobTypes[r.cfg.JobType]&2 == Get {
 		getMB = 0
 	}
 	fmt.Printf("get: %dMB\n", getMB)

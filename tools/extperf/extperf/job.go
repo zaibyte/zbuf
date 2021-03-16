@@ -15,7 +15,7 @@ func (r *Runner) runPutJob() {
 				r.stopWg.Done()
 				atomic.AddInt64(&r.putDone, 1)
 			}()
-			MBs := r.cfg.MBPerGetThread
+			MBs := r.cfg.MBPerPutThread
 			cntInThread := MBs * 1024 / int(r.cfg.BlockSize)
 			for k := 0; k < MBs; k++ {
 				var okCnt, totalCost int64
@@ -72,7 +72,7 @@ func (r *Runner) runGetJob() {
 					return
 				}
 
-				if atomic.LoadInt64(&r.putDone) >= int64(r.cfg.PutThreads) {
+				if atomic.LoadInt64(&r.putDone) >= int64(r.cfg.PutThreads) { // In Read-Write, and Write is done.
 					return
 				}
 
