@@ -16,10 +16,10 @@ func (r *Runner) runPutJob() {
 				atomic.AddInt64(&r.putDone, 1)
 			}()
 			MBs := r.cfg.MBPerPutThread
-			cntInThread := MBs * 1024 / int(r.cfg.BlockSize)
+			cntInMB := 1024 / int(r.cfg.BlockSize)
 			for k := 0; k < MBs; k++ {
 				var okCnt, totalCost int64
-				for i := 0; i < cntInThread; i++ {
+				for i := 0; i < cntInMB; i++ {
 					ok, cost := jober.put(testObjOID, testObj)
 					if ok {
 						okCnt++
@@ -55,11 +55,11 @@ func (r *Runner) runGetJob() {
 			defer r.stopWg.Done()
 
 			MBs := r.cfg.MBPerGetThread
-			cntInThread := MBs * 1024 / int(r.cfg.BlockSize)
+			cntInMB := 1024 / int(r.cfg.BlockSize)
 
 			for k := 0; k < MBs; k++ {
 				var okCnt, totalCost int64
-				for i := 0; i < cntInThread; i++ {
+				for i := 0; i < cntInMB; i++ {
 					ok, cost := jober.get(oid)
 					if ok {
 						okCnt++
