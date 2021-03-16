@@ -4,14 +4,16 @@ import (
 	"math/rand"
 	"sync/atomic"
 
-	"github.com/zaibyte/pkg/xbytes"
+	"g.tesamc.com/IT/zaipkg/xbytes"
+	"g.tesamc.com/IT/zbuf/extent"
 
 	"github.com/templexxx/cpu"
 	"github.com/templexxx/tsc"
-	"github.com/zaibyte/pkg/uid"
-	"github.com/zaibyte/zbuf/extent"
 )
 
+// jober is container of perf job, each thread has one.
+// jober will count the index of Extenter list,
+// both of get & put will have their own Extenter list for being used independently.
 type jober struct {
 	_       [cpu.X86FalseSharingRange]byte
 	nextPut int64
@@ -48,11 +50,11 @@ func newJober(exts []extent.Extenter) *jober {
 	}
 }
 
-func (j *jober) put(oid [16]byte, objData xbytes.Buffer) (succeed bool, cost int64) {
+func (j *jober) put(oid uint64, objData []byte) (succeed bool, cost int64) {
 	next := atomic.AddInt64(&j.nextPut, 1) % int64(len(j.putExts))
 	ext := j.putExts[next]
 	start := tsc.UnixNano()
-	err := ext.PutObj(uid.MakeReqID(), oid, objData)
+	err := ext.PutObj(1, oid, objData, false)
 	cost = tsc.UnixNano() - start
 	if err != nil {
 		return false, cost
@@ -60,15 +62,15 @@ func (j *jober) put(oid [16]byte, objData xbytes.Buffer) (succeed bool, cost int
 	return true, cost
 }
 
-func (j *jober) get(oid [16]byte) (succeed bool, cost int64) {
+func (j *jober) get(oid uint64) (succeed bool, cost int64) {
 	next := atomic.AddInt64(&j.nextGet, 1) % int64(len(j.getExts))
 	ext := j.getExts[next]
 	start := tsc.UnixNano()
-	objData, err := ext.GetObj(uid.MakeReqID(), oid)
+	objData, err := ext.GetObj(1, oid, false)
 	cost = tsc.UnixNano() - start
 	if err != nil {
 		return false, cost
 	}
-	_ = objData.Close()
+	xbytes.PutAlignedBytes(objData)
 	return true, cost
 }
