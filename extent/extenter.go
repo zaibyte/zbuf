@@ -27,7 +27,7 @@ type Extenter interface {
 
 type Objecter interface {
 	PutObj(reqid, oid uint64, objData []byte, isClone bool) error
-	GetObj(reqid, oid uint64, isClone bool) (objData []byte, err error) // Using xbytes.Buffer here for saving potential GC overhead.
+	GetObj(reqid, oid uint64, isClone bool) (objData []byte, err error)
 	DeleteObj(reqid, oid uint64) error
 	DeleteBatch(reqid uint64, oids []uint64) error
 }
