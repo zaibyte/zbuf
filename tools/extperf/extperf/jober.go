@@ -3,6 +3,7 @@ package extperf
 import (
 	"math/rand"
 	"sync/atomic"
+	"time"
 
 	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zbuf/extent"
@@ -73,4 +74,87 @@ func (j *jober) get(oid uint64) (succeed bool, cost int64) {
 	}
 	xbytes.PutAlignedBytes(objData)
 	return true, cost
+}
+
+func (r *Runner) runPutJob() {
+
+	for _, j := range r.putJobers {
+		go func(jober *jober) {
+			defer func() {
+				atomic.AddInt64(&r.putDone, 1)
+				r.stopWg.Done()
+			}()
+			MBs := r.cfg.MBPerPutThread
+			cntInThread := MBs * 1024 / int(r.cfg.BlockSize)
+			for k := 0; k < cntInThread; k++ {
+				ok, cost := jober.put(testObjOID, testObj)
+
+				now := tsc.UnixNano()
+
+				if ok {
+					delta := now - r.startTS
+					if delta > r.cfg.SkipTime {
+						_ = r.putLat.RecordValuesAtomic(cost, 1)
+					}
+
+					sec := delta / int64(time.Second)
+					atomic.AddInt64(&r.putiops[sec], 1)
+				}
+
+				if now >= r.stopTS {
+					atomic.AddInt64(&r.putDone, 1)
+					return
+				}
+
+				if atomic.LoadInt64(&r.getDone) >= int64(r.cfg.GetThreads) { // In Read-Write, and Read is done.
+					atomic.AddInt64(&r.putDone, 1)
+					return
+				}
+			}
+		}(j)
+	}
+}
+
+func (r *Runner) runGetJob() {
+
+	jobers := r.getJobers
+	oid := testObjOID
+
+	for _, j := range jobers {
+		go func(jober *jober) {
+			defer func() {
+				atomic.AddInt64(&r.getDone, 1)
+				r.stopWg.Done()
+			}()
+
+			MBs := r.cfg.MBPerGetThread
+			cntInThread := MBs * 1024 / int(r.cfg.BlockSize)
+
+			for k := 0; k < cntInThread; k++ {
+				ok, cost := jober.get(oid)
+
+				now := tsc.UnixNano()
+
+				if ok {
+					delta := now - r.startTS
+					if delta > r.cfg.SkipTime {
+						_ = r.getLat.RecordValuesAtomic(cost, 1)
+					}
+
+					sec := delta / int64(time.Second)
+					atomic.AddInt64(&r.getiops[sec], 1)
+				}
+
+				if now >= r.stopTS {
+					atomic.AddInt64(&r.getDone, 1)
+					return
+				}
+
+				if atomic.LoadInt64(&r.putDone) >= int64(r.cfg.PutThreads) { // In Read-Write, and Write is done.
+					atomic.AddInt64(&r.getDone, 1)
+					return
+				}
+			}
+		}(j)
+	}
 }

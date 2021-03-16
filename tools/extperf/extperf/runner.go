@@ -35,6 +35,7 @@ type Runner struct {
 	extenters []extent.Extenter
 
 	putDone int64
+	getDone int64
 
 	putiops []int64
 	getiops []int64
