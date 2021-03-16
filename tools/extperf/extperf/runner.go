@@ -80,22 +80,20 @@ func Create(ctx context.Context, cfg *Config) (*Runner, error) {
 func (r *Runner) Run() (err error) {
 
 	r.disks.StartSched()
-	r.createExtents()
-
-	for _, disk := range r.disks {
-		r.scheds[disk].start(r.cfg.WriteThreadsPerDisk, r.cfg.ReadThreadsPerDisk)
+	err = r.createExtents()
+	if err != nil {
+		return err
 	}
 
-	fillObjData()
+	randFillObj(r.cfg.BlockSize)
 
-	r.putCold()
-	r.putHot()
+	r.prepareRead()
 
-	if r.cfg.PutGet&1 == Put {
+	if jobTypes[r.cfg.JobType]&1 == Put {
 		r.stopWg.Add(r.cfg.PutThreads)
 		go r.runPutJob()
 	}
-	if r.cfg.PutGet&2 == Get {
+	if jobTypes[r.cfg.JobType]&2 == Get {
 		r.stopWg.Add(r.cfg.GetThreads)
 		go r.runGetJobAll()
 	}
@@ -117,15 +115,15 @@ func (r *Runner) Close() (err error) {
 	r.cancel()
 
 	for _, ext := range r.extenters {
-		_ = ext.Close()
+		ext.Close()
 	}
 
-	for _, xioer := range r.scheds {
-		xioer.close()
+	for _, diskID := range r.disks.ListDiskIDs() {
+		sc, started := r.disks.GetSched(diskID)
+		if started {
+			sc.Close()
+		}
 	}
-
-	coldData.Close()
-	hotData.Close()
 
 	return nil
 }
