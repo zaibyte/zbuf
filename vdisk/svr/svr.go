@@ -57,12 +57,12 @@ func NewZBufDisks(ctx context.Context, vdisk vdisk.Disk, dataRoot string, schedC
 }
 
 // Init inits ZBufDisks at starting.
-func (d *ZBufDisks) Init(root string, fs vfs.FS, weights map[uint32]float64) {
+func (d *ZBufDisks) Init(fs vfs.FS, weights map[uint32]float64) {
 	if d.Disks == nil {
 		d.Disks = new(sync.Map)
 	}
 
-	diskIDs, _ := ListDiskIDs(fs, root)
+	diskIDs, _ := ListDiskIDs(fs, d.DataRoot)
 	d.AddDisks(diskIDs, weights)
 }
 
@@ -94,8 +94,12 @@ func ListDiskIDs(fs vfs.FS, root string) (diskIDs []uint32, err error) {
 // AddDisks adds zbuf disk one by one.
 func (d *ZBufDisks) AddDisks(diskIDs []uint32, weights map[uint32]float64) {
 
+	weight := float64(0)
 	for _, diskID := range diskIDs {
-		d.AddDisk(diskID, weights[diskID])
+		if weights != nil {
+			weight = weights[diskID]
+		}
+		d.AddDisk(diskID, weight)
 	}
 }
 
