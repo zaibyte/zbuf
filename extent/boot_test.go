@@ -20,7 +20,7 @@ func TestCreateLoadBootSector(t *testing.T) {
 	}
 	defer os.RemoveAll(extPath)
 
-	err = extent.CreateBootSector(vfs.DefaultFS, &xio.NopScheduler{}, extPath, extent.VersionTest)
+	err = extent.CreateBootSector(vfs.DefaultFS, extPath, extent.VersionTest)
 	if err != nil {
 		t.Fatal(err)
 	}

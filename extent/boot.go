@@ -30,7 +30,7 @@ const (
 // BootSector struct:
 // 0                                       BootSectorSize
 // | version(2B) | random(4090B) | checksum(4B) |
-func CreateBootSector(fs vfs.FS, ioSched xio.Scheduler, extDir string, version uint16) error {
+func CreateBootSector(fs vfs.FS, extDir string, version uint16) error {
 
 	fp := filepath.Join(extDir, BootSectorFilename)
 	f, err := fs.Create(fp)
@@ -49,7 +49,8 @@ func CreateBootSector(fs vfs.FS, ioSched xio.Scheduler, extDir string, version u
 	cs := xdigest.Sum32(b[:BootSectorSize-4])
 	binary.LittleEndian.PutUint32(b[BootSectorSize-4:], cs)
 
-	return ioSched.DoSync(xio.ReqMetaWrite, f, 0, b)
+	_, err = f.Write(b)
+	return err
 }
 
 // LoadBootSector loads boot-sector file, returns extent version.
