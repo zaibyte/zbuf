@@ -24,12 +24,12 @@ func (r *Runner) printSummary(cost int64) {
 	fmt.Println("-------------")
 	fmt.Printf("job time: %.5fms\n", float64(cost)/float64(time.Millisecond))
 	putMb := r.cfg.MBPerPutThread * r.cfg.PutThreads
-	if jobTypes[r.cfg.JobType]&1 == Put {
+	if jobTypes[r.cfg.JobType]&1 != Put {
 		putMb = 0
 	}
 	fmt.Printf("put: %dMB\n", putMb)
 	getMB := r.cfg.MBPerGetThread * r.cfg.GetThreads
-	if jobTypes[r.cfg.JobType]&2 == Get {
+	if jobTypes[r.cfg.JobType]&2 != Get {
 		getMB = 0
 	}
 	fmt.Printf("get: %dMB\n", getMB)
