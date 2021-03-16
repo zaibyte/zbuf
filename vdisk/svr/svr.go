@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 
@@ -43,7 +44,7 @@ type ZBufDisk struct {
 	DiskID       uint32
 	Info         *vdisk.Info
 	Sched        xio.Scheduler
-	SchedStarted bool
+	SchedStarted int64
 }
 
 // NewZBufDisks creates a new ZBufDisks instance.
@@ -136,18 +137,20 @@ func (d *ZBufDisks) StartSched(diskIDs ...uint32) {
 			if zd == nil {
 				continue // Just ignore not found disk.
 			}
-			if zd.SchedStarted {
+			if atomic.LoadInt64(&zd.SchedStarted) == 1 {
 				continue
 			}
 			zd.Sched.Start()
+			atomic.CompareAndSwapInt64(&zd.SchedStarted, 0, 1)
 		}
 	} else {
 		d.Disks.Range(func(key, value interface{}) bool {
 			disk := value.(*ZBufDisk)
-			if disk.SchedStarted {
+			if atomic.LoadInt64(&disk.SchedStarted) == 1 {
 				return true
 			}
 			disk.Sched.Start()
+			atomic.CompareAndSwapInt64(&disk.SchedStarted, 0, 1)
 			return true
 		})
 	}
@@ -163,18 +166,20 @@ func (d *ZBufDisks) CloseSched(diskIDs ...uint32) {
 			if zd == nil {
 				continue // Just ignore not found disk.
 			}
-			if !zd.SchedStarted {
+			if atomic.LoadInt64(&zd.SchedStarted) == 0 {
 				continue
 			}
 			zd.Sched.Close()
+			atomic.CompareAndSwapInt64(&zd.SchedStarted, 1, 0)
 		}
 	} else {
 		d.Disks.Range(func(key, value interface{}) bool {
 			disk := value.(*ZBufDisk)
-			if !disk.SchedStarted {
+			if atomic.LoadInt64(&disk.SchedStarted) == 0 {
 				return true
 			}
 			disk.Sched.Close()
+			atomic.CompareAndSwapInt64(&disk.SchedStarted, 1, 0)
 			return true
 		})
 	}
@@ -201,7 +206,7 @@ func (d *ZBufDisks) GetSched(diskID uint32) (xio.Scheduler, bool) {
 		return nil, false
 	}
 	zd := di.(*ZBufDisk)
-	return zd.Sched, zd.SchedStarted
+	return zd.Sched, atomic.LoadInt64(&zd.SchedStarted) == 1
 }
 
 // GetDisk gets ZBufDisk by diskID.
