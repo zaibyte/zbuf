@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 
+	"g.tesamc.com/IT/zproto/pkg/metapb"
+
 	"g.tesamc.com/IT/zbuf/vdisk"
 
 	"g.tesamc.com/IT/zbuf/vfs"
@@ -108,7 +110,7 @@ func (d *ZBufDisks) AddDisk(diskID uint32, weight float64) {
 
 	v := new(ZBufDisk)
 
-	info := new(vdisk.Info)
+	info := &vdisk.Info{PbDisk: new(metapb.Disk)}
 	info.PbDisk.Id = diskID
 	path := MakeDiskDir(diskID, d.DataRoot)
 	info.PbDisk.Type = d.VDisk.GetType(path)
