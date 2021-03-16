@@ -161,9 +161,11 @@ func (e *Extenter) updatesLoop() {
 				continue
 			}
 
-			if e.dmu.Search(digest) != 0 {
-				wr.done <- orpc.ErrObjDigestExisted
-				continue
+			if !e.cfg.UpdateOrInsert {
+				if e.dmu.Search(digest) != 0 { // Although Insert will do search too, checking ahead avoiding potential I/O wasting.
+					wr.done <- orpc.ErrObjDigestExisted
+					continue
+				}
 			}
 
 			// There is no enough space in this segment for this uploading.
@@ -192,11 +194,20 @@ func (e *Extenter) updatesLoop() {
 				continue
 			}
 
-			err = e.dmu.Insert(digest, uint32(otype), grains, offsetToAddr(offset))
-			if err != nil {
-				wr.done <- err
-				e.setState(err)
-				continue
+			if !e.cfg.UpdateOrInsert {
+				err = e.dmu.Insert(digest, uint32(otype), grains, offsetToAddr(offset))
+				if err != nil {
+					wr.done <- err
+					e.setState(err)
+					continue
+				}
+			} else {
+				err = e.dmu.UpdateOrInsert(digest, uint32(otype), grains, offsetToAddr(offset))
+				if err != nil {
+					wr.done <- err
+					e.setState(err)
+					continue
+				}
 			}
 
 			wr.done <- nil

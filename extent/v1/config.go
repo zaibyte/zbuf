@@ -55,6 +55,11 @@ const (
 
 // Config is the configs of v1 extent.
 type Config struct {
+	// Development indicates it's in development mode or not.
+	Development bool `toml:"development"`
+	// UpdateOrInsert only could be true when Development is true,
+	// using it for updating DMU if entry already existed.
+	UpdateOrInsert bool `toml:"update_or_insert"`
 	// SegmentSize is [16KB, 1GB].
 	SegmentSize typeutil.ByteSize `toml:"segment_size"`
 	// ReservedSeg are the count of segments reserved for GC.
@@ -92,6 +97,11 @@ type Config struct {
 }
 
 func (cfg *Config) adjust() {
+	if cfg.UpdateOrInsert {
+		if !cfg.Development {
+			cfg.UpdateOrInsert = false
+		}
+	}
 	config.Adjust(&cfg.SegmentSize, defaultSegmentSize)
 	config.Adjust(&cfg.ReservedSeg, defaultReservedSeg)
 	config.Adjust(&cfg.UpdatesPending, defaultUpdatesPending)
