@@ -62,6 +62,10 @@ const (
 	dirtyDelWalFileName = "dirty_del.wal"
 )
 
+func (c *Creator) GetVersion() uint16 {
+	return extent.Version1
+}
+
 func (c *Creator) Create(ctx context.Context, extDir string, params extent.CreateParams) (extent.Extenter, error) {
 
 	sched, started := c.scheds.GetSched(params.DiskID)
@@ -70,6 +74,12 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 	}
 	if !started {
 		return nil, xerrors.WithMessage(orpc.ErrInternalServer, fmt.Sprintf("disk: %d scheduler haven't started", params.DiskID))
+	}
+
+	taken := c.GetSize()
+	if taken > params.DiskInfo.PbDisk.Size_-params.DiskInfo.PbDisk.Used {
+		return nil, xerrors.WithMessage(orpc.ErrInternalServer, fmt.Sprintf("disk: %d has no enough space"+
+			"for creating ext: %d", params.DiskID, params.ExtID))
 	}
 
 	fs := c.fs
@@ -156,7 +166,9 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 		return nil, err
 	}
 
-	return ext, err
+	params.DiskInfo.AddUsed(int64(taken))
+
+	return ext, nil
 }
 
 // Traverse start at the write_cursor, if meet checksum mismatched, stopping but not regard as broken,

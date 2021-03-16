@@ -1,10 +1,8 @@
 package extent
 
 import (
-	"context"
 	"sync/atomic"
 
-	"g.tesamc.com/IT/zbuf/vdisk"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 )
 
@@ -44,27 +42,6 @@ const (
 )
 
 var AvailVersions = []uint16{Version1, VersionTest}
-
-// CreateParams are the params for creating an extent.
-type CreateParams struct {
-	InstanceID uint32
-	DiskID     uint32
-	ExtID      uint32
-	DiskInfo   *vdisk.Info
-	CloneJob   *metapb.CloneJob
-}
-
-// Creator could create/open extenter.
-type Creator interface {
-	// Create creates Extenter which not existed.
-	// dir is extent dir.
-	// If there is any error, the caller has the responsibility to remove the entire extDir.
-	Create(ctx context.Context, extDir string, params CreateParams) (Extenter, error)
-	// Load loads an existed Extenter.
-	Load(ctx context.Context, extDir string, params CreateParams) (Extenter, error)
-	// GetSize gets the space size will be taken by the extent which will be created.
-	GetSize() uint64
-}
 
 // GCer are methods collector of GC.
 type GCer interface {
