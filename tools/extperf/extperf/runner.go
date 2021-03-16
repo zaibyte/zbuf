@@ -67,16 +67,6 @@ func Create(ctx context.Context, cfg *Config) (*Runner, error) {
 	r.cfg.JobTime = r.cfg.JobTime * int64(time.Second)
 	r.cfg.SegmentSize = r.cfg.SegmentSize * 1024 * 1024
 
-	r.putJobers = make([]*jober, r.cfg.PutThreads)
-	for i := range r.putJobers {
-		r.putJobers[i] = newJober(r.extenters)
-	}
-
-	r.getJobers = make([]*jober, r.cfg.GetThreads)
-	for i := range r.getJobers {
-		r.getJobers[i] = newJober(r.extenters)
-	}
-
 	r.putLat = hdrhistogram.New(1, 1000000*10, 3)
 	r.getLat = hdrhistogram.New(1, 1000000*10, 3)
 
@@ -90,6 +80,16 @@ func (r *Runner) Run() (err error) {
 	err = r.createExtents()
 	if err != nil {
 		return err
+	}
+
+	r.putJobers = make([]*jober, r.cfg.PutThreads)
+	for i := range r.putJobers {
+		r.putJobers[i] = newJober(r.extenters)
+	}
+
+	r.getJobers = make([]*jober, r.cfg.GetThreads)
+	for i := range r.getJobers {
+		r.getJobers[i] = newJober(r.extenters)
 	}
 
 	randFillObj(r.cfg.BlockSize)
