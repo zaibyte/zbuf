@@ -59,7 +59,7 @@ func TestSchedulerIsFairWithPriority(t *testing.T) {
 		t.Skip("skip property testing")
 	}
 
-	testSchedulerIsFairWithPriority(1024, 64, 128*1024, []reqCnt{
+	testSchedulerIsFairWithPriority(2048, 64, 12*1024, []reqCnt{
 
 		{
 			reqType: xio.ReqGCRead,

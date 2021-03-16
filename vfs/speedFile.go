@@ -55,5 +55,5 @@ func (s *SpeedFile) Stat() (os.FileInfo, error) {
 }
 
 func (s *SpeedFile) Sync() error {
-	panic("implement me")
+	return nil
 }
