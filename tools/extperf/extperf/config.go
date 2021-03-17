@@ -23,7 +23,8 @@ type Config struct {
 	SizePerRead  int64 `toml:"size_per_read"`
 
 	// Scheduler configs.
-	IOThreads int `toml:"io_threads"`
+	Nop       bool `toml:"nop"` // Using nop scheduler or not.
+	IOThreads int  `toml:"io_threads"`
 }
 
 var jobTypes = map[string]int{

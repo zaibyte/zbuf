@@ -55,10 +55,15 @@ func Create(ctx context.Context, cfg *Config) (*Runner, error) {
 	r.putiops = make([]int64, r.cfg.JobTime)
 	r.getiops = make([]int64, r.cfg.JobTime)
 
-	r.disks = sdisk.NewZBufDisks(r.ctx, vdisk.GetDisk(), cfg.DataRoot, &sched.Config{
-		Threads:     r.cfg.IOThreads,
-		QueueConfig: new(sched.QueueConfig),
-	})
+	var schedCfg *sched.Config
+	schedCfg = nil
+	if !r.cfg.Nop {
+		schedCfg = &sched.Config{
+			Threads:     r.cfg.IOThreads,
+			QueueConfig: new(sched.QueueConfig),
+		}
+	}
+	r.disks = sdisk.NewZBufDisks(r.ctx, vdisk.GetDisk(), cfg.DataRoot, schedCfg)
 
 	if cfg.BlockSize == 0 {
 		cfg.BlockSize = 12

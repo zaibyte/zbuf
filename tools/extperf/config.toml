@@ -1,22 +1,23 @@
 title = "zbuf-ext-perf"
 
 version = 1
-extents_per_disk = 16    # P4510 8TB will have 29 extents(256GB) at most.
-data_root = "/Users/templex/Downloads"
+extents_per_disk = 16   # P4510 8TB will have 29 extents(256GB) at most.
+data_root = "/mnt/c/Users/Xiangxi/zbuf"
 
 block_size = 12
-job_type = "read"
+job_type = "rw"
 job_time = 100
 skip_time = 1
 
-mb_per_put_thread = 4096   # 4GB
+mb_per_put_thread = 1024
 mb_per_get_thread = 1024
 put_threads = 16
 get_threads = 32
 
-segment_size = 1024 # 1GB
+segment_size = 1024
 put_pending = 0
 size_per_write = 0
 size_per_read = 0
 
+nop = false
 io_threads = 32
