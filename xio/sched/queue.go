@@ -2,8 +2,6 @@ package sched
 
 import (
 	"g.tesamc.com/IT/zaipkg/config"
-	"g.tesamc.com/IT/zbuf/vfs"
-
 	"g.tesamc.com/IT/zbuf/xio"
 )
 
@@ -65,7 +63,7 @@ func (c *QueueConfig) adjust() {
 	config.Adjust(&c.MetaPending, DefaultMetaPending)
 }
 
-func (q *Queue) Add(reqType uint64, f vfs.File, offset int64, d []byte) (*xio.AsyncRequest, error) {
+func (q *Queue) Add(reqType uint64, f xio.File, offset int64, d []byte) (*xio.AsyncRequest, error) {
 
 	switch reqType {
 	case xio.ReqObjRead, xio.ReqObjWrite:

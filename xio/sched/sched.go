@@ -16,7 +16,6 @@ import (
 	"g.tesamc.com/IT/zbuf/vdisk"
 
 	"g.tesamc.com/IT/zaipkg/config"
-	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zbuf/xio"
 	"github.com/templexxx/tsc"
 )
@@ -56,30 +55,21 @@ type Scheduler struct {
 	stopWg *sync.WaitGroup
 }
 
-func (s *Scheduler) DoAsync(reqType uint64, f vfs.File, offset int64, d []byte) (ar *xio.AsyncRequest, err error) {
+func (s *Scheduler) DoAsync(reqType uint64, f xio.File, offset int64, d []byte) (ar *xio.AsyncRequest, err error) {
 
 	return s.queue.Add(reqType, f, offset, d)
 }
 
-func (s *Scheduler) DoSync(reqType uint64, f vfs.File, offset int64, d []byte) (err error) {
-
-	ctx, cancel := context.WithCancel(s.ctx)
-	defer cancel()
+func (s *Scheduler) DoSync(reqType uint64, f xio.File, offset int64, d []byte) (err error) {
 
 	var ar *xio.AsyncRequest
 	if ar, err = s.DoAsync(reqType, f, offset, d); err != nil {
 		return err
 	}
-
-	select {
-	case <-ar.Done:
-		err = ar.Err
-		xio.ReleaseAsyncRequest(ar)
-	case <-ctx.Done():
-		err = orpc.ErrServiceClosed
-	}
-
-	return
+	<-ar.Done
+	err = ar.Err
+	xio.ReleaseAsyncRequest(ar)
+	return ar.Err
 }
 
 // New creates a scheduler instance.

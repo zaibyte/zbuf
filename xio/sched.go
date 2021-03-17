@@ -1,17 +1,13 @@
 package xio
 
-import (
-	"g.tesamc.com/IT/zbuf/vfs"
-)
-
 // Scheduler is the ZBuf I/O queue. Each disk/core has one(depends on implementations).
 type Scheduler interface {
 	Start()
 	Close()
 	// DoAsync does I/O request async.
-	DoAsync(reqType uint64, f vfs.File, offset int64, d []byte) (ar *AsyncRequest, err error)
+	DoAsync(reqType uint64, f File, offset int64, d []byte) (ar *AsyncRequest, err error)
 	// DoSync does I/O request waiting until succeed.
-	DoSync(reqType uint64, f vfs.File, offset int64, d []byte) error
+	DoSync(reqType uint64, f File, offset int64, d []byte) error
 }
 
 // NopScheduler wraps Scheduler but actually no scheduler working just write/read directly.
@@ -26,7 +22,7 @@ func (s *NopScheduler) Close() {
 	return
 }
 
-func (s *NopScheduler) DoAsync(reqType uint64, f vfs.File, offset int64, d []byte) (ar *AsyncRequest, err error) {
+func (s *NopScheduler) DoAsync(reqType uint64, f File, offset int64, d []byte) (ar *AsyncRequest, err error) {
 
 	if IsReqRead(reqType) {
 		_, err = f.ReadAt(d, offset)
@@ -38,10 +34,10 @@ func (s *NopScheduler) DoAsync(reqType uint64, f vfs.File, offset int64, d []byt
 		return nil, err
 	}
 
-	return nil, vfs.Fdatasync(f)
+	return nil, f.Fdatasync()
 }
 
-func (s *NopScheduler) DoSync(reqType uint64, f vfs.File, offset int64, d []byte) error {
+func (s *NopScheduler) DoSync(reqType uint64, f File, offset int64, d []byte) error {
 	_, err := s.DoAsync(reqType, f, offset, d)
 	return err
 }
