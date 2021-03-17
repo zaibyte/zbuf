@@ -38,7 +38,7 @@ func (s *NopScheduler) DoAsync(reqType uint64, f vfs.File, offset int64, d []byt
 		return nil, err
 	}
 
-	return nil, f.Sync()
+	return nil, vfs.Fdatasync(f)
 }
 
 func (s *NopScheduler) DoSync(reqType uint64, f vfs.File, offset int64, d []byte) error {
