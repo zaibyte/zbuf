@@ -9,8 +9,6 @@ package xio
 
 import (
 	"sync"
-
-	"g.tesamc.com/IT/zbuf/vfs"
 )
 
 // TODO try to write a tool to calculate these if not set in configs.
@@ -76,10 +74,17 @@ func IsReqRead(t uint64) bool {
 	return t&1 == 1
 }
 
+// File is XIO reader writer.
+type File interface {
+	ReadAt(p []byte, off int64) (n int, err error)
+	WriteAt(p []byte, off int64) (n int, err error)
+	Fdatasync() error
+}
+
 // AsyncRequest is the I/O async request of ZBuf.
 type AsyncRequest struct {
 	Type   uint64
-	File   vfs.File
+	File   File
 	Offset int64
 	Data   []byte
 	Err    error
