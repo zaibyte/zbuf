@@ -55,13 +55,12 @@ func Create(ctx context.Context, cfg *Config) (*Runner, error) {
 	r.putiops = make([]int64, r.cfg.JobTime)
 	r.getiops = make([]int64, r.cfg.JobTime)
 
-	var schedCfg *sched.Config
-	schedCfg = nil
-	if !r.cfg.Nop {
-		schedCfg = &sched.Config{
-			Threads:     r.cfg.IOThreads,
-			QueueConfig: new(sched.QueueConfig),
-		}
+	schedCfg := &sched.Config{
+		Threads:     r.cfg.IOThreads,
+		QueueConfig: new(sched.QueueConfig),
+	}
+	if r.cfg.Nop {
+		schedCfg = nil
 	}
 	r.disks = sdisk.NewZBufDisks(r.ctx, vdisk.GetDisk(), cfg.DataRoot, schedCfg)
 
@@ -73,8 +72,8 @@ func Create(ctx context.Context, cfg *Config) (*Runner, error) {
 	r.cfg.JobTime = r.cfg.JobTime * int64(time.Second)
 	r.cfg.SegmentSize = r.cfg.SegmentSize * 1024 * 1024
 
-	r.putLat = hdrhistogram.New(1, 1000000*10, 3)
-	r.getLat = hdrhistogram.New(1, 1000000*10, 3)
+	r.putLat = hdrhistogram.New(100, time.Second.Nanoseconds(), 3)
+	r.getLat = hdrhistogram.New(100, time.Second.Nanoseconds(), 3)
 
 	return r, nil
 }
