@@ -192,7 +192,7 @@ func (s *Scheduler) FindRunnableLoop() {
 					// The file size is pre-allocated, data sync is enough.
 					// (data sync will allocate space too, even we've already used pre-allocate,
 					// some file system are using lazy allocation)
-					err = vfs.Fdatasync(ar.File)
+					err = ar.File.Fdatasync()
 				}
 			}
 			r.Err = err
