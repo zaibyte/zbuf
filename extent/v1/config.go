@@ -10,10 +10,13 @@ import (
 // There are default configs for eva.
 const (
 	defaultUpdatesPending = 512 // Each extent has 512 pending put, same as default Scheduler pending.
-	// 128KB is enough for NVMe device read/write sequentially.
-	// Too big value may block other requests too long.
-	defaultSizePerWrite = typeutil.ByteSize(128 * 1024)
-	defaultSizePerRead  = typeutil.ByteSize(128 * 1024)
+
+	// 4MB size per write sounds too big,
+	// but there will be 32(default threads in a disk) putting at most at the same time,
+	// it could reach the highest throughput.
+	defaultSizePerWrite = typeutil.ByteSize(4 * 1024 * 1024)
+	// TODO should I raise the read too?
+	defaultSizePerRead = typeutil.ByteSize(128 * 1024)
 	// By default, the size of segment is 1GB, which means the extent size is 256GB.
 	// For a 8TB NVMe driver(raw capacity), in practice, we'll use about 70% of the capacity
 	// (30% for over-provisioning & other things). So we have about 20 extents on each disk.
@@ -32,7 +35,7 @@ const (
 	// 99.6% usable storage is quite good for NVMe drivers:
 	// NVMe drivers need to scrub before writing when there is a new writing if there is no free space,
 	// that's why it's getting slow when the disk is more than 50% full.
-	// We'll set over-provisioning > 25%, this could help.
+	// We'll set over-provisioning, this could help.
 	// For extent.v1 almost all writing are sequentially writing, and the garbage will be collected in sequentially
 	// way, which means even get 90% full, the performance won't be impacted in theory.
 	defaultReservedSeg = 1
