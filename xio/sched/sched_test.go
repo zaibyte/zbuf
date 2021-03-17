@@ -3,6 +3,7 @@ package sched
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/templexxx/tsc"
 
+	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
 	"g.tesamc.com/IT/zaipkg/xtest"
 
 	"g.tesamc.com/IT/zbuf/vfs"
@@ -149,4 +151,51 @@ func formatFairTestRet(vfsSpeed, threads, reqSize int, reqType, reqCnt int, cost
 	}
 	fmt.Printf("%s cost: %v with vfs_speed: %dMB/s, threads: %d, req_size: %dKB, req_cnt: %d\n",
 		rt, cost, vfsSpeed, threads, reqSize/1024, reqCnt)
+}
+
+// NopFile is made for testing pure scheduler cost.
+type NopFile struct {
+}
+
+func (n2 *NopFile) ReadAt(p []byte, off int64) (n int, err error) {
+	xtest.DoNothing(5)
+	return
+}
+
+func (n2 *NopFile) WriteAt(p []byte, off int64) (n int, err error) {
+	xtest.DoNothing(5)
+	return
+}
+
+func (n2 *NopFile) Fdatasync() error {
+	xtest.DoNothing(5)
+	return nil
+}
+
+func TestSchedulerCost(t *testing.T) {
+
+	s := New(context.Background(), &Config{
+		Threads:     DefaultThreads,
+		QueueConfig: &QueueConfig{},
+	}, &vdisk.Info{PbDisk: &metapb.Disk{
+		State: metapb.DiskState_Disk_ReadWrite,
+	}})
+	s.Start()
+	defer s.Close()
+
+	f := new(NopFile)
+
+	cnt := 1024 * 8
+	threads := runtime.NumCPU()
+	wg2 := new(sync.WaitGroup)
+	wg2.Add(threads)
+	for i := 0; i < threads; i++ {
+		go func() {
+			defer wg2.Done()
+			for j := 0; j < cnt; j++ {
+				_ = s.DoSync(xio.ReqObjRead, f, 0, nil)
+			}
+		}()
+	}
+	wg2.Wait()
 }
