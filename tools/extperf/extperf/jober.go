@@ -91,6 +91,11 @@ func (r *Runner) runPutJob() {
 
 				now := tsc.UnixNano()
 
+				if now >= r.stopTS {
+					atomic.AddInt64(&r.putDone, 1)
+					return
+				}
+
 				if ok {
 					delta := now - r.startTS
 					if delta > r.cfg.SkipTime {
@@ -99,11 +104,6 @@ func (r *Runner) runPutJob() {
 
 					sec := delta / int64(time.Second)
 					atomic.AddInt64(&r.putiops[sec], 1)
-				}
-
-				if now >= r.stopTS {
-					atomic.AddInt64(&r.putDone, 1)
-					return
 				}
 
 				if atomic.LoadInt64(&r.getDone) >= int64(r.cfg.GetThreads) { // In Read-Write, and Read is done.
@@ -135,6 +135,11 @@ func (r *Runner) runGetJob() {
 
 				now := tsc.UnixNano()
 
+				if now >= r.stopTS {
+					atomic.AddInt64(&r.getDone, 1)
+					return
+				}
+
 				if ok {
 					delta := now - r.startTS
 					if delta > r.cfg.SkipTime {
@@ -143,11 +148,6 @@ func (r *Runner) runGetJob() {
 
 					sec := delta / int64(time.Second)
 					atomic.AddInt64(&r.getiops[sec], 1)
-				}
-
-				if now >= r.stopTS {
-					atomic.AddInt64(&r.getDone, 1)
-					return
 				}
 
 				if atomic.LoadInt64(&r.putDone) >= int64(r.cfg.PutThreads) { // In Read-Write, and Write is done.
