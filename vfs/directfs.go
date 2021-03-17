@@ -36,8 +36,20 @@ var DirectFS FS = directFS{}
 
 type directFS struct{}
 
+type DirectFile struct {
+	*os.File
+}
+
+func (d *DirectFile) Fdatasync() error {
+	return Fdatasync(d)
+}
+
 func (fs directFS) OpenDir(name string) (File, error) {
-	return os.OpenFile(name, syscall.O_CLOEXEC, 0)
+	f, err := os.OpenFile(name, syscall.O_CLOEXEC, 0)
+	if err != nil {
+		return nil, err
+	}
+	return &DirectFile{f}, nil
 }
 
 // Create creates a new file read/write, and sync the directory.
@@ -52,7 +64,7 @@ func (directFS) Create(name string) (File, error) {
 		_ = os.Remove(name)
 		return nil, err
 	}
-	return f, nil
+	return &DirectFile{f}, nil
 }
 
 func (directFS) Link(oldname, newname string) error {
@@ -60,18 +72,22 @@ func (directFS) Link(oldname, newname string) error {
 }
 
 func (directFS) Open(name string, opts ...lvfs.OpenOption) (File, error) {
-	file, err := directio.OpenFile(name, os.O_RDWR|syscall.O_CLOEXEC|fnc.O_NOATIME, 0)
+	f, err := directio.OpenFile(name, os.O_RDWR|syscall.O_CLOEXEC|fnc.O_NOATIME, 0)
 	if err != nil {
 		return nil, err
 	}
 	for _, opt := range opts {
-		opt.Apply(file)
+		opt.Apply(f)
 	}
-	return file, nil
+	return &DirectFile{f}, nil
 }
 
 func (directFS) OpenForAppend(name string) (File, error) {
-	return directio.OpenFile(name, os.O_RDWR|os.O_APPEND|syscall.O_CLOEXEC|fnc.O_NOATIME, 0)
+	f, err := directio.OpenFile(name, os.O_RDWR|os.O_APPEND|syscall.O_CLOEXEC|fnc.O_NOATIME, 0)
+	if err != nil {
+		return nil, err
+	}
+	return &DirectFile{f}, nil
 }
 
 func (directFS) Remove(name string) error {
@@ -90,7 +106,11 @@ func (fs directFS) ReuseForWrite(oldname, newname string) (File, error) {
 	if err := fs.Rename(oldname, newname); err != nil {
 		return nil, err
 	}
-	return directio.OpenFile(newname, os.O_RDWR|os.O_CREATE|syscall.O_CLOEXEC|fnc.O_NOATIME, 0666)
+	f, err := directio.OpenFile(newname, os.O_RDWR|os.O_CREATE|syscall.O_CLOEXEC|fnc.O_NOATIME, 0666)
+	if err != nil {
+		return nil, err
+	}
+	return &DirectFile{f}, nil
 }
 
 func (directFS) MkdirAll(dir string, perm os.FileMode) error {

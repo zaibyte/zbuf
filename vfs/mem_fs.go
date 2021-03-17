@@ -633,6 +633,10 @@ type memFile struct {
 	read, write bool
 }
 
+func (f *memFile) Fdatasync() error {
+	return f.Sync()
+}
+
 func (f *memFile) Truncate(size int64) error {
 	f.n.mu.Lock()
 	defer f.n.mu.Unlock()

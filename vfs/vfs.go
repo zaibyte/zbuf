@@ -121,6 +121,7 @@ type File interface {
 	// Warn:
 	// The size must be <= origin size.
 	Truncate(size int64) error
+	Fdatasync() error
 }
 
 // IsNotExist returns a boolean value indicating whether the specified error is
