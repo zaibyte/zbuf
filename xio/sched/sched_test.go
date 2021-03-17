@@ -84,17 +84,14 @@ func TestSchedulerIsFairWithPriority(t *testing.T) {
 
 func testSchedulerIsFairWithPriority(vfsSpeed, threads, reqSize int, reqCnts []reqCnt) {
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	wg := new(sync.WaitGroup)
-	s := New(ctx, &Config{
+	s := New(context.Background(), &Config{
 		Threads:     threads,
 		QueueConfig: &QueueConfig{},
 	}, &vdisk.Info{PbDisk: &metapb.Disk{
 		State: metapb.DiskState_Disk_ReadWrite,
 	}})
-	wg.Add(1)
-	go s.FindRunnableLoop()
+	s.Start()
+	defer s.Close()
 
 	speed := vfsSpeed / threads
 	sf := &vfs.SpeedFile{Speed: speed}
@@ -158,7 +155,7 @@ type NopFile struct {
 }
 
 func (n2 *NopFile) ReadAt(p []byte, off int64) (n int, err error) {
-	xtest.DoNothing(5)
+	xtest.DoNothing(512)
 	return
 }
 
@@ -174,20 +171,21 @@ func (n2 *NopFile) Fdatasync() error {
 
 func TestSchedulerCost(t *testing.T) {
 
-	runtime.GOMAXPROCS(64)
+	// runtime.GOMAXPROCS(2)
 
-	s := New(context.Background(), &Config{
-		Threads:     DefaultThreads,
-		QueueConfig: &QueueConfig{},
-	}, &vdisk.Info{PbDisk: &metapb.Disk{
-		State: metapb.DiskState_Disk_ReadWrite,
-	}})
+	// s := New(context.Background(), &Config{
+	// 	Threads:     16,
+	// 	QueueConfig: &QueueConfig{},
+	// }, &vdisk.Info{PbDisk: &metapb.Disk{
+	// 	State: metapb.DiskState_Disk_ReadWrite,
+	// }})
+	s := new(xio.NopScheduler)
 	s.Start()
 	defer s.Close()
 
 	f := new(NopFile)
 
-	cnt := 1024 * 8
+	cnt := 1024 * 32
 	threads := runtime.NumCPU()
 	wg2 := new(sync.WaitGroup)
 	wg2.Add(threads)
