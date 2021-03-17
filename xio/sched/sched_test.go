@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -205,18 +206,26 @@ func TestSchedulerCostNopFile(t *testing.T) {
 	wg2.Wait()
 }
 
-// Test Scheduler Cost with os.File
 func TestSchedulerCostOSFile(t *testing.T) {
-
-	// runtime.GOMAXPROCS(32)
-
 	s := New(context.Background(), &Config{
 		Threads:     DefaultThreads,
 		QueueConfig: &QueueConfig{},
 	}, &vdisk.Info{PbDisk: &metapb.Disk{
 		State: metapb.DiskState_Disk_ReadWrite,
 	}})
-	// s := new(xio.NopScheduler)
+	testSchedulerCostOSFile(s, t)
+}
+
+func TestSchedulerCostOSFileNop(t *testing.T) {
+	s := new(xio.NopScheduler)
+	testSchedulerCostOSFile(s, t)
+}
+
+// Test Scheduler Cost with os.File
+func testSchedulerCostOSFile(s xio.Scheduler, t *testing.T) {
+
+	// runtime.GOMAXPROCS(32)
+
 	s.Start()
 	defer s.Close()
 
@@ -233,15 +242,17 @@ func TestSchedulerCostOSFile(t *testing.T) {
 	defer f.Close()
 
 	size := 4096 * 4
+	cnt := 512
 
-	err = vfs.TryFAlloc(f, int64(size))
+	err = vfs.TryFAlloc(f, int64(size*cnt))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	buf := directio.AlignedBlock(size)
+	rand.Seed(tsc.UnixNano())
+	rand.Read(buf)
 
-	cnt := 32
 	threads := 16
 	wg2 := new(sync.WaitGroup)
 	wg2.Add(threads)
@@ -249,7 +260,8 @@ func TestSchedulerCostOSFile(t *testing.T) {
 		go func() {
 			defer wg2.Done()
 			for j := 0; j < cnt; j++ {
-				_ = s.DoSync(xio.ReqObjWrite, f, 0, buf)
+				off := rand.Int63n(int64(cnt))
+				_ = s.DoSync(xio.ReqObjWrite, f, off*int64(size), buf)
 			}
 		}()
 	}
