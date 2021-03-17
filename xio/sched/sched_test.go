@@ -174,6 +174,8 @@ func (n2 *NopFile) Fdatasync() error {
 
 func TestSchedulerCost(t *testing.T) {
 
+	runtime.GOMAXPROCS(64)
+
 	s := New(context.Background(), &Config{
 		Threads:     DefaultThreads,
 		QueueConfig: &QueueConfig{},
