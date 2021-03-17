@@ -3,7 +3,6 @@
 package vfs
 
 import (
-	"os"
 	"syscall"
 
 	"golang.org/x/sys/unix"
@@ -13,8 +12,8 @@ func FAlloc(f File, length int64) error {
 	if err := fallocFixed(f, length); err != nil {
 		return err
 	}
-	of := f.(*os.File)
-	return preallocExtendTrunc(of, length)
+	df := f.(*DirectFile)
+	return preallocExtendTrunc(df.File, length)
 }
 
 func fallocFixed(f File, length int64) error {
