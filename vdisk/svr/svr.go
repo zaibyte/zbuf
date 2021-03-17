@@ -122,7 +122,11 @@ func (d *ZBufDisks) AddDisk(diskID uint32, weight float64) {
 
 	v.Info = info
 	v.DiskID = diskID
-	v.Sched = sched.New(d.ctx, d.schedCfg, v.Info)
+	if d.schedCfg != nil {
+		v.Sched = sched.New(d.ctx, d.schedCfg, v.Info)
+	} else {
+		v.Sched = new(xio.NopScheduler)
+	}
 	d.Disks.Store(diskID, v)
 }
 
