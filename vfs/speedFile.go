@@ -5,8 +5,14 @@ import (
 	"time"
 )
 
+var _speedFile File = new(SpeedFile)
+
 type SpeedFile struct {
 	Speed int // MB/s.
+}
+
+func (s *SpeedFile) Fdatasync() error {
+	return nil
 }
 
 func (s *SpeedFile) Truncate(size int64) error {
