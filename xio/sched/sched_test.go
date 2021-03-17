@@ -3,10 +3,15 @@ package sched
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"testing"
 	"time"
+
+	"g.tesamc.com/IT/zaipkg/directio"
 
 	"g.tesamc.com/IT/zbuf/vdisk"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
@@ -169,7 +174,7 @@ func (n2 *NopFile) Fdatasync() error {
 	return nil
 }
 
-func TestSchedulerCost(t *testing.T) {
+func TestSchedulerCostNopFile(t *testing.T) {
 
 	// runtime.GOMAXPROCS(2)
 
@@ -194,6 +199,57 @@ func TestSchedulerCost(t *testing.T) {
 			defer wg2.Done()
 			for j := 0; j < cnt; j++ {
 				_ = s.DoSync(xio.ReqObjRead, f, 0, nil)
+			}
+		}()
+	}
+	wg2.Wait()
+}
+
+// Test Scheduler Cost with os.File
+func TestSchedulerCostOSFile(t *testing.T) {
+
+	// runtime.GOMAXPROCS(32)
+
+	s := New(context.Background(), &Config{
+		Threads:     DefaultThreads,
+		QueueConfig: &QueueConfig{},
+	}, &vdisk.Info{PbDisk: &metapb.Disk{
+		State: metapb.DiskState_Disk_ReadWrite,
+	}})
+	// s := new(xio.NopScheduler)
+	s.Start()
+	defer s.Close()
+
+	dir, err := ioutil.TempDir(os.TempDir(), "zbuf.scheduler")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	f, err := vfs.GetFS().Create(filepath.Join(dir, "os_file"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	size := 4096 * 4
+
+	err = vfs.TryFAlloc(f, int64(size))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	buf := directio.AlignedBlock(size)
+
+	cnt := 32
+	threads := 16
+	wg2 := new(sync.WaitGroup)
+	wg2.Add(threads)
+	for i := 0; i < threads; i++ {
+		go func() {
+			defer wg2.Done()
+			for j := 0; j < cnt; j++ {
+				_ = s.DoSync(xio.ReqObjWrite, f, 0, buf)
 			}
 		}()
 	}
