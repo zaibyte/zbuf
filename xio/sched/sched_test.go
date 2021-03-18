@@ -112,7 +112,7 @@ func testSchedulerIsFairWithPriority(vfsSpeed, threads, reqSize int, reqCnts []r
 			cnt := 0
 			start := tsc.UnixNano()
 			for ar := range ars {
-				<-ar.Done
+				<-ar.Err
 				cnt++
 			}
 			cost := tsc.UnixNano() - start
@@ -175,17 +175,25 @@ func (n2 *NopFile) Fdatasync() error {
 	return nil
 }
 
-func TestSchedulerCostNopFile(t *testing.T) {
+func TestSchedulerCostNopFileQueue(t *testing.T) {
 
-	// runtime.GOMAXPROCS(2)
+	s := New(context.Background(), &Config{
+		Threads:     DefaultThreads,
+		QueueConfig: &QueueConfig{},
+	}, &vdisk.Info{PbDisk: &metapb.Disk{
+		State: metapb.DiskState_Disk_ReadWrite,
+	}})
+	testSchedulerCostNopFile(t, s)
+}
 
-	// s := New(context.Background(), &Config{
-	// 	Threads:     16,
-	// 	QueueConfig: &QueueConfig{},
-	// }, &vdisk.Info{PbDisk: &metapb.Disk{
-	// 	State: metapb.DiskState_Disk_ReadWrite,
-	// }})
+func TestSchedulerCostNopFileNop(t *testing.T) {
 	s := new(xio.NopScheduler)
+	testSchedulerCostNopFile(t, s)
+}
+
+func testSchedulerCostNopFile(t *testing.T, s xio.Scheduler) {
+
+
 	s.Start()
 	defer s.Close()
 
@@ -206,7 +214,7 @@ func TestSchedulerCostNopFile(t *testing.T) {
 	wg2.Wait()
 }
 
-func TestSchedulerCostOSFile(t *testing.T) {
+func TestSchedulerCostOSFileQueue(t *testing.T) {
 	s := New(context.Background(), &Config{
 		Threads:     DefaultThreads,
 		QueueConfig: &QueueConfig{},

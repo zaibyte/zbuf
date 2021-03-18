@@ -18,7 +18,7 @@ func (p *ReqQueue) add(reqType uint64, f xio.File, offset int64, d []byte) (ar *
 	ar.Data = d
 	ar.File = f
 	ar.Offset = offset
-	ar.Done = make(chan struct{})
+	ar.Err = make(chan error)
 	ar.PTS = tsc.UnixNano()
 
 	p.queue <- ar // Block until send succeed.

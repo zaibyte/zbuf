@@ -87,8 +87,7 @@ type AsyncRequest struct {
 	File   File
 	Offset int64
 	Data   []byte
-	Err    error
-	Done   chan struct{}
+	Err    chan error
 
 	PTS int64 // Timestamp of put into queue.
 }
@@ -109,7 +108,6 @@ func ReleaseAsyncRequest(ar *AsyncRequest) {
 	ar.Offset = 0
 	ar.Data = nil
 	ar.Err = nil
-	ar.Done = nil
 	ar.PTS = 0
 
 	AsyncRequestPool.Put(ar)

@@ -66,10 +66,9 @@ func (s *Scheduler) DoSync(reqType uint64, f xio.File, offset int64, d []byte) (
 	if ar, err = s.DoAsync(reqType, f, offset, d); err != nil {
 		return err
 	}
-	<-ar.Done
-	err = ar.Err
+	err = <-ar.Err
 	xio.ReleaseAsyncRequest(ar)
-	return ar.Err
+	return err
 }
 
 // New creates a scheduler instance.
@@ -154,8 +153,7 @@ func (s *Scheduler) FindRunnableLoop() {
 		}
 
 		if err := s.preproc(ar.Type); err != nil {
-			ar.Err = err
-			close(ar.Done)
+			ar.Err <- err
 			continue
 		}
 
@@ -185,8 +183,7 @@ func (s *Scheduler) FindRunnableLoop() {
 					err = ar.File.Fdatasync()
 				}
 			}
-			r.Err = err
-			close(r.Done)
+			r.Err <- err
 			<-workersChan
 		}(ar, s.workersCh)
 
