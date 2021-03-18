@@ -193,7 +193,6 @@ func TestSchedulerCostNopFileNop(t *testing.T) {
 
 func testSchedulerCostNopFile(t *testing.T, s xio.Scheduler) {
 
-
 	s.Start()
 	defer s.Close()
 
@@ -203,6 +202,7 @@ func testSchedulerCostNopFile(t *testing.T, s xio.Scheduler) {
 	threads := runtime.NumCPU()
 	wg2 := new(sync.WaitGroup)
 	wg2.Add(threads)
+	start := tsc.UnixNano()
 	for i := 0; i < threads; i++ {
 		go func() {
 			defer wg2.Done()
@@ -212,6 +212,8 @@ func testSchedulerCostNopFile(t *testing.T, s xio.Scheduler) {
 		}()
 	}
 	wg2.Wait()
+	cost := tsc.UnixNano() - start
+	t.Logf("each req cost: %dns\n", cost/int64(cnt))
 }
 
 func TestSchedulerCostOSFileQueue(t *testing.T) {

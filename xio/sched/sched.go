@@ -6,6 +6,7 @@ import (
 	"math"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"g.tesamc.com/IT/zaipkg/xlog"
@@ -17,6 +18,7 @@ import (
 
 	"g.tesamc.com/IT/zaipkg/config"
 	"g.tesamc.com/IT/zbuf/xio"
+	"github.com/panjf2000/ants/v2"
 	"github.com/templexxx/tsc"
 )
 
@@ -42,13 +44,15 @@ type Config struct {
 
 // Scheduler is disk I/O scheduler provides fair scheduling with priority classes.
 type Scheduler struct {
+	isRunning int64
+
 	cfg *Config
 
 	diskInfo *vdisk.Info
 
 	queue *Queue
 
-	workersCh chan struct{}
+	wp *ants.PoolWithFunc
 
 	ctx    context.Context
 	cancel func()
@@ -71,10 +75,36 @@ func (s *Scheduler) DoSync(reqType uint64, f xio.File, offset int64, d []byte) (
 	return err
 }
 
+// maxBlockingRequest is the max number of request waiting for executing in I/O wrokers pool.
+const maxBlockingRequest = 512
+
 // New creates a scheduler instance.
 func New(ctx context.Context, cfg *Config, di *vdisk.Info) *Scheduler {
 
 	cfg.adjust()
+
+	wp, err := ants.NewPoolWithFunc(cfg.Threads, func(i interface{}) {
+
+		ar := i.(*xio.AsyncRequest)
+		var err error
+		if xio.IsReqRead(ar.Type) {
+			_, err = ar.File.ReadAt(ar.Data, ar.Offset)
+		} else {
+			_, err = ar.File.WriteAt(ar.Data, ar.Offset)
+			if err == nil {
+				// I don't want update ctime, utime etc. at the same time.
+				// The file size is pre-allocated, data sync is enough.
+				// (data sync will allocate space too, even we've already used pre-allocate,
+				// some file system are using lazy allocation)
+				err = ar.File.Fdatasync()
+			}
+		}
+		ar.Err <- err
+	}, ants.WithLogger(xlog.GetLogger()), ants.WithMaxBlockingTasks(maxBlockingRequest))
+
+	if err != nil {
+		panic(fmt.Sprintf("failed to create scheudler: %s", err.Error()))
+	}
 
 	ctx2, cancel := context.WithCancel(ctx)
 
@@ -84,7 +114,7 @@ func New(ctx context.Context, cfg *Config, di *vdisk.Info) *Scheduler {
 		diskInfo: di,
 		queue:    NewQueue(cfg.QueueConfig),
 
-		workersCh: make(chan struct{}, cfg.Threads),
+		wp: wp,
 
 		ctx:    ctx2,
 		cancel: cancel,
@@ -93,12 +123,21 @@ func New(ctx context.Context, cfg *Config, di *vdisk.Info) *Scheduler {
 }
 
 func (s *Scheduler) Start() {
+	if !atomic.CompareAndSwapInt64(&s.isRunning, 0, 1) {
+		return // Already started.
+	}
+
 	s.stopWg.Add(1)
+
 	go s.FindRunnableLoop()
 	xlog.Info(fmt.Sprintf("disk: %d scheduler is running", s.diskInfo.PbDisk.Id))
 }
 
 func (s *Scheduler) Close() {
+	if !atomic.CompareAndSwapInt64(&s.isRunning, 1, 0) {
+		return // Already closed.
+	}
+
 	s.cancel()
 	s.stopWg.Wait()
 	xlog.Info(fmt.Sprintf("disk: %d scheduler is closed", s.diskInfo.PbDisk.Id))
@@ -118,17 +157,11 @@ const noReqSleep = 100 * time.Microsecond
 func (s *Scheduler) FindRunnableLoop() {
 	defer s.stopWg.Done()
 
-	ctx, cancel := context.WithCancel(s.ctx)
-	defer cancel()
-
 	start := tsc.UnixNano()
 	for {
 
-		select {
-		case <-ctx.Done():
+		if atomic.LoadInt64(&s.isRunning) != 1 {
 			return
-		default:
-
 		}
 
 		hasReq, qs := s.queue.pqs.clone()
@@ -157,35 +190,13 @@ func (s *Scheduler) FindRunnableLoop() {
 			continue
 		}
 
-		select { // Block until we have free goroutine.
-		case s.workersCh <- struct{}{}:
-		default:
-			select {
-			case s.workersCh <- struct{}{}:
-			case <-ctx.Done():
-				return
-			}
-		}
-
 		now := tsc.UnixNano()
 
-		go func(r *xio.AsyncRequest, workersChan <-chan struct{}) {
-			var err error
-			if xio.IsReqRead(r.Type) {
-				_, err = ar.File.ReadAt(r.Data, r.Offset)
-			} else {
-				_, err = ar.File.WriteAt(r.Data, r.Offset)
-				if err == nil {
-					// I don't want update ctime, utime etc. at the same time.
-					// The file size is pre-allocated, data sync is enough.
-					// (data sync will allocate space too, even we've already used pre-allocate,
-					// some file system are using lazy allocation)
-					err = ar.File.Fdatasync()
-				}
-			}
-			r.Err <- err
-			<-workersChan
-		}(ar, s.workersCh)
+		err := s.wp.Invoke(ar)
+		if err != nil {
+			ar.Err <- err // TODO how to handle this error for caller?
+			continue
+		}
 
 		if now-start >= balanceWindow {
 			s.setCostsZero()

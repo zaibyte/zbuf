@@ -2,6 +2,8 @@ package sched
 
 import (
 	"g.tesamc.com/IT/zaipkg/config"
+	"g.tesamc.com/IT/zaipkg/orpc"
+	"g.tesamc.com/IT/zaipkg/xerrors"
 	"g.tesamc.com/IT/zbuf/xio"
 )
 
@@ -68,11 +70,13 @@ func (q *Queue) Add(reqType uint64, f xio.File, offset int64, d []byte) (*xio.As
 	switch reqType {
 	case xio.ReqObjRead, xio.ReqObjWrite:
 		return q.pqs[objq].reqQueue.add(reqType, f, offset, d)
+	case xio.ReqMetaRead, xio.ReqMetaWrite:
+		return q.pqs[metaq].reqQueue.add(reqType, f, offset, d)
 	case xio.ReqChunkRead, xio.ReqChunkWrite:
 		return q.pqs[chunkq].reqQueue.add(reqType, f, offset, d)
 	case xio.ReqGCRead, xio.ReqGCWrite:
 		return q.pqs[gcq].reqQueue.add(reqType, f, offset, d)
 	default:
-		return q.pqs[metaq].reqQueue.add(reqType, f, offset, d)
+		return nil, xerrors.WithMessage(orpc.ErrInternalServer, "illegal I/O req type")
 	}
 }
