@@ -140,6 +140,8 @@ func (s *Scheduler) Close() {
 
 	s.cancel()
 	s.stopWg.Wait()
+	s.wp.Release()
+
 	xlog.Info(fmt.Sprintf("disk: %d scheduler is closed", s.diskInfo.PbDisk.Id))
 }
 
