@@ -1,6 +1,8 @@
 package sched
 
 import (
+	"sync/atomic"
+
 	"g.tesamc.com/IT/zaipkg/config"
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/xerrors"
@@ -69,13 +71,21 @@ func (q *Queue) Add(reqType uint64, f xio.File, offset int64, d []byte) (*xio.As
 
 	switch reqType {
 	case xio.ReqObjRead, xio.ReqObjWrite:
-		return q.pqs[objq].reqQueue.add(reqType, f, offset, d)
+		ar, err := q.pqs[objq].reqQueue.add(reqType, f, offset, d)
+		atomic.AddInt64(&q.pqs[objq].pending, 1)
+		return ar, err
 	case xio.ReqMetaRead, xio.ReqMetaWrite:
-		return q.pqs[metaq].reqQueue.add(reqType, f, offset, d)
+		ar, err := q.pqs[metaq].reqQueue.add(reqType, f, offset, d)
+		atomic.AddInt64(&q.pqs[metaq].pending, 1)
+		return ar, err
 	case xio.ReqChunkRead, xio.ReqChunkWrite:
-		return q.pqs[chunkq].reqQueue.add(reqType, f, offset, d)
+		ar, err := q.pqs[chunkq].reqQueue.add(reqType, f, offset, d)
+		atomic.AddInt64(&q.pqs[chunkq].pending, 1)
+		return ar, err
 	case xio.ReqGCRead, xio.ReqGCWrite:
-		return q.pqs[gcq].reqQueue.add(reqType, f, offset, d)
+		ar, err := q.pqs[gcq].reqQueue.add(reqType, f, offset, d)
+		atomic.AddInt64(&q.pqs[gcq].pending, 1)
+		return ar, err
 	default:
 		return nil, xerrors.WithMessage(orpc.ErrInternalServer, "illegal I/O req type")
 	}

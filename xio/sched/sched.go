@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -153,7 +152,7 @@ func (c *Config) adjust() {
 // default is 10ms.
 const balanceWindow = int64(10 * time.Millisecond)
 
-const noReqSleep = 100 * time.Microsecond
+const noReqSleep = 10 * time.Microsecond
 
 // FindRunnableLoop finds runnable request by scheduler rules round and round.
 func (s *Scheduler) FindRunnableLoop() {
@@ -166,24 +165,23 @@ func (s *Scheduler) FindRunnableLoop() {
 			return
 		}
 
-		hasReq, qs := s.queue.pqs.clone()
-		if !hasReq {
-			time.Sleep(noReqSleep)
-			continue
-		}
-		sort.Sort(qs)
-
-		var ar *xio.AsyncRequest
-		var idx int
-		for i, q := range qs {
-			if len(q.reqQueue.queue) > 0 {
-				ar = <-q.reqQueue.queue
-				idx = i
-				break
+		var min = math.MaxFloat64
+		var minQ = -1
+		for i, pq := range s.queue.pqs {
+			if atomic.LoadInt64(&pq.pending) > 0 {
+				if pq.totalCost < min {
+					min = pq.totalCost
+					minQ = i
+				}
 			}
 		}
 
-		if ar == nil {
+		var ar *xio.AsyncRequest
+		if minQ != -1 {
+			ar = <-s.queue.pqs[minQ].reqQueue.queue
+			atomic.AddInt64(&s.queue.pqs[minQ].pending, -1)
+		} else {
+			time.Sleep(noReqSleep) // TODO we may no sleep here, waiting for Go sysmon schedule it.
 			continue
 		}
 
@@ -206,8 +204,8 @@ func (s *Scheduler) FindRunnableLoop() {
 			continue
 		}
 
-		c := calcCost(int64(len(ar.Data)), ar.PTS, now, qs[idx].shares)
-		qs[idx].totalCost += c
+		c := calcCost(int64(len(ar.Data)), ar.PTS, now, s.queue.pqs[minQ].shares)
+		s.queue.pqs[minQ].totalCost += c
 	}
 }
 

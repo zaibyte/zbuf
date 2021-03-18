@@ -9,6 +9,7 @@ type PriorityQueue struct {
 	qType     int
 	shares    int64
 	totalCost float64
+	pending   int64
 	reqQueue  *ReqQueue
 }
 

@@ -11,7 +11,7 @@ skip_time = 1
 
 mb_per_put_thread = 1024
 mb_per_get_thread = 1024
-put_threads = 1
+put_threads = 16
 get_threads = 32
 
 segment_size = 1024
