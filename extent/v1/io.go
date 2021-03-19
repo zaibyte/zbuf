@@ -124,15 +124,11 @@ func (e *Extenter) updatesLoop() {
 			}
 		}
 
-		var wr *putObjRequest
-		var mr *modifyRequest
+		var ur *updateRequest
 
 		// We must be sure loop blocking on select, otherwise the loop will do nothing & wasting the CPU.
 		select {
-		case <-ctx.Done():
-			return
-		case wr = <-e.putObjChan:
-		case mr = <-e.modChan:
+		case ur = <-e.updateChan:
 		default:
 			// Give the last chance for ready goroutines filling chan.
 			runtime.Gosched()
@@ -140,40 +136,40 @@ func (e *Extenter) updatesLoop() {
 			select {
 			case <-ctx.Done():
 				return
-			case wr = <-e.putObjChan:
-			case mr = <-e.modChan:
+			case ur = <-e.updateChan:
 			}
 		}
 
-		if wr != nil {
+		reqType := ur.reqType
+		if reqType == xio.ReqObjWrite || reqType == xio.ReqCloneWrite {
 
-			if err := e.preprocWriteReq(wr.reqType); err != nil {
-				wr.done <- err
+			if err := e.preprocWriteReq(ur.reqType); err != nil {
+				ur.done <- err
 				continue
 			}
 
-			_, _, grains, digest, otype, _ := uid.ParseOID(wr.oid) // ignore err here, because the oid should have been checked.
+			_, _, grains, digest, otype, _ := uid.ParseOID(ur.oid) // ignore err here, because the oid should have been checked.
 
 			binary.LittleEndian.PutUint32(digestBuf, digest)
 
 			if dirtyDel.bf.Test(digestBuf) {
-				wr.done <- orpc.ErrObjDigestExisted
+				ur.done <- orpc.ErrObjDigestExisted
 				continue
 			}
 
 			if !e.cfg.UpdateOrInsert {
 				if e.dmu.Search(digest) != 0 { // Although Insert will do search too, checking ahead avoiding potential I/O wasting.
-					wr.done <- orpc.ErrObjDigestExisted
+					ur.done <- orpc.ErrObjDigestExisted
 					continue
 				}
 			}
 
 			// There is no enough space in this segment for this uploading.
-			if e.writableCursor+int64(len(wr.objData))+objHeaderSize > segSize {
+			if e.writableCursor+int64(len(ur.objData))+objHeaderSize > segSize {
 				e.rwMutex.Lock()
 				nextSeg, err := e.getNextWritableSeg(e.writableSeg)
 				if err != nil {
-					wr.done <- err
+					ur.done <- err
 					e.rwMutex.Unlock()
 					e.setState(err)
 					continue
@@ -187,9 +183,9 @@ func (e *Extenter) updatesLoop() {
 			cursor := e.writableCursor
 			offset := segCursorToOffset(wseg, cursor, segSize)
 
-			written, err := e.objWriteAt(wr.reqType, wr.oid, offset, wr.objData, writeBuf)
+			written, err := e.objWriteAt(ur.reqType, ur.oid, offset, ur.objData, writeBuf)
 			if err != nil {
-				wr.done <- err
+				ur.done <- err
 				e.setState(err)
 				continue
 			}
@@ -197,50 +193,50 @@ func (e *Extenter) updatesLoop() {
 			if !e.cfg.UpdateOrInsert {
 				err = e.dmu.Insert(digest, uint32(otype), grains, offsetToAddr(offset))
 				if err != nil {
-					wr.done <- err
+					ur.done <- err
 					e.setState(err)
 					continue
 				}
 			} else {
 				err = e.dmu.UpdateOrInsert(digest, uint32(otype), grains, offsetToAddr(offset))
 				if err != nil {
-					wr.done <- err
+					ur.done <- err
 					e.setState(err)
 					continue
 				}
 			}
 
-			wr.done <- nil
+			ur.done <- nil
 
 			atomic.AddInt64(&e.writableCursor, xbytes.AlignSize(int64(written), dmu.AlignSize))
 			atomic.AddInt64(&e.dirtyUpdates, 1)
 			continue // Write updates request done, go back to the top of loop.
 		}
 
-		// mr must not be nil
+		// Must be remove or update address.
 		if err := e.preprocModifyRequest(); err != nil {
-			mr.done <- err
+			ur.done <- err
 			continue
 		}
 
-		switch mr.reqType {
+		switch ur.reqType {
 		case modReqRemove:
 
 			if dirtyDel.dirtyOneCnt+1 > maxDirtyDelOne {
-				mr.done <- xerrors.WithMessage(orpc.ErrTooManyRequests, "delete too fast")
+				ur.done <- xerrors.WithMessage(orpc.ErrTooManyRequests, "delete too fast")
 				continue
 			}
-			_, _, grains, digest, _, _ := uid.ParseOID(mr.oid)
+			_, _, grains, digest, _, _ := uid.ParseOID(ur.oid)
 
 			if e.dmu.Search(digest) == 0 {
-				mr.done <- orpc.ErrNotFound
+				ur.done <- orpc.ErrNotFound
 				continue
 			}
 			lastMod := tsc.UnixNano()
 			n := makeDelWALChunk(digest, lastMod, writeBuf)
 			err := e.ioSched.DoSync(xio.ReqMetaWrite, e.dirtyDeleteWAL, dirtyWALOffset, writeBuf[:n])
 			if err != nil {
-				mr.done <- err
+				ur.done <- err
 				e.setState(err)
 				continue
 			}
@@ -255,25 +251,25 @@ func (e *Extenter) updatesLoop() {
 			e.rwMutex.Unlock()
 			dirtyWALOffset += n
 			atomic.AddInt64(&e.dirtyUpdates, 1)
-			mr.done <- nil
+			ur.done <- nil
 			continue
 		case modReqRmBatch:
 
-			if dirtyDel.dirtyBatchCnt+len(mr.oids) > maxDirtyDelBatch {
-				mr.done <- orpc.ErrTooManyRequests
+			if dirtyDel.dirtyBatchCnt+len(ur.oids) > maxDirtyDelBatch {
+				ur.done <- orpc.ErrTooManyRequests
 				continue
 			}
 			lastMod := tsc.UnixNano()
-			n := makeDelBatchWALChunk(mr.oids, lastMod, writeBuf)
+			n := makeDelBatchWALChunk(ur.oids, lastMod, writeBuf)
 			err := e.ioSched.DoSync(xio.ReqMetaWrite, e.dirtyDeleteWAL, dirtyWALOffset, writeBuf[:n])
 			if err != nil {
-				mr.done <- err
+				ur.done <- err
 				e.setState(err)
 				continue
 			}
 
 			e.rwMutex.Lock()
-			for _, oid := range mr.oids {
+			for _, oid := range ur.oids {
 				_, _, grains, digest, _, _ := uid.ParseOID(oid)
 				rHas, rAddr := e.dmu.Remove(digest)
 				if rHas {
@@ -288,18 +284,18 @@ func (e *Extenter) updatesLoop() {
 			}
 			e.rwMutex.Unlock()
 			dirtyWALOffset += n
-			mr.done <- nil
+			ur.done <- nil
 			continue
 
 		case modReqResetAddr:
-			_, _, _, digest, _, _ := uid.ParseOID(mr.oid)
-			if e.dmu.Update(digest, mr.newAddr) {
+			_, _, _, digest, _, _ := uid.ParseOID(ur.oid)
+			if e.dmu.Update(digest, ur.newAddr) {
 				atomic.AddInt64(&e.dirtyUpdates, 1)
 			}
-			mr.done <- nil
+			ur.done <- nil
 			continue
 		default:
-			mr.done <- orpc.ErrNotImplemented
+			ur.done <- orpc.ErrNotImplemented
 			continue
 		}
 	}
@@ -708,69 +704,41 @@ func offsetToAddr(offset int64) uint32 {
 	return uint32(offset / dmu.AlignSize)
 }
 
-type putObjRequest struct {
-	reqType uint64
-
-	oid     uint64
-	objData []byte
-
-	done chan error
-}
-
-var putObjRequestPool sync.Pool
-
-func acquirePutObjRequest() *putObjRequest {
-	v := putObjRequestPool.Get()
-	if v == nil {
-		return &putObjRequest{}
-	}
-	return v.(*putObjRequest)
-}
-
-func releasePutObjRequest(wr *putObjRequest) {
-	wr.reqType = 0
-	wr.oid = 0
-	wr.objData = nil
-	wr.done = nil
-
-	putObjRequestPool.Put(wr)
-}
-
 const (
-	modReqRemove    = 1
-	modReqRmBatch   = 2
-	modReqResetAddr = 3
+	// If modReqRemove, using oid.
+	modReqRemove = 111
+	// If modReqRmBatch, using oids.
+	modReqRmBatch = 112
+	// If modReqResetAddr, using newAddr.
+	modReqResetAddr = 113
 )
 
-// Including deletion & setting new address for an oid.
-type modifyRequest struct {
-	reqType uint8
-
-	oid     uint64   // If modReqRemove, using this one.
-	oids    []uint64 // If modReqRmBatch, using this one.
-	newAddr uint32   // If modReqResetAddr, using this one.
-
-	done chan error
+type updateRequest struct {
+	reqType uint64
+	oid     uint64
+	objData []byte
+	oids    []uint64
+	newAddr uint32
+	done    chan error
 }
 
-var modifyRequestPool sync.Pool
+var updateRequestPool sync.Pool
 
-func acquireModifyRequest() *modifyRequest {
-	v := modifyRequestPool.Get()
+func acquireUpdateRequest() *updateRequest {
+	v := updateRequestPool.Get()
 	if v == nil {
-		return &modifyRequest{}
+		return &updateRequest{}
 	}
-	return v.(*modifyRequest)
+	return v.(*updateRequest)
 }
 
-func releaseModifyRequest(mr *modifyRequest) {
-	mr.reqType = 0
+func releaseUpdateRequest(ur *updateRequest) {
+	ur.reqType = 0
+	ur.oid = 0
+	ur.objData = nil
+	ur.oids = nil
+	ur.newAddr = 0
+	ur.done = nil
 
-	mr.oid = 0
-	mr.oids = nil
-	mr.newAddr = 0
-
-	mr.done = nil
-
-	modifyRequestPool.Put(mr)
+	updateRequestPool.Put(ur)
 }

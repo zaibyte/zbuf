@@ -151,8 +151,7 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 		gcSrcSeg: -1,
 		gcDstSeg: -1,
 
-		putObjChan:     make(chan *putObjRequest, c.cfg.UpdatesPending),
-		modChan:        make(chan *modifyRequest, c.cfg.UpdatesPending), // Shares same config.
+		updateChan:     make(chan *updateRequest, c.cfg.UpdatesPending),
 		forceGC:        make(chan float64, 1),
 		dirtyDeleteWAL: dwf,
 
@@ -259,8 +258,7 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 		gcSrcSeg: -1,
 		gcDstSeg: -1,
 
-		putObjChan:     make(chan *putObjRequest, c.cfg.UpdatesPending),
-		modChan:        make(chan *modifyRequest, c.cfg.UpdatesPending), // Shares same config.
+		updateChan:     make(chan *updateRequest, c.cfg.UpdatesPending),
 		dirtyDeleteWAL: dwf,
 		forceGC:        make(chan float64, 1),
 		lastDMUSnap:    unsafe.Pointer(new(dmuSnapHeader)),

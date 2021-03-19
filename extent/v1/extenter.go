@@ -87,8 +87,7 @@ type Extenter struct {
 	gcSrcCursor uint32
 	gcDstCursor uint32
 
-	putObjChan     chan *putObjRequest
-	modChan        chan *modifyRequest
+	updateChan     chan *updateRequest
 	dirtyDeleteWAL vfs.File
 
 	dirtyUpdates    int64 // dirtyUpdates is the count of DMU changes haven't flushed to disk.
@@ -180,36 +179,36 @@ func (e *Extenter) PutObj(_reqid, oid uint64, objData []byte, isClone bool) erro
 		return orpc.ErrServiceClosed
 	}
 
-	wr := acquirePutObjRequest()
+	ur := acquireUpdateRequest()
 
-	wr.reqType = xio.ReqObjWrite
+	ur.reqType = xio.ReqObjWrite
 	if isClone {
-		wr.reqType = xio.ReqCloneWrite
+		ur.reqType = xio.ReqCloneWrite
 	}
-	wr.oid = oid
-	wr.objData = objData
-	wr.done = make(chan error)
+	ur.oid = oid
+	ur.objData = objData
+	ur.done = make(chan error)
 
 	select {
-	case e.putObjChan <- wr:
+	case e.updateChan <- ur:
 	default:
 		select {
-		case wr2 := <-e.putObjChan:
-			wr2.done <- orpc.ErrRequestQueueOverflow
-			releasePutObjRequest(wr2)
+		case ur2 := <-e.updateChan:
+			ur2.done <- orpc.ErrRequestQueueOverflow
+			releaseUpdateRequest(ur2)
 		default:
 		}
 
 		select {
-		case e.putObjChan <- wr:
+		case e.updateChan <- ur:
 		default:
-			releasePutObjRequest(wr)
+			releaseUpdateRequest(ur)
 			return orpc.ErrRequestQueueOverflow
 		}
 	}
 
-	err := <-wr.done
-	releasePutObjRequest(wr)
+	err := <-ur.done
+	releaseUpdateRequest(ur)
 	return err
 }
 
@@ -302,12 +301,12 @@ func (e *Extenter) ModifyObjAddr(oid uint64, newAddr uint32) error {
 	return e.callModify(modReqResetAddr, oid, nil, newAddr)
 }
 
-func (e *Extenter) callModify(reqType uint8, oid uint64, oids []uint64, newAddr uint32) error {
+func (e *Extenter) callModify(reqType uint64, oid uint64, oids []uint64, newAddr uint32) error {
 
 	ctx, cancel := context.WithCancel(e.ctx)
 	defer cancel()
 
-	mr := acquireModifyRequest()
+	mr := acquireUpdateRequest()
 
 	mr.reqType = reqType
 	mr.oid = oid
@@ -318,29 +317,29 @@ func (e *Extenter) callModify(reqType uint8, oid uint64, oids []uint64, newAddr 
 	select {
 	case <-ctx.Done():
 		return orpc.ErrServiceClosed
-	case e.modChan <- mr:
+	case e.updateChan <- mr:
 	default:
 		select {
 		case <-ctx.Done():
 			return orpc.ErrServiceClosed
-		case mr2 := <-e.modChan:
+		case mr2 := <-e.updateChan:
 			mr2.done <- orpc.ErrRequestQueueOverflow
-			releaseModifyRequest(mr2)
+			releaseUpdateRequest(mr2)
 		default:
 		}
 
 		select {
 		case <-ctx.Done():
 			return orpc.ErrServiceClosed
-		case e.modChan <- mr:
+		case e.updateChan <- mr:
 		default:
-			releaseModifyRequest(mr)
+			releaseUpdateRequest(mr)
 			return orpc.ErrRequestQueueOverflow
 		}
 	}
 
 	err := <-mr.done
-	releaseModifyRequest(mr)
+	releaseUpdateRequest(mr)
 	return err
 }
 
