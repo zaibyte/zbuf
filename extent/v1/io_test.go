@@ -213,9 +213,9 @@ func TestExtenter_PutGetObj(t *testing.T) {
 		oids[okCnt] = oid
 		okCnt++
 
-		getRet, err := ext.GetObj(1, oid, false)
-		if err != nil {
-			t.Fatal(err)
+		getRet, err2 := ext.GetObj(1, oid, false)
+		if err2 != nil {
+			t.Fatal(err2)
 		}
 		if !bytes.Equal(objData, getRet) {
 			t.Fatal("get result mismatched")

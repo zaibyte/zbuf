@@ -176,6 +176,10 @@ func (e *Extenter) startBackgroundLoops() {
 
 func (e *Extenter) PutObj(_reqid, oid uint64, objData []byte, isClone bool) error {
 
+	if atomic.LoadInt64(&e.isRunning) != 1 {
+		return orpc.ErrServiceClosed
+	}
+
 	wr := acquirePutObjRequest()
 
 	wr.reqType = xio.ReqObjWrite
@@ -186,17 +190,10 @@ func (e *Extenter) PutObj(_reqid, oid uint64, objData []byte, isClone bool) erro
 	wr.objData = objData
 	wr.done = make(chan error)
 
-	ctx, cancel := context.WithCancel(e.ctx)
-	defer cancel()
-
 	select {
-	case <-ctx.Done():
-		return orpc.ErrServiceClosed
 	case e.putObjChan <- wr:
 	default:
 		select {
-		case <-ctx.Done():
-			return orpc.ErrServiceClosed
 		case wr2 := <-e.putObjChan:
 			wr2.done <- orpc.ErrRequestQueueOverflow
 			releasePutObjRequest(wr2)
@@ -204,8 +201,6 @@ func (e *Extenter) PutObj(_reqid, oid uint64, objData []byte, isClone bool) erro
 		}
 
 		select {
-		case <-ctx.Done():
-			return orpc.ErrServiceClosed
 		case e.putObjChan <- wr:
 		default:
 			releasePutObjRequest(wr)
