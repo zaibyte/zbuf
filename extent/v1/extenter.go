@@ -303,8 +303,9 @@ func (e *Extenter) ModifyObjAddr(oid uint64, newAddr uint32) error {
 
 func (e *Extenter) callModify(reqType uint64, oid uint64, oids []uint64, newAddr uint32) error {
 
-	ctx, cancel := context.WithCancel(e.ctx)
-	defer cancel()
+	if atomic.LoadInt64(&e.isRunning) != 1 {
+		return orpc.ErrServiceClosed
+	}
 
 	mr := acquireUpdateRequest()
 
@@ -315,13 +316,9 @@ func (e *Extenter) callModify(reqType uint64, oid uint64, oids []uint64, newAddr
 	mr.done = make(chan error)
 
 	select {
-	case <-ctx.Done():
-		return orpc.ErrServiceClosed
 	case e.updateChan <- mr:
 	default:
 		select {
-		case <-ctx.Done():
-			return orpc.ErrServiceClosed
 		case mr2 := <-e.updateChan:
 			mr2.done <- orpc.ErrRequestQueueOverflow
 			releaseUpdateRequest(mr2)
@@ -329,8 +326,6 @@ func (e *Extenter) callModify(reqType uint64, oid uint64, oids []uint64, newAddr
 		}
 
 		select {
-		case <-ctx.Done():
-			return orpc.ErrServiceClosed
 		case e.updateChan <- mr:
 		default:
 			releaseUpdateRequest(mr)
