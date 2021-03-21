@@ -214,6 +214,10 @@ func (e *Extenter) PutObj(_reqid, oid uint64, objData []byte, isClone bool) erro
 
 func (e *Extenter) GetObj(_reqid, oid uint64, isClone bool) (objData []byte, err error) {
 
+	if atomic.LoadInt64(&e.isRunning) != 1 {
+		return nil, orpc.ErrServiceClosed
+	}
+
 	err = e.preprocGetReq()
 	if err != nil {
 		return nil, err
