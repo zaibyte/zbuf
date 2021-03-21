@@ -78,8 +78,8 @@ func randFillObj(nKB int64) {
 // prepareRead ensure every extent has one object.
 func (r *Runner) prepareRead() {
 	var wg sync.WaitGroup
+	wg.Add(8)
 	for i := 0; i < 8; i++ {
-		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for k := 0; k < len(r.putJobers); k++ {

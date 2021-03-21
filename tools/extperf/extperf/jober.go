@@ -78,14 +78,16 @@ func (j *jober) get(oid uint64) (succeed bool, cost int64) {
 
 func (r *Runner) runPutJob() {
 
+	MBs := r.cfg.MBPerPutThread
+	cntInThread := MBs * 1024 / int(r.cfg.BlockSize)
+
 	for _, j := range r.putJobers {
-		go func(jober *jober) {
+		go func(jober *jober, cntInThread int) {
 			defer func() {
 				atomic.AddInt64(&r.putDone, 1)
 				r.stopWg.Done()
 			}()
-			MBs := r.cfg.MBPerPutThread
-			cntInThread := MBs * 1024 / int(r.cfg.BlockSize)
+
 			for k := 0; k < cntInThread; k++ {
 				ok, cost := jober.put(testObjOID, testObj)
 
@@ -111,7 +113,7 @@ func (r *Runner) runPutJob() {
 					return
 				}
 			}
-		}(j)
+		}(j, cntInThread)
 	}
 }
 
@@ -120,15 +122,15 @@ func (r *Runner) runGetJob() {
 	jobers := r.getJobers
 	oid := testObjOID
 
+	MBs := r.cfg.MBPerGetThread
+	cntInThread := MBs * 1024 / int(r.cfg.BlockSize)
+
 	for _, j := range jobers {
-		go func(jober *jober) {
+		go func(jober *jober, cntInThread int) {
 			defer func() {
 				atomic.AddInt64(&r.getDone, 1)
 				r.stopWg.Done()
 			}()
-
-			MBs := r.cfg.MBPerGetThread
-			cntInThread := MBs * 1024 / int(r.cfg.BlockSize)
 
 			for k := 0; k < cntInThread; k++ {
 				ok, cost := jober.get(oid)
@@ -155,6 +157,6 @@ func (r *Runner) runGetJob() {
 					return
 				}
 			}
-		}(j)
+		}(j, cntInThread)
 	}
 }
