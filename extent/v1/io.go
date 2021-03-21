@@ -112,16 +112,6 @@ func (e *Extenter) updatesLoop() {
 			if atomic.LoadInt64(&e.dirtyUpdates) > e.cfg.MaxDirtyCount {
 				e.makeDMUSnapAsync(false)
 			}
-			lastSnap := e.getLastDMUSnap()
-			if lastSnap.createTS >= dirtyDel.lastMod {
-				err := dirtyDel.reset()
-				if err != nil {
-					xlog.Error(fmt.Sprintf("ext: %d broken: failed to reset dirty_delete_wal", e.info.PbExt.Id))
-					e.info.SetState(metapb.ExtentState_Extent_Broken, false)
-				} else {
-					dirtyWALOffset = 0
-				}
-			}
 		}
 
 		var ur *updateRequest
@@ -223,8 +213,22 @@ func (e *Extenter) updatesLoop() {
 		case modReqRemove:
 
 			if dirtyDel.dirtyOneCnt+1 > maxDirtyDelOne {
-				ur.done <- xerrors.WithMessage(orpc.ErrTooManyRequests, "delete too fast")
-				continue
+				lastSnap := e.getLastDMUSnap()
+				if lastSnap.createTS >= dirtyDel.lastMod {
+					err := dirtyDel.reset()
+					if err != nil {
+						err = fmt.Errorf("ext: %d broken: failed to reset dirty_delete_wal", e.info.PbExt.Id)
+						xlog.Error(err.Error())
+						e.info.SetState(metapb.ExtentState_Extent_Broken, false)
+						ur.done <- err
+						continue
+					} else {
+						dirtyWALOffset = 0
+					}
+				} else {
+					ur.done <- xerrors.WithMessage(orpc.ErrTooManyRequests, "delete too fast")
+					continue
+				}
 			}
 			_, _, grains, digest, _, _ := uid.ParseOID(ur.oid)
 
@@ -256,8 +260,22 @@ func (e *Extenter) updatesLoop() {
 		case modReqRmBatch:
 
 			if dirtyDel.dirtyBatchCnt+len(ur.oids) > maxDirtyDelBatch {
-				ur.done <- orpc.ErrTooManyRequests
-				continue
+				lastSnap := e.getLastDMUSnap()
+				if lastSnap.createTS >= dirtyDel.lastMod {
+					err := dirtyDel.reset()
+					if err != nil {
+						err = fmt.Errorf("ext: %d broken: failed to reset dirty_delete_wal", e.info.PbExt.Id)
+						xlog.Error(err.Error())
+						e.info.SetState(metapb.ExtentState_Extent_Broken, false)
+						ur.done <- err
+						continue
+					} else {
+						dirtyWALOffset = 0
+					}
+				} else {
+					ur.done <- xerrors.WithMessage(orpc.ErrTooManyRequests, "delete too fast")
+					continue
+				}
 			}
 			lastMod := tsc.UnixNano()
 			n := makeDelBatchWALChunk(ur.oids, lastMod, writeBuf)
