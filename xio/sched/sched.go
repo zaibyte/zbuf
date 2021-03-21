@@ -181,7 +181,7 @@ func (s *Scheduler) FindRunnableLoop() {
 			ar = <-s.queue.pqs[minQ].reqQueue.queue
 			atomic.AddInt64(&s.queue.pqs[minQ].pending, -1)
 		} else {
-			time.Sleep(noReqSleep) // TODO we may no sleep here, waiting for Go sysmon schedule it.
+			time.Sleep(noReqSleep)
 			continue
 		}
 
