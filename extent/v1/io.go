@@ -550,14 +550,14 @@ func (e *Extenter) objReadAt(reqType uint64, digest uint32, offset int64, objDat
 // checkReadAt checks Extent's segments file from a certain offset(oid offset).
 // It won't return the data, just checks the I/O system and its checksum.
 // buf should be cfg.SizePerRead bytes block.
-func (e *Extenter) checkReadAt(offset int64, buf []byte) (oid uint64, grains uint32, err error) {
-	oid, grains, _, err = e.oidReadAt(xio.ReqObjRead, offset, buf[:objHeaderSize])
+func (e *Extenter) checkReadAt(offset int64, buf []byte) (oid uint64, grains uint32, createTS int64, err error) {
+	oid, grains, createTS, err = e.oidReadAt(xio.ReqObjRead, offset, buf[:objHeaderSize])
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
 
 	if oid == 0 { // Meet deleted object.
-		return 0, grains, err
+		return
 	}
 
 	_, _, _, digest, _, _ := uid.ParseOID(oid)
@@ -576,7 +576,7 @@ func (e *Extenter) checkReadAt(offset int64, buf []byte) (oid uint64, grains uin
 		}
 		err = e.ioSched.DoSync(xio.ReqObjRead, e.segsFile, offset, buf[:nn])
 		if err != nil {
-			return 0, grains, err
+			return 0, grains, createTS, err
 		}
 		_, _ = d.Write(buf[:nn])
 		read += nn
@@ -585,7 +585,7 @@ func (e *Extenter) checkReadAt(offset int64, buf []byte) (oid uint64, grains uin
 
 	actDigest := d.Sum32()
 	if actDigest != digest {
-		return oid, grains, orpc.ErrChecksumMismatch
+		return oid, grains, createTS, orpc.ErrChecksumMismatch
 	}
 	return
 }

@@ -355,6 +355,8 @@ func (e *Extenter) traverseWritableSeg() error {
 
 	buf := directio.AlignedBlock(int(e.cfg.SizePerRead))
 
+	var lastCreateTS int64 = 0
+
 	for i := swhi; i < hwhi; i++ {
 
 		if i == -1 {
@@ -373,7 +375,7 @@ func (e *Extenter) traverseWritableSeg() error {
 				wcursor = 0
 				break
 			}
-			oid, grains, err := e.checkReadAt(addr, buf)
+			oid, grains, createTS, err := e.checkReadAt(addr, buf)
 			if err != nil {
 				if i != hwhi-1 {
 					return err
@@ -391,6 +393,14 @@ func (e *Extenter) traverseWritableSeg() error {
 			if oid == 0 {
 				wcursor = 0 // Meet end, should start with 0 in next writable seg if has.
 				break
+			}
+			// Write is sequential.
+			// When reach the createTS means reach the segment end or the left space wasn't enough for the object.
+			if createTS < lastCreateTS {
+				wcursor = 0
+				break
+			} else {
+				lastCreateTS = createTS
 			}
 			_, _, grains, digest, otype, _ := uid.ParseOID(oid)
 			err = e.dmu.Insert(digest, uint32(otype), grains, uint32(addr))
