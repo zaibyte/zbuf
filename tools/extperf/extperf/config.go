@@ -25,6 +25,10 @@ type Config struct {
 	// Scheduler configs.
 	Nop       bool `toml:"nop"` // Using nop scheduler or not.
 	IOThreads int  `toml:"io_threads"`
+
+	// IsRaw indicates testing the raw I/O directly sent to the file system.
+	// TODO it only works when JobType is read.
+	IsRaw bool `toml:"is_raw"`
 }
 
 var jobTypes = map[string]int{
