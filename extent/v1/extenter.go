@@ -396,7 +396,7 @@ func (e *Extenter) traverseWritableSeg() error {
 			}
 			// Write is sequential.
 			// When reach the createTS means reach the segment end or the left space wasn't enough for the object.
-			if createTS < lastCreateTS {
+			if createTS < lastCreateTS { //	Meet garbage.
 				wcursor = 0
 				break
 			} else {
