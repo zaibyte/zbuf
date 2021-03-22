@@ -1,6 +1,4 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
-g.tesamc.com/IT/zai v0.0.0-20210223033300-3ff542d347f8 h1:5nTvdsx0d9UQ6Yl7QvqxZj2HZGZf6BP1OuImcXxIfy8=
-g.tesamc.com/IT/zai v0.0.0-20210223033300-3ff542d347f8/go.mod h1:rWBczMCzZ7R8FCwfMIgDq5PtW8B0N3GaE+BMapvY728=
 g.tesamc.com/IT/zproto v0.0.0-20210114071438-1018be4c55d3/go.mod h1:cOpEEu7RT7ocVlcIh/c4JmLSyIFQoPGbzU+77RVg1NE=
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=

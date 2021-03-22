@@ -17,7 +17,6 @@ import (
 
 	"g.tesamc.com/IT/zaipkg/config"
 	"g.tesamc.com/IT/zbuf/xio"
-	"github.com/panjf2000/ants/v2"
 	"github.com/templexxx/tsc"
 )
 
@@ -51,7 +50,7 @@ type Scheduler struct {
 
 	queue *Queue
 
-	wp *ants.PoolWithFunc
+	worker chan struct{}
 
 	ctx    context.Context
 	cancel func()
@@ -82,29 +81,6 @@ func New(ctx context.Context, cfg *Config, di *vdisk.Info) *Scheduler {
 
 	cfg.adjust()
 
-	wp, err := ants.NewPoolWithFunc(cfg.Threads, func(i interface{}) {
-
-		ar := i.(*xio.AsyncRequest)
-		var err error
-		if xio.IsReqRead(ar.Type) {
-			_, err = ar.File.ReadAt(ar.Data, ar.Offset)
-		} else {
-			_, err = ar.File.WriteAt(ar.Data, ar.Offset)
-			if err == nil {
-				// I don't want update ctime, utime etc. at the same time.
-				// The file size is pre-allocated, data sync is enough.
-				// (data sync will allocate space too, even we've already used pre-allocate,
-				// some file system are using lazy allocation)
-				err = ar.File.Fdatasync()
-			}
-		}
-		ar.Err <- err
-	}, ants.WithLogger(xlog.GetLogger()), ants.WithMaxBlockingTasks(maxBlockingRequest))
-
-	if err != nil {
-		panic(fmt.Sprintf("failed to create scheudler: %s", err.Error()))
-	}
-
 	ctx2, cancel := context.WithCancel(ctx)
 
 	return &Scheduler{
@@ -113,7 +89,7 @@ func New(ctx context.Context, cfg *Config, di *vdisk.Info) *Scheduler {
 		diskInfo: di,
 		queue:    NewQueue(cfg.QueueConfig),
 
-		wp: wp,
+		worker: make(chan struct{}, cfg.Threads),
 
 		ctx:    ctx2,
 		cancel: cancel,
@@ -139,7 +115,6 @@ func (s *Scheduler) Close() {
 
 	s.cancel()
 	s.stopWg.Wait()
-	s.wp.Release()
 
 	xlog.Info(fmt.Sprintf("disk: %d scheduler is closed", s.diskInfo.PbDisk.Id))
 }
@@ -157,6 +132,9 @@ const noReqSleep = 10 * time.Microsecond
 // FindRunnableLoop finds runnable request by scheduler rules round and round.
 func (s *Scheduler) FindRunnableLoop() {
 	defer s.stopWg.Done()
+
+	ctx, cancel := context.WithCancel(s.ctx)
+	defer cancel()
 
 	start := tsc.UnixNano()
 	for {
@@ -190,13 +168,35 @@ func (s *Scheduler) FindRunnableLoop() {
 			continue
 		}
 
+		select { // Block until we have free goroutine.
+		case s.worker <- struct{}{}:
+		default:
+			select {
+			case s.worker <- struct{}{}:
+			case <-ctx.Done():
+				return
+			}
+		}
+
 		now := tsc.UnixNano()
 
-		err := s.wp.Invoke(ar)
-		if err != nil {
-			ar.Err <- err // TODO how to handle this error for caller?
-			continue
-		}
+		go func(r *xio.AsyncRequest, workersChan <-chan struct{}) {
+			var err error
+			if xio.IsReqRead(r.Type) {
+				_, err = ar.File.ReadAt(r.Data, r.Offset)
+			} else {
+				_, err = ar.File.WriteAt(r.Data, r.Offset)
+				if err == nil {
+					// I don't want update ctime, utime etc. at the same time.
+					// The file size is pre-allocated, data sync is enough.
+					// (data sync will allocate space too, even we've already used pre-allocate,
+					// some file system are using lazy allocation)
+					err = ar.File.Fdatasync()
+				}
+			}
+			r.Err <- err
+			<-workersChan
+		}(ar, s.worker)
 
 		if now-start >= balanceWindow {
 			s.setCostsZero()

@@ -11,7 +11,6 @@ require (
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/julienschmidt/httprouter v1.2.0
 	github.com/lni/goutils v1.2.0
-	github.com/panjf2000/ants/v2 v2.4.3
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/cast v1.3.1
 	github.com/stretchr/testify v1.6.1
