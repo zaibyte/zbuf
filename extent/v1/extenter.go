@@ -264,6 +264,10 @@ func (e *Extenter) GetObj(_reqid, oid uint64, isClone bool) (objData []byte, err
 	return objData, nil
 }
 
+func (e *Extenter) GetMainFile() xio.File {
+	return e.segsFile
+}
+
 func (e *Extenter) preprocGetReq() error {
 
 	state := e.info.GetState()
