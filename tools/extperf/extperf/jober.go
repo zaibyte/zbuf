@@ -25,9 +25,12 @@ type jober struct {
 	nextGet int64
 	_       [cpu.X86FalseSharingRange]byte
 	getExts []extent.Extenter
+
+	buf   []byte
+	isRaw bool
 }
 
-func newJober(exts []extent.Extenter) *jober {
+func newJober(exts []extent.Extenter, blockSize int64, isRaw bool) *jober {
 	rand.Seed(tsc.UnixNano())
 
 	putExts := make([]extent.Extenter, len(exts))
@@ -48,6 +51,8 @@ func newJober(exts []extent.Extenter) *jober {
 	return &jober{
 		putExts: putExts,
 		getExts: getExts,
+		buf:     make([]byte, 1024*blockSize),
+		isRaw:   isRaw,
 	}
 }
 
@@ -66,13 +71,25 @@ func (j *jober) put(oid uint64, objData []byte) (succeed bool, cost int64) {
 func (j *jober) get(oid uint64) (succeed bool, cost int64) {
 	next := atomic.AddInt64(&j.nextGet, 1) % int64(len(j.getExts))
 	ext := j.getExts[next]
+
+	if !j.isRaw {
+		start := tsc.UnixNano()
+		objData, err := ext.GetObj(1, oid, false)
+		cost = tsc.UnixNano() - start
+		if err != nil {
+			return false, cost
+		}
+		xbytes.PutAlignedBytes(objData)
+		return true, cost
+	}
+
+	f := ext.GetMainFile()
 	start := tsc.UnixNano()
-	objData, err := ext.GetObj(1, oid, false)
+	_, err := f.ReadAt(j.buf, 0)
 	cost = tsc.UnixNano() - start
 	if err != nil {
 		return false, cost
 	}
-	xbytes.PutAlignedBytes(objData)
 	return true, cost
 }
 

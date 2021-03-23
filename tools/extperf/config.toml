@@ -21,3 +21,5 @@ size_per_read = 0
 
 nop = false
 io_threads = 32
+
+is_raw = false

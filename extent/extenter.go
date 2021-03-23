@@ -3,6 +3,8 @@ package extent
 import (
 	"sync/atomic"
 
+	"g.tesamc.com/IT/zbuf/xio"
+
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 )
 
@@ -19,6 +21,9 @@ type Extenter interface {
 	Cloner
 
 	GetDir() string
+
+	// GetMainFile gets the File which stores the objects data.
+	GetMainFile() xio.File
 
 	Close()
 }

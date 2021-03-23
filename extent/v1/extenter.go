@@ -264,6 +264,10 @@ func (e *Extenter) GetObj(_reqid, oid uint64, isClone bool) (objData []byte, err
 	return objData, nil
 }
 
+func (e *Extenter) GetMainFile() xio.File {
+	return e.segsFile
+}
+
 func (e *Extenter) preprocGetReq() error {
 
 	state := e.info.GetState()
@@ -396,7 +400,7 @@ func (e *Extenter) traverseWritableSeg() error {
 			}
 			// Write is sequential.
 			// When reach the createTS means reach the segment end or the left space wasn't enough for the object.
-			if createTS < lastCreateTS {
+			if createTS < lastCreateTS { //	Meet garbage.
 				wcursor = 0
 				break
 			} else {
