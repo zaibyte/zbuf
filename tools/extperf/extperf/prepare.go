@@ -1,9 +1,12 @@
 package extperf
 
 import (
+	"encoding/binary"
 	"log"
 	"math/rand"
 	"sync"
+
+	"g.tesamc.com/IT/zaipkg/directio"
 
 	"g.tesamc.com/IT/zaipkg/typeutil"
 
@@ -77,18 +80,30 @@ func randFillObj(nKB int64) {
 
 // prepareRead ensure every extent has one object.
 func (r *Runner) prepareRead() {
+
 	var wg sync.WaitGroup
-	wg.Add(8)
-	for i := 0; i < 8; i++ {
-		go func() {
+	wg.Add(len(r.extenters))
+	for i, ext := range r.extenters {
+		go func(ext extent.Extenter, i int) {
 			defer wg.Done()
-			for k := 0; k < len(r.putJobers); k++ {
-				ok, _ := r.putJobers[0].put(testObjOID, testObj)
-				if !ok {
-					log.Fatal("prepare objects failed")
+
+			buf := directio.AlignedBlock(int(r.cfg.BlockSize * 1024))
+			MBs := r.cfg.MBPerPutThread
+			cntInThread := MBs * 1024 / int(r.cfg.BlockSize)
+
+			for j := 0; j < cntInThread; j++ {
+				binary.LittleEndian.PutUint64(buf[:8], uint64(j))
+				oid := uid.MakeOID(1, 1, uint32(r.cfg.BlockSize*1024/uid.GrainSize), xdigest.Sum32(buf), uid.NormalObj)
+				err := ext.PutObj(0, oid, buf, false)
+				if err != nil {
+					log.Fatal("prepare objects failed", err)
+				}
+				if i == 0 {
+					r.oids[j] = oid
 				}
 			}
-		}()
+		}(ext, i)
+
 	}
 	wg.Wait()
 }

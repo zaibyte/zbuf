@@ -31,9 +31,11 @@ type jober struct {
 	buf         []byte
 	isRaw       bool
 	isDoNothing bool
+
+	oids []uint64
 }
 
-func newJober(exts []extent.Extenter, blockSize int64, isRaw, isDoNothing bool) *jober {
+func newJober(exts []extent.Extenter, blockSize int64, isRaw, isDoNothing bool, oids []uint64) *jober {
 	rand.Seed(tsc.UnixNano())
 
 	putExts := make([]extent.Extenter, len(exts))
@@ -51,12 +53,17 @@ func newJober(exts []extent.Extenter, blockSize int64, isRaw, isDoNothing bool) 
 		getExts[i], getExts[j] = getExts[j], getExts[i]
 	})
 
+	rand.Shuffle(len(oids), func(i, j int) {
+		oids[i], oids[j] = oids[j], oids[i]
+	})
+
 	return &jober{
 		putExts:     putExts,
 		getExts:     getExts,
 		buf:         make([]byte, 1024*blockSize),
 		isRaw:       isRaw,
 		isDoNothing: isDoNothing,
+		oids:        oids,
 	}
 }
 
@@ -147,7 +154,6 @@ func (r *Runner) runPutJob(wg *sync.WaitGroup) {
 func (r *Runner) runGetJob(wg *sync.WaitGroup) {
 
 	jobers := r.getJobers
-	oid := testObjOID
 
 	MBs := r.cfg.MBPerGetThread
 	cntInThread := MBs * 1024 / int(r.cfg.BlockSize)
@@ -160,7 +166,7 @@ func (r *Runner) runGetJob(wg *sync.WaitGroup) {
 			}()
 
 			for k := 0; k < cntInThread; k++ {
-				ok, cost := jober.get(oid)
+				ok, cost := jober.get(jober.oids[k])
 
 				now := tsc.UnixNano()
 
