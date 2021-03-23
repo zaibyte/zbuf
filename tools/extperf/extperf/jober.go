@@ -35,7 +35,7 @@ type jober struct {
 	oids []uint64
 }
 
-func newJober(exts []extent.Extenter, blockSize int64, isRaw, isDoNothing bool, oids []uint64) *jober {
+func newJober(exts []extent.Extenter, blockSize int64, isRaw, isDoNothing bool) *jober {
 	rand.Seed(tsc.UnixNano())
 
 	putExts := make([]extent.Extenter, len(exts))
@@ -53,17 +53,12 @@ func newJober(exts []extent.Extenter, blockSize int64, isRaw, isDoNothing bool, 
 		getExts[i], getExts[j] = getExts[j], getExts[i]
 	})
 
-	rand.Shuffle(len(oids), func(i, j int) {
-		oids[i], oids[j] = oids[j], oids[i]
-	})
-
 	return &jober{
 		putExts:     putExts,
 		getExts:     getExts,
 		buf:         make([]byte, 1024*blockSize),
 		isRaw:       isRaw,
 		isDoNothing: isDoNothing,
-		oids:        oids,
 	}
 }
 

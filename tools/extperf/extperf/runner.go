@@ -88,12 +88,12 @@ func (r *Runner) Run() (err error) {
 
 	r.putJobers = make([]*jober, r.cfg.PutThreads)
 	for i := range r.putJobers {
-		r.putJobers[i] = newJober(r.extenters, r.cfg.BlockSize, r.cfg.IsRaw, r.cfg.IsDoNothing, r.oids)
+		r.putJobers[i] = newJober(r.extenters, r.cfg.BlockSize, r.cfg.IsRaw, r.cfg.IsDoNothing)
 	}
 
 	r.getJobers = make([]*jober, r.cfg.GetThreads)
 	for i := range r.getJobers {
-		r.getJobers[i] = newJober(r.extenters, r.cfg.BlockSize, r.cfg.IsRaw, r.cfg.IsDoNothing, r.oids)
+		r.getJobers[i] = newJober(r.extenters, r.cfg.BlockSize, r.cfg.IsRaw, r.cfg.IsDoNothing)
 	}
 
 	randFillObj(r.cfg.BlockSize)

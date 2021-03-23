@@ -108,4 +108,15 @@ func (r *Runner) prepareRead() {
 
 	}
 	wg.Wait()
+
+	rand.Seed(tsc.UnixNano())
+	for _, job := range r.getJobers {
+		oids := make([]uint64, len(r.oids))
+		copy(oids, r.oids)
+		rand.Shuffle(len(oids), func(i, j int) {
+			oids[i], oids[j] = oids[j], oids[i]
+		})
+		job.oids = oids
+	}
+
 }
