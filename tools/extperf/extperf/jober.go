@@ -70,35 +70,35 @@ func (j *jober) put(oid uint64, objData []byte) (succeed bool, cost int64) {
 	return true, cost
 }
 
-func (j *jober) get(oid uint64) (succeed bool, cost int64) {
+func (j *jober) get(oid uint64) (bool, int64) {
 	next := atomic.AddInt64(&j.nextGet, 1) % int64(len(j.getExts))
 	ext := j.getExts[next]
 
 	if j.isDoNothing {
 		start := tsc.UnixNano()
-		cost = tsc.UnixNano() - start
+		cost := tsc.UnixNano() - start
 		return true, cost
 	}
 
 	if !j.isRaw {
 		start := tsc.UnixNano()
 		objData, err := ext.GetObj(1, oid, false)
-		cost = tsc.UnixNano() - start
+		cost := tsc.UnixNano() - start
 		if err != nil {
 			return false, cost
 		}
 		xbytes.PutAlignedBytes(objData)
 		return true, cost
+	} else {
+		f := ext.GetMainFile()
+		start := tsc.UnixNano()
+		_, err := f.ReadAt(j.buf, 0)
+		cost := tsc.UnixNano() - start
+		if err != nil {
+			return false, cost
+		}
+		return true, cost
 	}
-
-	f := ext.GetMainFile()
-	start := tsc.UnixNano()
-	_, err := f.ReadAt(j.buf, 0)
-	cost = tsc.UnixNano() - start
-	if err != nil {
-		return false, cost
-	}
-	return true, cost
 }
 
 func (r *Runner) runPutJob() {

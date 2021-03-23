@@ -23,4 +23,4 @@ nop = false
 io_threads = 32
 
 is_raw = false
-id_do_nothing = false
+is_do_nothing = false
