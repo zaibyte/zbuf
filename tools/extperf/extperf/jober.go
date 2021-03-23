@@ -26,11 +26,12 @@ type jober struct {
 	_       [cpu.X86FalseSharingRange]byte
 	getExts []extent.Extenter
 
-	buf   []byte
-	isRaw bool
+	buf         []byte
+	isRaw       bool
+	isDoNothing bool
 }
 
-func newJober(exts []extent.Extenter, blockSize int64, isRaw bool) *jober {
+func newJober(exts []extent.Extenter, blockSize int64, isRaw, isDoNothing bool) *jober {
 	rand.Seed(tsc.UnixNano())
 
 	putExts := make([]extent.Extenter, len(exts))
@@ -49,10 +50,11 @@ func newJober(exts []extent.Extenter, blockSize int64, isRaw bool) *jober {
 	})
 
 	return &jober{
-		putExts: putExts,
-		getExts: getExts,
-		buf:     make([]byte, 1024*blockSize),
-		isRaw:   isRaw,
+		putExts:     putExts,
+		getExts:     getExts,
+		buf:         make([]byte, 1024*blockSize),
+		isRaw:       isRaw,
+		isDoNothing: isDoNothing,
 	}
 }
 
@@ -71,6 +73,12 @@ func (j *jober) put(oid uint64, objData []byte) (succeed bool, cost int64) {
 func (j *jober) get(oid uint64) (succeed bool, cost int64) {
 	next := atomic.AddInt64(&j.nextGet, 1) % int64(len(j.getExts))
 	ext := j.getExts[next]
+
+	if j.isDoNothing {
+		start := tsc.UnixNano()
+		cost = tsc.UnixNano() - start
+		return true, cost
+	}
 
 	if !j.isRaw {
 		start := tsc.UnixNano()

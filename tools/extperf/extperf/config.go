@@ -29,6 +29,10 @@ type Config struct {
 	// IsRaw indicates testing the raw I/O directly sent to the file system.
 	// TODO it only works when JobType is read.
 	IsRaw bool `toml:"is_raw"`
+	// IsDoNothing will do nothing at all when there should be a I/O request.
+	// It's used for measuring the extperf works as expect.
+	// TODO it only works when JobType is read.
+	IsDoNothing bool `toml:"is_do_nothing"`
 }
 
 var jobTypes = map[string]int{
