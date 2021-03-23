@@ -236,3 +236,43 @@ func TestDMU_Expand(t *testing.T) {
 	err = dmu.Insert(ens[ok-1].Digest, ens[ok-1].Otype, ens[ok-1].Grains, ens[ok-1].Addr)
 	assert.EqualError(t, err, orpc.ErrObjDigestExisted.Error())
 }
+
+type bench struct {
+	setup func(*testing.B, *DMU)
+	perG  func(b *testing.B, pb *testing.PB, i uint64, d *DMU)
+}
+
+func benchDMU(b *testing.B, bench bench) {
+	d := New(MinCap)
+	b.Run("", func(b *testing.B) {
+		if bench.setup != nil {
+			bench.setup(b, d)
+		}
+
+		b.ResetTimer()
+
+		var i uint64
+		b.RunParallel(func(pb *testing.PB) {
+			id := atomic.AddUint64(&i, 1) - 1
+			bench.perG(b, pb, id*uint64(b.N), d)
+		})
+	})
+}
+
+func BenchmarkContainsMostlyHits(b *testing.B) {
+	const hits, misses = 1023, 1 // Using const for helping compiler to optimize module.
+
+	benchDMU(b, bench{
+		setup: func(_ *testing.B, d *DMU) {
+			for i := uint32(1); i <= hits; i++ {
+				_ = d.Insert(uint32(i), 1, 1, 1)
+			}
+		},
+
+		perG: func(b *testing.B, pb *testing.PB, i uint64, d *DMU) {
+			for ; pb.Next(); i++ {
+				d.Search(uint32(i) % (hits + misses))
+			}
+		},
+	})
+}
