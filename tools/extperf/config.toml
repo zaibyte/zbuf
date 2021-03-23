@@ -4,7 +4,7 @@ version = 1
 extents_per_disk = 1   # P4510 8TB will have 29 extents(256GB) at most.
 data_root = "/home/xxx/zbuf"
 
-block_size = 1
+block_size = 16
 job_type = "read"
 job_time = 100
 skip_time = 1
