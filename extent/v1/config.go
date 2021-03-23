@@ -12,11 +12,11 @@ const (
 	defaultUpdatesPending = 512 // Each extent has 512 pending put, same as default Scheduler pending.
 
 	// 4MB size per write sounds too big,
-	// but there will be 32(default threads in a disk) putting at most at the same time,
+	// but there will be 32(default threads in a disk) writing at most at the same time,
 	// it could reach the highest throughput.
 	defaultSizePerWrite = typeutil.ByteSize(4 * 1024 * 1024)
-	// TODO should I raise the read too?
-	defaultSizePerRead = typeutil.ByteSize(128 * 1024)
+	// 4MB size per read is chosen by the testing result.
+	defaultSizePerRead = typeutil.ByteSize(4 * 1024 * 1024)
 	// By default, the size of segment is 1GB, which means the extent size is 256GB.
 	// For a 8TB NVMe driver(raw capacity), in practice, we'll use about 70% of the capacity
 	// (30% for over-provisioning & other things). So we have about 20 extents on each disk.
@@ -46,6 +46,9 @@ const (
 	// 1. The updates will be too frequently.
 	// 2. The snapshot will be huge because the number of objects is big in a extent.
 	// I've implemented a algorithm to measure the opportunity of making snapshot.
+	//
+	// If most of objects are small, try to raise this value avoiding creating DMU snapshot too frequently.
+	// A good practise is that setting the MaxDirtyCount be the half of possible count of objects in a segment.
 	defaultMaxDirtyCount = 128
 
 	// Ensure free speed is faster than the speed of taking reserved segments by GC.
