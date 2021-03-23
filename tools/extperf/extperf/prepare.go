@@ -81,6 +81,10 @@ func randFillObj(nKB int64) {
 // prepareRead ensure every extent has one object.
 func (r *Runner) prepareRead() {
 
+	MBs := r.cfg.MBPerPutThread
+	cntInThread := MBs * 1024 / int(r.cfg.BlockSize)
+
+	r.oids = make([]uint64, cntInThread)
 	var wg sync.WaitGroup
 	wg.Add(len(r.extenters))
 	for i, ext := range r.extenters {
@@ -88,8 +92,6 @@ func (r *Runner) prepareRead() {
 			defer wg.Done()
 
 			buf := directio.AlignedBlock(int(r.cfg.BlockSize * 1024))
-			MBs := r.cfg.MBPerPutThread
-			cntInThread := MBs * 1024 / int(r.cfg.BlockSize)
 
 			for j := 0; j < cntInThread; j++ {
 				binary.LittleEndian.PutUint64(buf[:8], uint64(j))
