@@ -100,8 +100,6 @@ func (r *Runner) Run() (err error) {
 
 	r.prepareRead()
 
-	r.stopWg.Add(2)
-
 	putWg := new(sync.WaitGroup)
 	putWg.Add(r.cfg.PutThreads)
 
@@ -113,6 +111,7 @@ func (r *Runner) Run() (err error) {
 
 	if jobTypes[r.cfg.JobType]&1 == Put {
 
+		r.stopWg.Add(1)
 		putStart := tsc.UnixNano()
 		go r.runPutJob(putWg)
 		go func() {
@@ -128,6 +127,7 @@ func (r *Runner) Run() (err error) {
 
 	if jobTypes[r.cfg.JobType]&2 == Get {
 
+		r.stopWg.Add(1)
 		readStart := tsc.UnixNano()
 		go r.runGetJob(readWg)
 		go func() {
