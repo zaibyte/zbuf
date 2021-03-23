@@ -2,8 +2,8 @@ package extperf
 
 import (
 	"math/rand"
+	"sync"
 	"sync/atomic"
-	"time"
 
 	"g.tesamc.com/IT/zaipkg/xtest"
 
@@ -104,7 +104,7 @@ func (j *jober) get(oid uint64) (bool, int64) {
 	}
 }
 
-func (r *Runner) runPutJob() {
+func (r *Runner) runPutJob(wg *sync.WaitGroup) {
 
 	MBs := r.cfg.MBPerPutThread
 	cntInThread := MBs * 1024 / int(r.cfg.BlockSize)
@@ -113,7 +113,7 @@ func (r *Runner) runPutJob() {
 		go func(jober *jober, cntInThread int) {
 			defer func() {
 				atomic.AddInt64(&r.putDone, 1)
-				r.stopWg.Done()
+				wg.Done()
 			}()
 
 			for k := 0; k < cntInThread; k++ {
@@ -132,8 +132,7 @@ func (r *Runner) runPutJob() {
 						_ = r.putLat.RecordValuesAtomic(cost, 1)
 					}
 
-					sec := delta / int64(time.Second)
-					atomic.AddInt64(&r.putiops[sec], 1)
+					atomic.AddInt64(&r.putIO, 1)
 				}
 
 				if atomic.LoadInt64(&r.getDone) >= int64(r.cfg.GetThreads) { // In Read-Write, and Read is done.
@@ -145,7 +144,7 @@ func (r *Runner) runPutJob() {
 	}
 }
 
-func (r *Runner) runGetJob() {
+func (r *Runner) runGetJob(wg *sync.WaitGroup) {
 
 	jobers := r.getJobers
 	oid := testObjOID
@@ -157,7 +156,7 @@ func (r *Runner) runGetJob() {
 		go func(jober *jober, cntInThread int) {
 			defer func() {
 				atomic.AddInt64(&r.getDone, 1)
-				r.stopWg.Done()
+				wg.Done()
 			}()
 
 			for k := 0; k < cntInThread; k++ {
@@ -176,8 +175,7 @@ func (r *Runner) runGetJob() {
 						_ = r.getLat.RecordValuesAtomic(cost, 1)
 					}
 
-					sec := delta / int64(time.Second)
-					atomic.AddInt64(&r.getiops[sec], 1)
+					atomic.AddInt64(&r.getIO, 1)
 				}
 
 				if atomic.LoadInt64(&r.putDone) >= int64(r.cfg.PutThreads) { // In Read-Write, and Write is done.

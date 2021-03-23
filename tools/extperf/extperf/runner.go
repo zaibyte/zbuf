@@ -37,8 +37,8 @@ type Runner struct {
 	putDone int64
 	getDone int64
 
-	putiops []int64
-	getiops []int64
+	putIO int64
+	getIO int64
 
 	ctx    context.Context
 	cancel func()
@@ -51,9 +51,6 @@ func Create(ctx context.Context, cfg *Config) (*Runner, error) {
 	r.cfg = cfg
 	r.stopWg = new(sync.WaitGroup)
 	r.ctx, r.cancel = context.WithCancel(ctx)
-
-	r.putiops = make([]int64, r.cfg.JobTime)
-	r.getiops = make([]int64, r.cfg.JobTime)
 
 	schedCfg := &sched.Config{
 		Threads:     r.cfg.IOThreads,
@@ -101,23 +98,47 @@ func (r *Runner) Run() (err error) {
 
 	r.prepareRead()
 
-	if jobTypes[r.cfg.JobType]&1 == Put {
-		r.stopWg.Add(r.cfg.PutThreads)
-		go r.runPutJob()
-	}
-	if jobTypes[r.cfg.JobType]&2 == Get {
-		r.stopWg.Add(r.cfg.GetThreads)
-		go r.runGetJob()
-	}
+	r.stopWg.Add(2)
+
+	putWg := new(sync.WaitGroup)
+	putWg.Add(r.cfg.PutThreads)
+
+	var putCost, readCost int64
 
 	start := tsc.UnixNano()
 	atomic.StoreInt64(&r.startTS, start)
 	atomic.StoreInt64(&r.stopTS, start+r.cfg.JobTime)
-	r.stopWg.Wait()
-	end := tsc.UnixNano()
-	cost := end - start
 
-	r.printStat(cost)
+	if jobTypes[r.cfg.JobType]&1 == Put {
+
+		putStart := tsc.UnixNano()
+		go r.runPutJob(putWg)
+		go func() {
+			putWg.Wait()
+			cost := tsc.UnixNano() - putStart
+			atomic.StoreInt64(&putCost, cost)
+			r.stopWg.Done()
+		}()
+	}
+
+	readWg := new(sync.WaitGroup)
+	readWg.Add(r.cfg.GetThreads)
+
+	if jobTypes[r.cfg.JobType]&2 == Get {
+
+		readStart := tsc.UnixNano()
+		go r.runGetJob(readWg)
+		go func() {
+			readWg.Wait()
+			cost := tsc.UnixNano() - readStart
+			atomic.StoreInt64(&readCost, cost)
+			r.stopWg.Done()
+		}()
+	}
+
+	r.stopWg.Wait()
+	totalCost := tsc.UnixNano() - start
+	r.printStat(totalCost, putCost, readCost)
 
 	return r.Close()
 }
