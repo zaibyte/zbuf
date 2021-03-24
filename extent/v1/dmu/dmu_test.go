@@ -12,6 +12,19 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestDMU_InsertTwice(t *testing.T) {
+
+	dmu := New(0)
+	err := dmu.Insert(2208466672, 1, 1, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = dmu.Insert(2208466672, 1, 1, 1)
+	assert.EqualError(t, orpc.ErrObjDigestExisted, err.Error())
+
+	assert.NotEqual(t, 0, dmu.Search(2208466672))
+}
+
 func TestDMU_Search(t *testing.T) {
 
 	start := MinCap
