@@ -197,7 +197,7 @@ func TestExtenter_PutGetObj(t *testing.T) {
 	var written uint64
 	for i := 0; ; i++ {
 
-		if written > 4*uint64(cfg.SegmentSize) {
+		if written > 255*uint64(cfg.SegmentSize) {
 			break
 		}
 
