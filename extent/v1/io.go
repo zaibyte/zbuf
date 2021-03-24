@@ -542,7 +542,8 @@ func (e *Extenter) objReadAt(reqType uint64, digest uint32, offset int64, objDat
 
 	actDigest := d.Sum32()
 	if actDigest != digest {
-		return xerrors.WithMessage(orpc.ErrChecksumMismatch, "failed to read")
+		err := xerrors.WithMessage(orpc.ErrChecksumMismatch, "failed to read")
+		return err
 	}
 	return nil
 }

@@ -193,9 +193,15 @@ func TestExtenter_PutGetObj(t *testing.T) {
 	maxGrains := (cfg.SegmentSize / uid.GrainSize) - 1 // It's the max object which 256KB segment could have.
 	buf := make([]byte, maxGrains*uid.GrainSize)
 
-	oids := make([]uint64, cnt)
+	oids := make(map[uint64]bool)
 	okCnt := 0
-	for i := 0; i < cnt; i++ {
+	var written uint64
+	for i := 0; ; i++ {
+
+		if written > 4*uint64(cfg.SegmentSize) {
+			break
+		}
+
 		grains := rand.Intn(int(maxGrains))
 		if grains == 0 {
 			grains = 1
@@ -210,7 +216,7 @@ func TestExtenter_PutGetObj(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		oids[okCnt] = oid
+		oids[oid] = true
 		okCnt++
 
 		getRet, err2 := ext.GetObj(1, oid, false)
@@ -228,11 +234,10 @@ func TestExtenter_PutGetObj(t *testing.T) {
 	for i := 0; i < runtime.NumCPU(); i++ {
 		go func() {
 			defer wg.Done()
-			oids = oids[:okCnt]
-			for _, oid := range oids {
-				getRet, err := ext.GetObj(1, oid, false)
-				if err != nil {
-					t.Fatal(err)
+			for oid := range oids {
+				getRet, err2 := ext.GetObj(1, oid, false)
+				if err2 != nil {
+					t.Fatal(err2)
 				}
 				xbytes.PutAlignedBytes(getRet)
 			}
