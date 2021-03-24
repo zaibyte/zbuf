@@ -130,7 +130,6 @@ func (r *Runner) Run() (err error) {
 		readWg := new(sync.WaitGroup)
 		readWg.Add(r.cfg.GetThreads)
 
-		r.stopWg.Add(1)
 		readStart := tsc.UnixNano()
 		go r.runGetJob(readWg)
 		go func() {
