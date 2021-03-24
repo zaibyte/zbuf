@@ -81,7 +81,7 @@ func randFillObj(nKB int64) {
 // prepareRead ensure every extent has one object.
 func (r *Runner) prepareRead() {
 
-	MBs := r.cfg.MBPerPutThread
+	MBs := r.cfg.MBPerGetThread
 	cntInThread := MBs * 1024 / int(r.cfg.BlockSize)
 
 	r.oids = make([]uint64, cntInThread)
