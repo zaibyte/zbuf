@@ -218,6 +218,8 @@ func TestExtenter_PutGetObj(t *testing.T) {
 		oids[oid] = true
 		okCnt++
 
+		written += uint64(grains) * uid.GrainSize
+
 		getRet, err2 := ext.GetObj(1, oid, false)
 		if err2 != nil {
 			t.Fatal(err2)
