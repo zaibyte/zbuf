@@ -154,9 +154,9 @@ func (e *Extenter) updatesLoop() {
 				}
 			}
 
+			e.rwMutex.Lock()
 			// There is no enough space in this segment for this uploading.
 			if e.writableCursor+int64(len(ur.objData))+objHeaderSize > segSize {
-				e.rwMutex.Lock()
 				nextSeg, err := e.getNextWritableSeg(e.writableSeg)
 				if err != nil {
 					ur.done <- err
@@ -167,10 +167,13 @@ func (e *Extenter) updatesLoop() {
 				e.writableSeg = nextSeg
 				e.writableCursor = 0
 				e.info.AddAvail(-segSize)
-				e.rwMutex.Unlock()
 			}
 			wseg := e.writableSeg
 			cursor := e.writableCursor
+			e.rwMutex.Unlock()
+			if cursor == 0 {
+				fmt.Println(wseg, cursor)
+			}
 			offset := segCursorToOffset(wseg, cursor, segSize)
 
 			written, err := e.objWriteAt(ur.reqType, ur.oid, offset, ur.objData, writeBuf)
@@ -178,6 +181,26 @@ func (e *Extenter) updatesLoop() {
 				ur.done <- err
 				e.setState(err)
 				continue
+			}
+
+			if digest == 2922289824 {
+				fmt.Println("2047", wseg, cursor, segSize, offset, written, digest)
+			}
+			if digest == 493975111 {
+				fmt.Println("2048", wseg, cursor, segSize, offset, written, digest)
+			}
+			if digest == 3669735658 {
+				fmt.Println("2049", wseg, cursor, segSize, offset, written, digest)
+			}
+
+			if digest == 658237282 {
+				fmt.Println("4095", wseg, cursor, segSize, offset, written, digest)
+			}
+			if digest == 2208466672 {
+				fmt.Println("4096", wseg, cursor, segSize, offset, written, digest)
+			}
+			if digest == 1147684957 {
+				fmt.Println("4097", wseg, cursor, segSize, offset, written, digest)
 			}
 
 			if !e.cfg.UpdateOrInsert {
@@ -659,10 +682,10 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 	}
 
 	nvh := e.header.nvh
-	cstates := shuffleSegStates(nvh.SegStates)
-	for i, state := range cstates {
-		if state.state == segReady {
-			next := cstates[i].originSeg
+	cs := shuffleSegStates(nvh.SegStates)
+	for _, c := range cs {
+		if c.state == segReady {
+			next := c.originSeg
 			nvh.SegStates[next] = segWritable
 			nvh.SegStates[last] = segSealed
 			nvh.SealedTS[last] = tsc.UnixNano()
@@ -701,6 +724,7 @@ func shuffleSegStates(states []uint8) []segStateClone {
 		c[i].originSeg = i
 		c[i].state = states[i]
 	}
+	rand.Seed(tsc.UnixNano())
 	rand.Shuffle(segmentCnt, func(i, j int) {
 		c[i], c[j] = c[j], c[i]
 	})

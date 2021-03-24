@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math/rand"
 	"os"
 	"runtime"
@@ -175,6 +176,21 @@ func TestObjHeaderMakeRead(t *testing.T) {
 	assert.True(t, errors.Is(err, orpc.ErrChecksumMismatch))
 }
 
+func TestShuffleSegStates(t *testing.T) {
+
+	origin := make([]uint8, segmentCnt)
+	for i := range origin {
+		origin[i] = uint8(rand.Intn(4))
+	}
+
+	cs := shuffleSegStates(origin)
+	for i := range cs {
+		if cs[i].state != origin[cs[i].originSeg] {
+			t.Fatal("mismatched")
+		}
+	}
+}
+
 // PutGet testing with 16KB objects,
 // https://g.tesamc.com/IT/zbuf/issues/200#issuecomment-740
 func TestExtenter_PutGetObj16KB(t *testing.T) {
@@ -244,6 +260,59 @@ func TestExtenter_PutGetObj16KB(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+}
+
+func TestGetDigest(t *testing.T) {
+	buf := make([]byte, 16*1024)
+	binary.LittleEndian.PutUint64(buf[:8], 2048)
+	fmt.Println(xdigest.Sum32(buf))
+	fmt.Println(uid.ParseOID(2121606947858808841))
+
+	binary.LittleEndian.PutUint64(buf[:8], 4096)
+	fmt.Println(xdigest.Sum32(buf))
+	fmt.Println(uid.ParseOID(9485292131621797897))
+
+	binary.LittleEndian.PutUint64(buf[:8], 2047)
+	fmt.Println(xdigest.Sum32(buf))
+	binary.LittleEndian.PutUint64(buf[:8], 2048)
+	fmt.Println(xdigest.Sum32(buf))
+	binary.LittleEndian.PutUint64(buf[:8], 2049)
+	fmt.Println(xdigest.Sum32(buf))
+
+	binary.LittleEndian.PutUint64(buf[:8], 4095)
+	fmt.Println(xdigest.Sum32(buf))
+	binary.LittleEndian.PutUint64(buf[:8], 4096)
+	fmt.Println(xdigest.Sum32(buf))
+	binary.LittleEndian.PutUint64(buf[:8], 4097)
+	fmt.Println(xdigest.Sum32(buf))
+}
+
+func TestExtenterSameDigest(t *testing.T) {
+	cfg := GetDefaultConfig()
+	cfg.SegmentSize = 256 * 1024
+	ext, err := createTestExtenter(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(ext.extDir)
+
+	ext.Start()
+	defer ext.Close()
+
+	buf := make([]byte, 4*uid.GrainSize)
+	binary.LittleEndian.PutUint64(buf[:8], 2048)
+	oid := uid.MakeOID(1, 1, 4, xdigest.Sum32(buf), uid.NormalObj)
+	err = ext.PutObj(1, oid, buf, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	binary.LittleEndian.PutUint64(buf[:8], 2048)
+	oid = uid.MakeOID(1, 1, 4, xdigest.Sum32(buf), uid.NormalObj)
+	err = ext.PutObj(1, oid, buf, false)
+	if !errors.Is(err, orpc.ErrObjDigestExisted) {
+		t.Fatal("digest existed should be found")
+	}
 }
 
 func TestExtenter_PutGetObj(t *testing.T) {
