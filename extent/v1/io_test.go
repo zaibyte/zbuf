@@ -197,7 +197,7 @@ func TestExtenter_PutGetObj(t *testing.T) {
 	var written uint64
 	for i := 0; ; i++ {
 
-		if written > 250*uint64(cfg.SegmentSize) { // written is not accurate.
+		if written > 128*uint64(cfg.SegmentSize) { // written is not accurate.
 			break
 		}
 
