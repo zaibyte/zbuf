@@ -189,7 +189,6 @@ func TestExtenter_PutGetObj(t *testing.T) {
 
 	rand.Seed(tsc.UnixNano())
 
-	cnt := 256
 	maxGrains := (cfg.SegmentSize / uid.GrainSize) - 1 // It's the max object which 256KB segment could have.
 	buf := make([]byte, maxGrains*uid.GrainSize)
 
