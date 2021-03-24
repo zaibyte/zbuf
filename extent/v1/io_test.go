@@ -198,7 +198,7 @@ func TestExtenter_PutGetObj16KB(t *testing.T) {
 	var written uint64
 	for i := 0; ; i++ {
 
-		if written > 128*uint64(cfg.SegmentSize) { // written is not accurate.
+		if written > 127*uint64(cfg.SegmentSize) { // written is not accurate, and for 16KB, need 32KB space.
 			break
 		}
 
