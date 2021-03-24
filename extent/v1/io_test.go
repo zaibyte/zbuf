@@ -179,7 +179,7 @@ func TestObjHeaderMakeRead(t *testing.T) {
 // https://g.tesamc.com/IT/zbuf/issues/200#issuecomment-740
 func TestExtenter_PutGetObj16KB(t *testing.T) {
 	cfg := GetDefaultConfig()
-	cfg.SegmentSize = 256 * 1024
+	cfg.SegmentSize = 64 * 1024 * 1024
 	ext, err := createTestExtenter(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -204,7 +204,7 @@ func TestExtenter_PutGetObj16KB(t *testing.T) {
 
 		grains := 4
 		objData := buf[:grains*uid.GrainSize]
-		rand.Read(objData)
+		binary.LittleEndian.PutUint64(objData[:8], uint64(i))
 		oid := uid.MakeOID(1, 1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
 		err = ext.PutObj(0, oid, objData, false)
 		if errors.Is(err, orpc.ErrObjDigestExisted) {
