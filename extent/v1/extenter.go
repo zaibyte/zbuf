@@ -237,7 +237,7 @@ func (e *Extenter) GetObj(_reqid, oid uint64, isClone bool) (objData []byte, err
 	err = e.objReadAt(uint64(reqType), digest, offset, objData)
 	if err != nil {
 		// May meet GC segments could be write again: https://g.tesamc.com/IT/zbuf/issues/124
-		if err == orpc.ErrChecksumMismatch {
+		if errors.Is(err, orpc.ErrChecksumMismatch) {
 			newHas, _, newOffset, _ := getObjOffsetSize(e.dmu, oid)
 			if !newHas {
 				err = xerrors.WithMessage(orpc.ErrNotFound, fmt.Sprintf("oid: %d", oid))
