@@ -30,8 +30,6 @@ func (r *Runner) createExtents() (err error) {
 
 	cfg := v1.GetDefaultConfig()
 	cfg.UpdatesPending = r.cfg.PutPending
-	cfg.Development = true
-	cfg.UpdateOrInsert = true
 	cfg.SizePerWrite = typeutil.ByteSize(r.cfg.SizePerWrite)
 	cfg.SizePerRead = typeutil.ByteSize(r.cfg.SizePerRead)
 	cfg.SegmentSize = typeutil.ByteSize(r.cfg.SegmentSize)
