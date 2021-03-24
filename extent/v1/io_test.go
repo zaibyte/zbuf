@@ -175,6 +175,77 @@ func TestObjHeaderMakeRead(t *testing.T) {
 	assert.True(t, errors.Is(err, orpc.ErrChecksumMismatch))
 }
 
+// PutGet testing with 16KB objects,
+// https://g.tesamc.com/IT/zbuf/issues/200#issuecomment-740
+func TestExtenter_PutGetObj16KB(t *testing.T) {
+	cfg := GetDefaultConfig()
+	cfg.SegmentSize = 256 * 1024
+	ext, err := createTestExtenter(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(ext.extDir)
+
+	ext.Start()
+	defer ext.Close()
+
+	rand.Seed(tsc.UnixNano())
+
+	buf := make([]byte, 4*uid.GrainSize)
+
+	oids := make(map[uint64]bool)
+	okCnt := 0
+	var written uint64
+	for i := 0; ; i++ {
+
+		if written > 128*uint64(cfg.SegmentSize) { // written is not accurate.
+			break
+		}
+
+		grains := 4
+		objData := buf[:grains*uid.GrainSize]
+		rand.Read(objData)
+		oid := uid.MakeOID(1, 1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
+		err = ext.PutObj(0, oid, objData, false)
+		if errors.Is(err, orpc.ErrObjDigestExisted) {
+			err = nil
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		oids[oid] = true
+		okCnt++
+
+		written += uint64(grains) * uid.GrainSize
+
+		getRet, err2 := ext.GetObj(1, oid, false)
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+		if !bytes.Equal(objData, getRet) {
+			t.Fatal("get result mismatched")
+		}
+		xbytes.PutAlignedBytes(getRet)
+	}
+
+	wg := new(sync.WaitGroup)
+	wg.Add(runtime.NumCPU())
+	for i := 0; i < runtime.NumCPU(); i++ {
+		go func() {
+			defer wg.Done()
+			for oid := range oids {
+				getRet, err2 := ext.GetObj(1, oid, false)
+				if err2 != nil {
+					t.Fatal(err2)
+				}
+				xbytes.PutAlignedBytes(getRet)
+			}
+
+		}()
+	}
+	wg.Wait()
+}
+
 func TestExtenter_PutGetObj(t *testing.T) {
 	cfg := GetDefaultConfig()
 	cfg.SegmentSize = 256 * 1024
