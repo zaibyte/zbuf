@@ -47,4 +47,4 @@ const (
 	PutGet = 3
 )
 
-const DefaultBlockSize = 8 * 1024
+const DefaultBlockSize = 12 * 1024

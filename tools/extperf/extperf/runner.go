@@ -100,18 +100,19 @@ func (r *Runner) Run() (err error) {
 
 	r.prepareRead()
 
-	putWg := new(sync.WaitGroup)
-	putWg.Add(r.cfg.PutThreads)
-
 	var putCost, readCost int64
 
 	start := tsc.UnixNano()
 	atomic.StoreInt64(&r.startTS, start)
 	atomic.StoreInt64(&r.stopTS, start+r.cfg.JobTime)
 
+	r.stopWg.Add(2)
+
 	if jobTypes[r.cfg.JobType]&1 == Put {
 
-		r.stopWg.Add(1)
+		putWg := new(sync.WaitGroup)
+		putWg.Add(r.cfg.PutThreads)
+
 		putStart := tsc.UnixNano()
 		go r.runPutJob(putWg)
 		go func() {
@@ -120,12 +121,14 @@ func (r *Runner) Run() (err error) {
 			atomic.StoreInt64(&putCost, cost)
 			r.stopWg.Done()
 		}()
+	} else {
+		r.stopWg.Done()
 	}
 
-	readWg := new(sync.WaitGroup)
-	readWg.Add(r.cfg.GetThreads)
-
 	if jobTypes[r.cfg.JobType]&2 == Get {
+
+		readWg := new(sync.WaitGroup)
+		readWg.Add(r.cfg.GetThreads)
 
 		r.stopWg.Add(1)
 		readStart := tsc.UnixNano()
@@ -136,6 +139,8 @@ func (r *Runner) Run() (err error) {
 			atomic.StoreInt64(&readCost, cost)
 			r.stopWg.Done()
 		}()
+	} else {
+		r.stopWg.Done()
 	}
 
 	r.stopWg.Wait()
