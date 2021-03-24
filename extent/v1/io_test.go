@@ -287,7 +287,7 @@ func TestGetDigest(t *testing.T) {
 	fmt.Println(xdigest.Sum32(buf))
 }
 
-func TestExtenterSameDigest(t *testing.T) {
+func TestExtenter_PutSameDigest(t *testing.T) {
 	cfg := GetDefaultConfig()
 	cfg.SegmentSize = 256 * 1024
 	ext, err := createTestExtenter(cfg)
@@ -306,6 +306,15 @@ func TestExtenterSameDigest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	getRet, err2 := ext.GetObj(1, oid, false)
+	if err2 != nil {
+		t.Fatal(err2)
+	}
+	if !bytes.Equal(buf, getRet) {
+		t.Fatal("get result mismatched")
+	}
+	xbytes.PutAlignedBytes(getRet)
 
 	binary.LittleEndian.PutUint64(buf[:8], 2048)
 	oid = uid.MakeOID(1, 1, 4, xdigest.Sum32(buf), uid.NormalObj)
