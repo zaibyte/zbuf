@@ -11,10 +11,6 @@ import (
 const (
 	defaultUpdatesPending = 512 // Each extent has 512 pending put, same as default Scheduler pending.
 
-	// 4MB size per write sounds too big,
-	// but there will be 32(default threads in a disk) writing at most at the same time,
-	// it could reach the highest throughput.
-	defaultSizePerWrite = typeutil.ByteSize(4 * 1024 * 1024)
 	// 4MB size per read is chosen by the testing result.
 	defaultSizePerRead = typeutil.ByteSize(4 * 1024 * 1024)
 	// By default, the size of segment is 1GB, which means the extent size is 256GB.
@@ -74,8 +70,6 @@ type Config struct {
 	// UpdatesPending is updates request queue size.
 	UpdatesPending int `toml:"put_pending"`
 
-	// Size of per writes in bytes.
-	SizePerWrite typeutil.ByteSize `toml:"size_per_write"`
 	// Size of write buffer per reads in bytes.
 	SizePerRead typeutil.ByteSize `toml:"size_per_read"`
 
@@ -111,7 +105,6 @@ func (cfg *Config) Adjust() {
 	config.Adjust(&cfg.SegmentSize, defaultSegmentSize)
 	config.Adjust(&cfg.ReservedSeg, defaultReservedSeg)
 	config.Adjust(&cfg.UpdatesPending, defaultUpdatesPending)
-	config.Adjust(&cfg.SizePerWrite, defaultSizePerWrite)
 	config.Adjust(&cfg.SizePerRead, defaultSizePerRead)
 	config.Adjust(&cfg.MaxDirtyCount, int64(defaultMaxDirtyCount))
 	maxDirtyCount := cfg.SegmentSize / 4 * 1024 * 1024 / 2

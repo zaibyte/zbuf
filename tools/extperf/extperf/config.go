@@ -17,10 +17,9 @@ type Config struct {
 	PutThreads     int `toml:"put_threads"`
 	GetThreads     int `toml:"get_threads"`
 
-	SegmentSize  int64 `toml:"segment_size"` // mb
-	PutPending   int   `toml:"put_pending"`  // Extent put chan size.
-	SizePerWrite int64 `toml:"size_per_write"`
-	SizePerRead  int64 `toml:"size_per_read"`
+	SegmentSize int64 `toml:"segment_size"` // mb
+	PutPending  int   `toml:"put_pending"`  // Extent put chan size.
+	SizePerRead int64 `toml:"size_per_read"`
 
 	// Scheduler configs.
 	Nop       bool `toml:"nop"` // Using nop scheduler or not.
