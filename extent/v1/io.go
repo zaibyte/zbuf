@@ -97,7 +97,7 @@ func (e *Extenter) updatesLoop() {
 	// writeBuf.
 	// If the object size is large than SizePerWrite, the writeBuf is useless,
 	// we will pass the objData piece by piece directly.
-	writeBuf := directio.AlignedBlock(int(objHeaderSize + e.cfg.SizePerWrite))
+	writeBuf := directio.AlignedBlock(objHeaderSize + (uid.MaxGrains * uid.GrainSize))
 	segSize := int64(e.cfg.SegmentSize)
 
 	dirtyDel := newDirtyDelete(e.dirtyDeleteWAL)
@@ -471,9 +471,9 @@ var blankObjHeader = directio.AlignedBlock(dmu.AlignSize)
 // unless we just miss the whole block in NVMe device.
 func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte, buf []byte) (written int, err error) {
 
-	// Clean up space for oid.
+	// Clean up space for header.
 	// buf maybe dirty, maybe not. It's annoyed that checking buf usage everywhere.
-	// TODO may no more xor after checking carefully.
+	// TODO may no more xor after checking carefully. Anyway only cost few nanoseconds.
 	xor.Bytes(buf[:objHeaderSize], buf[:objHeaderSize], buf[:objHeaderSize])
 
 	objN := len(objData)
@@ -492,7 +492,7 @@ func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte,
 		if err != nil {
 			return
 		}
-		return objN + objHeaderSize, err
+		return objN + objHeaderSize, nil
 	}
 
 	err = e.ioSched.DoSync(reqType, e.segsFile, offset, buf[:objWritten+objHeaderSize])
@@ -503,7 +503,6 @@ func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte,
 	offset += int64(objWritten)
 	offset += objHeaderSize
 
-	sizePerWrite := int(e.cfg.SizePerWrite)
 	for objWritten != objN {
 		nn := sizePerWrite
 		var p []byte
@@ -565,6 +564,9 @@ func (e *Extenter) objReadAt(reqType uint64, digest uint32, offset int64, objDat
 
 	actDigest := d.Sum32()
 	if actDigest != digest {
+		oidBuf := directio.AlignedBlock(4096)
+		oid, grains, createTS, err2 := e.oidReadAt(reqType, offset, oidBuf)
+		fmt.Println("oid, grains, createTS, err2", oid, grains, createTS, err2)
 		err := xerrors.WithMessage(orpc.ErrChecksumMismatch, fmt.Sprintf("exp: %d, got: %d", digest, actDigest))
 		return err
 	}

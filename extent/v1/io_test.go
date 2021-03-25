@@ -100,6 +100,17 @@ func TestDeleteBatchWALChunk(t *testing.T) {
 	assert.Equal(t, expN, n)
 }
 
+func TestDigest(t *testing.T) {
+	buf := make([]byte, 16*1024)
+	fmt.Println(xdigest.Sum32(buf))
+	for i := 0; i < 100000; i++ {
+		binary.LittleEndian.PutUint64(buf[:8], uint64(i))
+		if xdigest.Sum32(buf) == 2489584517 && i != 2048 {
+			t.Fatal(i)
+		}
+	}
+}
+
 func TestDeleteWALChunkMixed(t *testing.T) {
 	singleCnt0, singleCnt1 := maxDirtyDelOne/2, maxDirtyDelOne/2
 	batchCnt := maxDirtyDelBatch
