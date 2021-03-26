@@ -62,7 +62,7 @@ func (u *DMU) GetWritableIdx() uint8 {
 	return uint8((sa >> 59) & 1)
 }
 
-// setWritable sets writable table
+// setWritable sets writable table to idx.
 func (u *DMU) setWritable(idx uint8) {
 	sa := atomic.LoadUint64(&u.status)
 	if idx == 0 {

@@ -4,18 +4,69 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
+
+	"github.com/templexxx/tsc"
 
 	"g.tesamc.com/IT/zaipkg/orpc"
 	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
 	"g.tesamc.com/IT/zaipkg/xtest"
 )
 
+// TestDMUExpandSpeed tries to measure the speed of expanding.
+// About 50ns/entry.
+//
+// I've found a unexpected full error:
+// https://g.tesamc.com/IT/zbuf/issues/206
+func TestDMUExpandSpeed(t *testing.T) {
+
+	if !xtest.IsPropEnabled() {
+		t.Skip("skip testing, because it only needs to be run once")
+	}
+
+	cnt := MinCap
+	dmu := New(cnt)
+
+	ens := GenEntriesFast(cnt) // Just for triggering expanding.
+
+	dmu.scale()
+
+	mitFull := 0
+	for i, en := range ens {
+
+		err := dmu.Insert(en.Digest, en.Otype, en.Grains, en.Addr)
+		if errors.Is(err, orpc.ErrExtentFull) {
+
+			mitFull = i
+			break
+		}
+	}
+
+	dmu.unScale()
+
+	en := ens[mitFull]
+	err := dmu.Insert(en.Digest, en.Otype, en.Grains, en.Addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	start := tsc.UnixNano()
+	for {
+		if !dmu.isScaling() {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+	cost := tsc.UnixNano() - start
+	fmt.Printf("expanding cost %.2fns/entry\n", float64(cost)/float64(mitFull))
+}
+
 // Both of two tables are using same hash function(actually using digest directly), I want to know just make table
 // capacity grow 2x could make the expanding work as expecting or not.
 //
 // Reference:
 // before expand: cap: 65536, first_mit_full: 63149; after expand: cap: 131072, first_mit_full: 126934
-func TestDMUExpand(t *testing.T) {
+func TestDMUExpandLoad(t *testing.T) {
 	if !xtest.IsPropEnabled() {
 		t.Skip("skip testing, because it only needs to be run once")
 	}

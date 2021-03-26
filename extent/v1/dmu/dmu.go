@@ -363,8 +363,8 @@ func (u *DMU) GetUsage() (capacity, usage int) {
 }
 
 func (u *DMU) expand(ri int) {
-	rp := atomic.LoadPointer(&u.cycle[ri])
-	src := *(*[]uint64)(rp)
+
+	src := GetTbl(u, ri)
 
 	n := len(src)
 
@@ -386,25 +386,22 @@ func (u *DMU) expand(ri int) {
 				}
 
 				u.Lock()
-
 				err := u.tryInsert(digest, otype, grains, addr)
-				if errors.Is(err, ErrIsFull) {
+				if err == nil {
+					u.Unlock()
+					break
+				} else { // Full.
 					u.Unlock()
 					xlog.Warn(fmt.Sprintf("DMU expand meets full: %s, try again later", u.GetUsageFmt()))
 					time.Sleep(3 * time.Second) // Sleep for a while, waiting for Remove and free the slot.
 					continue
 				}
-
-				u.Unlock()
 			}
-
-		}
-		if i == n-1 { // Last one is finished.
-			atomic.StorePointer(&u.cycle[ri], unsafe.Pointer(nil))
-			u.unScale()
-			return
 		}
 	}
+	atomic.StorePointer(&u.cycle[ri], unsafe.Pointer(nil))
+	u.unScale()
+	return
 }
 
 func (u *DMU) tryRemove(digest uint32) (has bool, addr uint32) {
