@@ -90,13 +90,8 @@ func (e *Extenter) updatesLoop() {
 	ctx, cancel := context.WithCancel(e.ctx)
 	defer cancel()
 
-	// The only benefit we could get from the writeBuf is when we are trying to
-	// write object to disk, we also have to write down the oid as the first page,
-	// for reducing the I/O times, we combine the oid page and first write into
-	// writeBuf.
-	// If the object size is large than SizePerWrite, the writeBuf is useless,
-	// we will pass the objData piece by piece directly.
-	writeBuf := directio.AlignedBlock(objHeaderSize + (uid.MaxGrains * uid.GrainSize))
+	// Using buffer to combine object header & object & other bytes to a single I/O.
+	writeBuf := directio.AlignedBlock(objHeaderSize + (uid.MaxGrains * uid.GrainSize) + dmu.AlignSize)
 	segSize := int64(e.cfg.SegmentSize)
 
 	dirtyDel := newDirtyDelete(e.dirtyDeleteWAL)
