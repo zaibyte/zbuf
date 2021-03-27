@@ -25,7 +25,6 @@ import (
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 
 	"github.com/templexxx/tsc"
-	xor "github.com/templexxx/xorsimd"
 	"github.com/willf/bloom"
 )
 
@@ -181,26 +180,6 @@ func (e *Extenter) updatesLoop() {
 				ur.done <- err
 				e.setState(err)
 				continue
-			}
-
-			if digest == 2922289824 {
-				fmt.Println("2047", wseg, cursor, segSize, offset, written, digest)
-			}
-			if digest == 493975111 {
-				fmt.Println("2048", wseg, cursor, segSize, offset, written, digest)
-			}
-			if digest == 3669735658 {
-				fmt.Println("2049", wseg, cursor, segSize, offset, written, digest)
-			}
-
-			if digest == 658237282 {
-				fmt.Println("4095", wseg, cursor, segSize, offset, written, digest)
-			}
-			if digest == 2208466672 {
-				fmt.Println("4096", wseg, cursor, segSize, offset, written, digest)
-			}
-			if digest == 1147684957 {
-				fmt.Println("4097", wseg, cursor, segSize, offset, written, digest)
 			}
 
 			if !e.cfg.UpdateOrInsert {
@@ -459,73 +438,43 @@ func (e *Extenter) preprocModifyRequest() error {
 	return nil
 }
 
-// blankObjHeader is an empty object header(with max padding) for clean up the next place when writing.
-var blankObjHeader = directio.AlignedBlock(dmu.AlignSize)
+// objPadding is an empty byte slice which would be append to write for ensuring all writes are sequential,
+// friendly for GC.
+var objPadding = directio.AlignedBlock(dmu.AlignSize)
 
 // objWriteAt writes with a buffer in a certain offset.
 // Using objWriteAt split big data chunk into buffer size, avoiding stall.
-// Returns written(include object_header & object_data) & error.
+// Returns written(include object_header & object_data & padding) & error.
 //
 // objWriteAt will fill up the the whole segment until reach the next one,
 // helping to ensure there is only sequential writing, the I/O penalize in FTL GC inside NVMe device won't be triggered frequently,
 // unless we just miss the whole block in NVMe device.
-func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte, buf []byte) (written int, err error) {
-
-	// Clean up space for header.
-	// buf maybe dirty, maybe not. It's annoyed that checking buf usage everywhere.
-	// TODO may no more xor after checking carefully. Anyway only cost few nanoseconds.
-	xor.Bytes(buf[:objHeaderSize], buf[:objHeaderSize], buf[:objHeaderSize])
+//
+// buf size should >= objHeaderSize + max_obj_size + obj_padding_size = 4KB + 4MB + 16KB = 4116KB.
+// Although we need extra memory copy for writing, but it happens inside the userspace which means dozens of GB/s.
+// For a 4116KB copying, it will cost about 100us, but saving two disk I/O(header & padding),
+// helping for reducing P999 latency.
+func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte, buf []byte) (written int64, err error) {
 
 	objN := len(objData)
 	makeObjHeader(oid, uint32(objN/uid.GrainSize), buf)
-	objWritten := copy(buf[objHeaderSize:], objData)
+	copy(buf[objHeaderSize:], objData)
 
-	// objEnd is the last non-zero byte address.
+	// objEnd is the last non-padding byte offset.
 	objEnd := offset + int64(objHeaderSize) + int64(objN)
 	// nextAddr is the next object's address(or reach the segment end).
 	nextAddr := xbytes.AlignSize(objEnd, dmu.AlignSize)
+	paddingSize := nextAddr - objEnd
+	copy(buf[objHeaderSize+objN:], objPadding[:paddingSize])
 
-	// If object is small, using single I/O to write all digits.
-	if int64(objN)+objHeaderSize+(nextAddr-objEnd) < int64(len(buf)) {
-		copy(buf[objN+objHeaderSize:], blankObjHeader[:nextAddr-objEnd])
-		err = e.ioSched.DoSync(reqType, e.segsFile, offset, buf[:objN+objHeaderSize+int(nextAddr-objEnd)])
-		if err != nil {
-			return
-		}
-		return objN + objHeaderSize, nil
-	}
+	written = int64(objHeaderSize+objN) + paddingSize
 
-	err = e.ioSched.DoSync(reqType, e.segsFile, offset, buf[:objWritten+objHeaderSize])
+	err = e.ioSched.DoSync(reqType, e.segsFile, offset, buf[:written])
 	if err != nil {
 		return 0, err
 	}
 
-	offset += int64(objWritten)
-	offset += objHeaderSize
-
-	for objWritten != objN {
-		nn := sizePerWrite
-		var p []byte
-		if objN-objWritten < nn {
-			nn = objN - objWritten
-			p = objData[objWritten : objWritten+nn]
-			if objN-objWritten+int(nextAddr-objEnd) < sizePerWrite {
-				copy(buf[:], objData[objWritten:])
-				copy(buf[nn:], blankObjHeader[:nextAddr-objEnd])
-				p = buf[:nn+int(nextAddr-objEnd)]
-			}
-		} else {
-			p = objData[objWritten : objWritten+nn]
-		}
-		err = e.ioSched.DoSync(reqType, e.segsFile, offset, p)
-		if err != nil {
-			return
-		}
-		objWritten += nn
-		offset += int64(nn)
-	}
-
-	return objWritten + objHeaderSize, nil
+	return written, nil
 }
 
 // oidReadAt reads oid from disk at offset.
