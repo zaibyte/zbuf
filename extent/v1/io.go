@@ -100,6 +100,10 @@ func (e *Extenter) updatesLoop() {
 
 	for {
 
+		if atomic.LoadInt64(&e.isRunning) != 1 {
+			return
+		}
+
 		state := e.info.GetState()
 
 		if state != metapb.ExtentState_Extent_Broken && state != metapb.ExtentState_Extent_Ghost {
@@ -165,9 +169,6 @@ func (e *Extenter) updatesLoop() {
 			wseg := e.writableSeg
 			cursor := e.writableCursor
 			e.rwMutex.Unlock()
-			if cursor == 0 {
-				fmt.Println(wseg, cursor)
-			}
 			offset := segCursorToOffset(wseg, cursor, segSize)
 
 			written, err := e.objWriteAt(ur.reqType, ur.oid, offset, ur.objData, writeBuf)
