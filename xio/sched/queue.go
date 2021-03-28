@@ -22,7 +22,7 @@ type Queue struct {
 }
 
 const (
-	DefaultObjPending   = 512
+	DefaultObjPending   = 4096
 	DefaultChunkPending = 512
 	DefaultGCPending    = 512
 	DefaultMetaPending  = 512
