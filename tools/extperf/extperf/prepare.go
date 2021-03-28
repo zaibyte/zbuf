@@ -32,6 +32,12 @@ func (r *Runner) createExtents() (err error) {
 	cfg.UpdatesPending = r.cfg.PutPending
 	cfg.SizePerRead = typeutil.ByteSize(r.cfg.SizePerRead)
 	cfg.SegmentSize = typeutil.ByteSize(r.cfg.SegmentSize)
+
+	if jobTypes[r.cfg.JobType]&1 == Put {
+		cfg.Development = true
+		cfg.UpdateOrInsert = true
+	}
+
 	cfg.Adjust()
 	c := v1.NewCreator(cfg, r.disks, fs, new(zai.NopClient), 1)
 
