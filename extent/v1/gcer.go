@@ -211,7 +211,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 
 	segSize := uint32(e.cfg.SegmentSize)
 
-	gcWriteBuf := directio.AlignedBlock(objHeaderSize + (uid.MaxGrains * uid.GrainSize))
+	gcWriteBuf := directio.AlignedBlock(objHeaderSize + (uid.MaxGrains * uid.GrainSize) + dmu.AlignSize)
 	gcObjBuf := gcWriteBuf[objHeaderSize:]
 	oidBuf := directio.AlignedBlock(objHeaderSize)
 
