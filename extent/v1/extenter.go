@@ -294,7 +294,7 @@ func getObjOffsetSize(d *dmu.DMU, oid uint64) (has bool, digest uint32, offset i
 	if grains == 0 { // Removed.
 		return false, 0, 0, 0
 	}
-	return true, digest, int64(addr * dmu.AlignSize), int(grains * uid.GrainSize)
+	return true, digest, int64(addr) * dmu.AlignSize, int(grains * uid.GrainSize)
 }
 
 func (e *Extenter) DeleteObj(_reqid, oid uint64) error {
