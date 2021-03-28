@@ -12,6 +12,7 @@ const (
 	defaultUpdatesPending = 512 // Each extent has 512 pending put, same as default Scheduler pending.
 
 	// 4MB size per read is chosen by the testing result.
+	// Discussion here: https://g.tesamc.com/IT/zbuf/issues/209#issuecomment-761
 	defaultSizePerRead = typeutil.ByteSize(4 * 1024 * 1024)
 	// By default, the size of segment is 1GB, which means the extent size is 256GB.
 	// For a 8TB NVMe driver(raw capacity), in practice, we'll use about 70% of the capacity
