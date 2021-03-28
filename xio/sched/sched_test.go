@@ -3,7 +3,6 @@ package sched
 import (
 	"context"
 	"fmt"
-	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -199,6 +198,10 @@ func (n2 *NopFile) Fdatasync() error {
 
 func TestSchedulerCostNopFileQueue(t *testing.T) {
 
+	if !xtest.IsPropEnabled() {
+		t.Skip("skip property testing")
+	}
+
 	s := New(context.Background(), &Config{
 		Threads:     DefaultThreads,
 		QueueConfig: &QueueConfig{},
@@ -209,6 +212,11 @@ func TestSchedulerCostNopFileQueue(t *testing.T) {
 }
 
 func TestSchedulerCostNopFileNop(t *testing.T) {
+
+	if !xtest.IsPropEnabled() {
+		t.Skip("skip property testing")
+	}
+
 	s := new(xio.NopScheduler)
 	testSchedulerCostNopFile(t, s)
 }
@@ -221,7 +229,7 @@ func testSchedulerCostNopFile(t *testing.T, s xio.Scheduler) {
 	f := new(NopFile)
 
 	cnt := 1024 * 32
-	threads := runtime.NumCPU()
+	threads := 16
 	wg2 := new(sync.WaitGroup)
 	wg2.Add(threads)
 	start := tsc.UnixNano()
