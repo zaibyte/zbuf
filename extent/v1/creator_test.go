@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -163,7 +162,6 @@ func TestCreator_CreateLoad(t *testing.T) {
 	oids2 = oids1[:cnto2*8]
 
 	if cnto1 != cnto2 {
-		fmt.Println(cnto1, cnto2)
 		t.Fatal("after loading the oid count is mismatched")
 	}
 
