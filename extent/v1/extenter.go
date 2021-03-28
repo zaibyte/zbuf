@@ -371,15 +371,15 @@ func (e *Extenter) traverseWritableSeg() error {
 		e.writableSeg = int64(wseg)
 		e.writableCursor = wcursor
 
-		addr := segCursorToOffset(int64(wseg), wcursor, segSize)
+		offset := segCursorToOffset(int64(wseg), wcursor, segSize)
 
 		end := segCursorToOffset(int64(wseg), segSize, segSize)
-		for addr <= end {
-			if addr == end {
+		for offset <= end {
+			if offset == end {
 				wcursor = 0
 				break
 			}
-			oid, grains, createTS, err := e.checkReadAt(addr, buf)
+			oid, grains, createTS, err := e.checkReadAt(offset, buf)
 			if err != nil {
 				if i != hwhi-1 {
 					return err
@@ -407,7 +407,7 @@ func (e *Extenter) traverseWritableSeg() error {
 				lastCreateTS = createTS
 			}
 			_, _, grains, digest, otype, _ := uid.ParseOID(oid)
-			err = e.dmu.Insert(digest, uint32(otype), grains, uint32(addr))
+			err = e.dmu.Insert(digest, uint32(otype), grains, uint32(offset))
 			if errors.Is(err, orpc.ErrObjDigestExisted) { // Has synced in DMU.
 				err = nil
 			}
@@ -416,7 +416,7 @@ func (e *Extenter) traverseWritableSeg() error {
 			}
 			mov := xbytes.AlignSize(int64(uid.GrainsToBytes(grains)+objHeaderSize), dmu.AlignSize)
 			e.writableCursor += mov
-			addr += mov
+			offset += mov
 		}
 	}
 
