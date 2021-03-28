@@ -8,15 +8,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	"g.tesamc.com/IT/zaipkg/xlog"
-
+	"g.tesamc.com/IT/zaipkg/config"
 	"g.tesamc.com/IT/zaipkg/orpc"
+	"g.tesamc.com/IT/zaipkg/xlog"
+	"g.tesamc.com/IT/zbuf/vdisk"
+	"g.tesamc.com/IT/zbuf/xio"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 
-	"g.tesamc.com/IT/zbuf/vdisk"
-
-	"g.tesamc.com/IT/zaipkg/config"
-	"g.tesamc.com/IT/zbuf/xio"
+	"github.com/panjf2000/ants/v2"
 	"github.com/templexxx/tsc"
 )
 
@@ -72,9 +71,6 @@ func (s *Scheduler) DoSync(reqType uint64, f xio.File, offset int64, d []byte) (
 	xio.ReleaseAsyncRequest(ar)
 	return err
 }
-
-// maxBlockingRequest is the max number of request waiting for executing in I/O wrokers pool.
-const maxBlockingRequest = 512
 
 // New creates a scheduler instance.
 func New(ctx context.Context, cfg *Config, di *vdisk.Info) *Scheduler {
@@ -133,8 +129,27 @@ const noReqSleep = 10 * time.Microsecond
 func (s *Scheduler) FindRunnableLoop() {
 	defer s.stopWg.Done()
 
-	ctx, cancel := context.WithCancel(s.ctx)
-	defer cancel()
+	// ioWorkers is a Goroutine pool, for saving goroutine creating/destroy/scheduling cost.
+	// error here could be ignore because we won't pass illegal params.
+	ioWorkers, _ := ants.NewPoolWithFunc(s.cfg.Threads, func(i interface{}) {
+
+		r := i.(*xio.AsyncRequest)
+		var err error
+		if xio.IsReqRead(r.Type) {
+			_, err = r.File.ReadAt(r.Data, r.Offset)
+		} else {
+			_, err = r.File.WriteAt(r.Data, r.Offset)
+			if err == nil {
+				// I don't want update ctime, utime etc. at the same time.
+				// The file size is pre-allocated, data sync is enough.
+				// (data sync will allocate space too, even we've already used pre-allocate,
+				// some file system are using lazy allocation)
+				err = r.File.Fdatasync()
+			}
+		}
+		r.Err <- err
+	}, ants.WithLogger(xlog.GetLogger()), ants.WithExpiryDuration(3*time.Second))
+	defer ioWorkers.Release()
 
 	start := tsc.UnixNano()
 	for {
@@ -168,35 +183,9 @@ func (s *Scheduler) FindRunnableLoop() {
 			continue
 		}
 
-		select { // Block until we have free goroutine.
-		case s.worker <- struct{}{}:
-		default:
-			select {
-			case s.worker <- struct{}{}:
-			case <-ctx.Done():
-				return
-			}
-		}
-
 		now := tsc.UnixNano()
 
-		go func(r *xio.AsyncRequest, workersChan <-chan struct{}) {
-			var err error
-			if xio.IsReqRead(r.Type) {
-				_, err = ar.File.ReadAt(r.Data, r.Offset)
-			} else {
-				_, err = ar.File.WriteAt(r.Data, r.Offset)
-				if err == nil {
-					// I don't want update ctime, utime etc. at the same time.
-					// The file size is pre-allocated, data sync is enough.
-					// (data sync will allocate space too, even we've already used pre-allocate,
-					// some file system are using lazy allocation)
-					err = ar.File.Fdatasync()
-				}
-			}
-			r.Err <- err
-			<-workersChan
-		}(ar, s.worker)
+		_ = ioWorkers.Invoke(ar)
 
 		if now-start >= balanceWindow {
 			s.setCostsZero()
@@ -248,7 +237,7 @@ const waitExpCoeff = -0.003
 //
 // coeff = e^(waitExpCoeff * waiting_time)
 func calcWaitCoeff(pts, now int64) float64 {
-	delta := float64(now-pts) / float64(int64(time.Microsecond)) // Using microsecond as unit.
+	delta := float64(now-pts) / float64(time.Microsecond) // Using microsecond as unit.
 	return math.Pow(math.E, waitExpCoeff*delta)
 }
 

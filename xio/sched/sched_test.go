@@ -13,18 +13,45 @@ import (
 	"time"
 
 	"g.tesamc.com/IT/zaipkg/directio"
-
-	"g.tesamc.com/IT/zbuf/vdisk"
-	"g.tesamc.com/IT/zproto/pkg/metapb"
-
-	"github.com/templexxx/tsc"
-
 	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
 	"g.tesamc.com/IT/zaipkg/xtest"
-
+	"g.tesamc.com/IT/zbuf/vdisk"
 	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zbuf/xio"
+	"g.tesamc.com/IT/zproto/pkg/metapb"
+
+	"github.com/panjf2000/ants/v2"
+	"github.com/templexxx/tsc"
 )
+
+// I don't know if ants work as I expected, testing it.
+// I want ants block if there is no avail goroutine.
+func TestWorkerPoolBlock(t *testing.T) {
+
+	pool, _ := ants.NewPoolWithFunc(1, func(i interface{}) {
+		xtest.DoNothing(1000)
+	}, ants.WithPreAlloc(true))
+	defer pool.Release()
+
+	// Loop is much faster than the func inside worker pool.
+	start := tsc.UnixNano()
+	for i := 0; i < 100; i++ {
+		err := pool.Invoke(1)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	poolCost := tsc.UnixNano() - start
+
+	start = tsc.UnixNano()
+	for i := 0; i < 100; i++ {
+		xtest.DoNothing(1000)
+	}
+	noPoolCost := tsc.UnixNano() - start
+	if poolCost < noPoolCost {
+		t.Fatal("worker exp blocking on Invoke, but not")
+	}
+}
 
 func TestCalcWeightReasonable(t *testing.T) {
 	var i int64 = pageSize
