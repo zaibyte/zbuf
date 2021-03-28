@@ -508,9 +508,6 @@ func (e *Extenter) objReadAt(reqType uint64, digest uint32, offset int64, objDat
 
 	actDigest := d.Sum32()
 	if actDigest != digest {
-		oidBuf := directio.AlignedBlock(4096)
-		oid, grains, createTS, err2 := e.oidReadAt(reqType, offset, oidBuf)
-		fmt.Println("oid, grains, createTS, err2", oid, grains, createTS, err2)
 		err := xerrors.WithMessage(orpc.ErrChecksumMismatch, fmt.Sprintf("exp: %d, got: %d", digest, actDigest))
 		return err
 	}

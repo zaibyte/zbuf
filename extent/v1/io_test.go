@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"math/rand"
 	"os"
 	"runtime"
@@ -98,17 +97,6 @@ func TestDeleteBatchWALChunk(t *testing.T) {
 	assert.Equal(t, expTS, ts)
 	assert.Equal(t, expDigest, rdigests)
 	assert.Equal(t, expN, n)
-}
-
-func TestDigest(t *testing.T) {
-	buf := make([]byte, 16*1024)
-	fmt.Println(xdigest.Sum32(buf))
-	for i := 0; i < 100000; i++ {
-		binary.LittleEndian.PutUint64(buf[:8], uint64(i))
-		if xdigest.Sum32(buf) == 2489584517 && i != 2048 {
-			t.Fatal(i)
-		}
-	}
 }
 
 func TestDeleteWALChunkMixed(t *testing.T) {
@@ -271,31 +259,6 @@ func TestExtenter_PutGetObj16KB(t *testing.T) {
 		}()
 	}
 	wg.Wait()
-}
-
-func TestGetDigest(t *testing.T) {
-	buf := make([]byte, 16*1024)
-	binary.LittleEndian.PutUint64(buf[:8], 2048)
-	fmt.Println(xdigest.Sum32(buf))
-	fmt.Println(uid.ParseOID(2121606947858808841))
-
-	binary.LittleEndian.PutUint64(buf[:8], 4096)
-	fmt.Println(xdigest.Sum32(buf))
-	fmt.Println(uid.ParseOID(9485292131621797897))
-
-	binary.LittleEndian.PutUint64(buf[:8], 2047)
-	fmt.Println(xdigest.Sum32(buf))
-	binary.LittleEndian.PutUint64(buf[:8], 2048)
-	fmt.Println(xdigest.Sum32(buf))
-	binary.LittleEndian.PutUint64(buf[:8], 2049)
-	fmt.Println(xdigest.Sum32(buf))
-
-	binary.LittleEndian.PutUint64(buf[:8], 4095)
-	fmt.Println(xdigest.Sum32(buf))
-	binary.LittleEndian.PutUint64(buf[:8], 4096)
-	fmt.Println(xdigest.Sum32(buf))
-	binary.LittleEndian.PutUint64(buf[:8], 4097)
-	fmt.Println(xdigest.Sum32(buf))
 }
 
 func TestExtenter_PutSameDigest(t *testing.T) {
