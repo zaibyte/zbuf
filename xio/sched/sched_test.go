@@ -3,16 +3,11 @@ package sched
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"math/rand"
-	"os"
-	"path/filepath"
 	"runtime"
 	"sync"
 	"testing"
 	"time"
 
-	"g.tesamc.com/IT/zaipkg/directio"
 	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
 	"g.tesamc.com/IT/zaipkg/xtest"
 	"g.tesamc.com/IT/zbuf/vdisk"
@@ -234,73 +229,14 @@ func testSchedulerCostNopFile(t *testing.T, s xio.Scheduler) {
 		go func() {
 			defer wg2.Done()
 			for j := 0; j < cnt; j++ {
-				_ = s.DoSync(xio.ReqObjRead, f, 0, nil)
+				err := s.DoSync(xio.ReqObjRead, f, 0, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
 			}
 		}()
 	}
 	wg2.Wait()
 	cost := tsc.UnixNano() - start
 	t.Logf("each req cost: %dns\n", cost/int64(cnt))
-}
-
-func TestSchedulerCostOSFileQueue(t *testing.T) {
-	s := New(context.Background(), &Config{
-		Threads:     DefaultThreads,
-		QueueConfig: &QueueConfig{},
-	}, &vdisk.Info{PbDisk: &metapb.Disk{
-		State: metapb.DiskState_Disk_ReadWrite,
-	}})
-	testSchedulerCostOSFile(s, t)
-}
-
-func TestSchedulerCostOSFileNop(t *testing.T) {
-	s := new(xio.NopScheduler)
-	testSchedulerCostOSFile(s, t)
-}
-
-// Test Scheduler Cost with os.File
-func testSchedulerCostOSFile(s xio.Scheduler, t *testing.T) {
-
-	// runtime.GOMAXPROCS(32)
-
-	s.Start()
-	defer s.Close()
-
-	dir, err := ioutil.TempDir(os.TempDir(), "zbuf.scheduler")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
-
-	f, err := vfs.GetFS().Create(filepath.Join(dir, "os_file"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
-
-	size := 4096 * 4
-	cnt := 512
-
-	err = vfs.TryFAlloc(f, int64(size*cnt))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	buf := directio.AlignedBlock(size)
-	rand.Seed(tsc.UnixNano())
-	rand.Read(buf)
-
-	threads := 16
-	wg2 := new(sync.WaitGroup)
-	wg2.Add(threads)
-	for i := 0; i < threads; i++ {
-		go func() {
-			defer wg2.Done()
-			for j := 0; j < cnt; j++ {
-				off := rand.Int63n(int64(cnt))
-				_ = s.DoSync(xio.ReqObjWrite, f, off*int64(size), buf)
-			}
-		}()
-	}
-	wg2.Wait()
 }
