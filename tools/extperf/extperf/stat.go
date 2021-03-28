@@ -2,6 +2,7 @@ package extperf
 
 import (
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/elastic/go-hdrhistogram"
@@ -36,8 +37,14 @@ func (r *Runner) printSummary(cost int64) {
 
 func (r *Runner) printIOPS(putCost, readCost int64) {
 
-	putAvg := calcIOPS(r.putIO, putCost)
-	getAvg := calcIOPS(r.getIO, readCost)
+	putIO, getIO := atomic.LoadInt64(&r.putIO), atomic.LoadInt64(&r.getIO)
+	putIOFailed, getIOFailed := atomic.LoadInt64(&r.putIOFailed), atomic.LoadInt64(&r.getIOFailed)
+
+	fmt.Println(fmt.Sprintf("put ok: %d, failed: %d", putIO, putIOFailed))
+	fmt.Println(fmt.Sprintf("get ok: %d, failed: %d", getIO, getIOFailed))
+
+	putAvg := calcIOPS(putIO, putCost)
+	getAvg := calcIOPS(getIO, readCost)
 
 	fmt.Println("iops")
 	fmt.Println(fmt.Sprintf("put avg: %.2fk/s", float64(putAvg)/1000))

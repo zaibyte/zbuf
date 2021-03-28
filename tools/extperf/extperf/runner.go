@@ -40,6 +40,9 @@ type Runner struct {
 	putIO int64
 	getIO int64
 
+	putIOFailed int64
+	getIOFailed int64
+
 	oids []uint64
 
 	ctx    context.Context
@@ -98,8 +101,6 @@ func (r *Runner) Run() (err error) {
 
 	randFillObj(r.cfg.BlockSize)
 
-	r.prepareRead()
-
 	var putCost, readCost int64
 
 	start := tsc.UnixNano()
@@ -126,6 +127,8 @@ func (r *Runner) Run() (err error) {
 	}
 
 	if jobTypes[r.cfg.JobType]&2 == Get {
+
+		r.prepareRead()
 
 		readWg := new(sync.WaitGroup)
 		readWg.Add(r.cfg.GetThreads)

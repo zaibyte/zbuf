@@ -135,6 +135,8 @@ func (r *Runner) runPutJob(wg *sync.WaitGroup) {
 					}
 
 					atomic.AddInt64(&r.putIO, 1)
+				} else {
+					atomic.AddInt64(&r.putIOFailed, 1)
 				}
 
 				if atomic.LoadInt64(&r.getDone) >= int64(r.cfg.GetThreads) { // In Read-Write, and Read is done.
@@ -177,6 +179,8 @@ func (r *Runner) runGetJob(wg *sync.WaitGroup) {
 					}
 
 					atomic.AddInt64(&r.getIO, 1)
+				} else {
+					atomic.AddInt64(&r.getIOFailed, 1)
 				}
 
 				if atomic.LoadInt64(&r.putDone) >= int64(r.cfg.PutThreads) { // In Read-Write, and Write is done.
