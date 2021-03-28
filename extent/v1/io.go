@@ -118,13 +118,12 @@ func (e *Extenter) updatesLoop() {
 		select {
 		case ur = <-e.updateChan:
 		default:
-			// Give the last chance for ready goroutines filling chan.
+			// TODO Blocking maybe ok, because Go has Preemptive scheduling now.
 			runtime.Gosched()
-
 			select {
+			case ur = <-e.updateChan:
 			case <-ctx.Done():
 				return
-			case ur = <-e.updateChan:
 			}
 		}
 
@@ -141,20 +140,20 @@ func (e *Extenter) updatesLoop() {
 			binary.LittleEndian.PutUint32(digestBuf, digest)
 
 			if dirtyDel.bf.Test(digestBuf) {
-				ur.done <- orpc.ErrObjDigestExisted
+				ur.done <- xerrors.WithMessage(orpc.ErrObjDigestExisted, "digest is in dirty delete")
 				continue
 			}
 
 			if !e.cfg.UpdateOrInsert {
 				if e.dmu.Search(digest) != 0 { // Although Insert will do search too, checking ahead avoiding potential I/O wasting.
-					ur.done <- orpc.ErrObjDigestExisted
+					ur.done <- xerrors.WithMessage(orpc.ErrObjDigestExisted, "digest is in DMU")
 					continue
 				}
 			}
 
 			e.rwMutex.Lock()
 			// There is no enough space in this segment for this uploading.
-			if e.writableCursor+int64(len(ur.objData))+objHeaderSize > segSize {
+			if e.writableCursor+objHeaderSize+int64(len(ur.objData)) > segSize {
 				nextSeg, err := e.getNextWritableSeg(e.writableSeg)
 				if err != nil {
 					ur.done <- err
@@ -169,8 +168,8 @@ func (e *Extenter) updatesLoop() {
 			wseg := e.writableSeg
 			cursor := e.writableCursor
 			e.rwMutex.Unlock()
-			offset := segCursorToOffset(wseg, cursor, segSize)
 
+			offset := segCursorToOffset(wseg, cursor, segSize)
 			written, err := e.objWriteAt(ur.reqType, ur.oid, offset, ur.objData, writeBuf)
 			if err != nil {
 				ur.done <- err
@@ -196,7 +195,7 @@ func (e *Extenter) updatesLoop() {
 
 			ur.done <- nil
 
-			atomic.AddInt64(&e.writableCursor, xbytes.AlignSize(int64(written), dmu.AlignSize))
+			atomic.AddInt64(&e.writableCursor, xbytes.AlignSize(written, dmu.AlignSize))
 			atomic.AddInt64(&e.dirtyUpdates, 1)
 			continue // Write updates request done, go back to the top of loop.
 		}
