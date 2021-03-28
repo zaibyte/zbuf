@@ -212,8 +212,8 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 	segSize := uint32(e.cfg.SegmentSize)
 
 	gcWriteBuf := directio.AlignedBlock(objHeaderSize + (uid.MaxGrains * uid.GrainSize) + dmu.AlignSize)
-	gcObjBuf := gcWriteBuf[objHeaderSize:]
-	oidBuf := directio.AlignedBlock(objHeaderSize)
+	gcObjBuf := gcWriteBuf[objHeaderSize : objHeaderSize+(uid.MaxGrains*uid.GrainSize)]
+	objHeaderBuf := directio.AlignedBlock(objHeaderSize)
 
 	extID := e.info.PbExt.Id
 
@@ -257,7 +257,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			}
 
 			readOffset := segCursorToOffset(e.gcSrcSeg, int64(e.gcSrcCursor), int64(segSize))
-			oid, _, _, err2 := e.oidReadAt(xio.ReqGCRead, readOffset, oidBuf)
+			oid, _, _, err2 := e.oidReadAt(xio.ReqGCRead, readOffset, objHeaderBuf)
 			if err2 != nil {
 				e.setState(err2)
 				return gcDeadInterval, false
