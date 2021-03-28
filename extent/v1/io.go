@@ -248,7 +248,7 @@ func (e *Extenter) updatesLoop() {
 			rSeg := addrToSeg(rAddr, segSize)
 			e.rwMutex.Lock()
 			dirtyDel.lastMod = lastMod
-			e.header.nvh.Removed[rSeg] += uint32(xbytes.AlignSize(int64(grains+objHeaderSize/uid.GrainSize), dmu.AlignSize/uid.GrainSize))
+			e.header.nvh.Removed[rSeg] += uint32(xbytes.AlignSize(int64(grains)+objHeaderSize, dmu.AlignSize) / uid.GrainSize)
 			e.rwMutex.Unlock()
 			dirtyWALOffset += n
 			atomic.AddInt64(&e.dirtyUpdates, 1)

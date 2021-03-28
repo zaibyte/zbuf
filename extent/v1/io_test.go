@@ -216,7 +216,6 @@ func TestExtenter_PutGetObj16KB(t *testing.T) {
 		if written > 127*uint64(cfg.SegmentSize) { // written is not accurate, and for 16KB, need 32KB space.
 			break
 		}
-
 		grains := 4
 		objData := buf[:grains*uid.GrainSize]
 		binary.LittleEndian.PutUint64(objData[:8], uint64(i))
