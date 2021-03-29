@@ -631,7 +631,7 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 			next := c.originSeg
 			nvh.SegStates[next] = segWritable
 			nvh.SegStates[last] = segSealed
-			nvh.SealedTS[last] = tsc.UnixNano()
+			nvh.SealedTS[last] = MakeSealedTS(tsc.UnixNano())
 			nvh.WritableHistory[nvh.WritableHistoryNextIdx%wsegHistroyCnt] = byte(next)
 			nvh.WritableHistoryNextIdx++
 			err := e.header.Store(e.info.GetState())

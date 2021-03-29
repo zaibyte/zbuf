@@ -77,7 +77,7 @@ func (c *Creator) CreateHeader(extDir string, params extent.CreateParams) (*Head
 		}
 	}
 	h.nvh.SegStates[0] = segWritable // Set first seg writable.
-	h.nvh.SealedTS = make([]int64, segmentCnt)
+	h.nvh.SealedTS = make([]uint32, segmentCnt)
 
 	h.nvh.WritableHistory = make([]byte, wsegHistroyCnt)
 	h.nvh.WritableHistoryNextIdx = 1 // segment_0 is writable now.

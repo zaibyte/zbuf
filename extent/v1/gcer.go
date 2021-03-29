@@ -241,6 +241,13 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			return checkSnapSyncGCInterval, false // Reset checked, avoiding makeDMUSnapAsync too frequently.
 		}
 
+		// We must have at least one lastCreateTS for detecting have reached the end of segment.
+		_, _, lastCreateTS, err2 := e.oidReadAt(xio.ReqGCRead, 0, objHeaderBuf)
+		if err2 != nil {
+			e.setState(err2)
+			return gcDeadInterval, false
+		}
+
 		for { // Deal with valid objects in GC source one by one until reach the end.
 
 			select {
@@ -261,10 +268,13 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			e.rwMutex.RUnlock()
 
 			readOffset := segCursorToOffset(e.gcSrcSeg, int64(e.gcSrcCursor), int64(segSize))
-			oid, _, _, err2 := e.oidReadAt(xio.ReqGCRead, readOffset, objHeaderBuf)
-			if err2 != nil {
-				e.setState(err2)
+			oid, _, createTS, err3 := e.oidReadAt(xio.ReqGCRead, readOffset, objHeaderBuf)
+			if err3 != nil {
+				e.setState(err3)
 				return gcDeadInterval, false
+			}
+			if createTS < lastCreateTS {
+
 			}
 
 			if oid == 0 { // Objects are written sequentially, if meet 0, means reaching the end.
@@ -434,7 +444,7 @@ func (e *Extenter) findGCDst() int64 {
 type gcCandidate struct {
 	seg      int64
 	removed  uint32
-	sealedTS int64
+	sealedTS uint32
 }
 
 type gcCandidates []gcCandidate

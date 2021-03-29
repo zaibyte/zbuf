@@ -63,7 +63,7 @@ func TestCreateLoadHeader(t *testing.T) {
 	h.nvh.SegSize = rand.Uint32()
 	h.nvh.ReservedSeg += 1
 	h.nvh.SegStates[255] = segSealed
-	h.nvh.SealedTS[255] = tsc.UnixNano()
+	h.nvh.SealedTS[255] = MakeSealedTS(tsc.UnixNano())
 	h.nvh.WritableHistory[1] = 255
 	h.nvh.WritableHistoryNextIdx = 2
 	h.nvh.Removed[255] = 10

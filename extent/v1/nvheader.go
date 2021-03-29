@@ -2,6 +2,7 @@ package v1
 
 import (
 	"encoding/binary"
+	"time"
 
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 )
@@ -13,7 +14,9 @@ type NVHeader struct {
 	SegSize     uint32 // segSize * grain_size = bytes.
 	ReservedSeg uint8
 	SegStates   []uint8 // 256 * 1B = 256B
-	SealedTS    []int64 // 256 * 8B = 2048B
+	// The sealed timestamp is aligned to hour.
+	// Enough for indicating GC order.
+	SealedTS []uint32 // 256 * 4B = 1024B
 
 	// writableHistory records the writable segment changing history.
 	// The max history length is 256.
@@ -28,6 +31,22 @@ type NVHeader struct {
 	CloneJob *metapb.CloneJob
 }
 
+const (
+	sealedEpoch int64 = 1616988479613927876 // 2021-03-29T11:27:59+08:00
+)
+
+// MakeSealedTS makes segment sealed timestamp by unix nano timestamp.
+func MakeSealedTS(ts int64) uint32 {
+	delta := ts - sealedEpoch
+	return uint32(delta / int64(time.Hour))
+}
+
+// ParseSealedTS gets unix nano timestamp by segment sealed timestamp.
+func ParseSealedTS(sts uint32) int64 {
+	delta := int64(sts) * int64(time.Hour)
+	return delta + sealedEpoch
+}
+
 // Unmarshal decodes data as NVHeader and returns the number of bytes read.
 func (h *NVHeader) Unmarshal(b []byte) (err error) {
 
@@ -36,22 +55,22 @@ func (h *NVHeader) Unmarshal(b []byte) (err error) {
 	h.ReservedSeg = b[8]
 	h.SegStates = make([]uint8, segmentCnt)
 	copy(h.SegStates, b[9:265])
-	h.SealedTS = make([]int64, segmentCnt)
+	h.SealedTS = make([]uint32, segmentCnt)
 	for i := range h.SealedTS {
-		h.SealedTS[i] = int64(binary.LittleEndian.Uint64(b[265+i*8 : 265+i*8+8]))
+		h.SealedTS[i] = binary.LittleEndian.Uint32(b[265+i*4 : 265+i*4+4])
 	}
 	h.WritableHistory = make([]byte, 256)
-	copy(h.WritableHistory, b[2313:2569])
-	h.WritableHistoryNextIdx = int64(binary.LittleEndian.Uint64(b[2569:2577]))
+	copy(h.WritableHistory, b[1289:1545])
+	h.WritableHistoryNextIdx = int64(binary.LittleEndian.Uint64(b[1545:1553]))
 	h.Removed = make([]uint32, segmentCnt)
 	for i := range h.Removed {
-		h.Removed[i] = binary.LittleEndian.Uint32(b[2577+i*4 : 2577+i*4+4])
+		h.Removed[i] = binary.LittleEndian.Uint32(b[1553+i*4 : 1553+i*4+4])
 	}
-	if len(b) == 3601 {
+	if len(b) == 2577 {
 		return nil
 	}
 	h.CloneJob = new(metapb.CloneJob)
-	return h.CloneJob.Unmarshal(b[3601:])
+	return h.CloneJob.Unmarshal(b[2577:])
 }
 
 // MarshalTo encodes o as NVHeader into buf and returns the number of bytes written.
@@ -64,21 +83,21 @@ func (h *NVHeader) MarshalTo(b []byte) (n int, err error) {
 	b[8] = h.ReservedSeg
 	copy(b[9:265], h.SegStates)
 	for i, ts := range h.SealedTS {
-		binary.LittleEndian.PutUint64(b[265+i*8:265+i*8+8], uint64(ts))
+		binary.LittleEndian.PutUint32(b[265+i*4:265+i*4+4], ts)
 	}
-	copy(b[2313:2569], h.WritableHistory)
-	binary.LittleEndian.PutUint64(b[2569:2577], uint64(h.WritableHistoryNextIdx))
+	copy(b[1289:1545], h.WritableHistory)
+	binary.LittleEndian.PutUint64(b[1545:1553], uint64(h.WritableHistoryNextIdx))
 	for i, rm := range h.Removed {
-		binary.LittleEndian.PutUint32(b[2577+i*4:2577+i*4+4], rm)
+		binary.LittleEndian.PutUint32(b[1553+i*4:1553+i*4+4], rm)
 	}
 
 	if h.CloneJob != nil {
-		nn, err2 := h.CloneJob.MarshalTo(b[3601:])
+		nn, err2 := h.CloneJob.MarshalTo(b[2577:])
 		if err2 != nil {
 			return 0, err2
 		}
-		return 3601 + nn, nil
+		return 2577 + nn, nil
 	}
 
-	return 3601, nil
+	return 2577, nil
 }

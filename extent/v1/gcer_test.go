@@ -20,7 +20,7 @@ func TestGcCandidates(t *testing.T) {
 		cs[i] = gcCandidate{
 			seg:      int64(i),
 			removed:  uint32(rand.Intn(1024)),
-			sealedTS: rand.Int63() + 1, // At least 1.,
+			sealedTS: rand.Uint32() + 1, // At least 1.,
 		}
 	}
 
