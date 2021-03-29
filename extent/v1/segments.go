@@ -87,3 +87,8 @@ func addrToSeg(addr uint32, segSize int64) int {
 func segCursorToOffset(seg, cursor, segSize int64) int64 {
 	return seg*segSize + cursor
 }
+
+// offsetToSegCursor calculates cursor in segment by offset in the whole segments file.
+func offsetToSegCursor(offset, seg, segSize int64) int64 {
+	return offset - (seg * segSize)
+}

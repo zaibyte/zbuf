@@ -212,7 +212,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 	segSize := uint32(e.cfg.SegmentSize)
 
 	gcWriteBuf := directio.AlignedBlock(objHeaderSize + (uid.MaxGrains * uid.GrainSize) + dmu.AlignSize)
-	gcObjBuf := gcWriteBuf[objHeaderSize : objHeaderSize+(uid.MaxGrains*uid.GrainSize)]
+	gcObjBuf := directio.AlignedBlock(uid.MaxGrains * uid.GrainSize)
 	objHeaderBuf := directio.AlignedBlock(objHeaderSize)
 
 	extID := e.info.PbExt.Id
@@ -262,7 +262,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			e.rwMutex.RUnlock()
 
 			readOffset := segCursorToOffset(e.gcSrcSeg, int64(e.gcSrcCursor), int64(segSize))
-			oid, _, cycle, err3 := e.oidReadAt(xio.ReqGCRead, readOffset, objHeaderBuf)
+			oid, _, cycle, err3 := e.oHeaderReadAt(xio.ReqGCRead, readOffset, objHeaderBuf)
 			if err3 != nil {
 				e.setState(err3)
 				return gcDeadInterval, false
@@ -300,9 +300,9 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 				}
 
 				e.rwMutex.Lock()
-				if nowAddr*dmu.AlignSize >= e.gcDstCursor {
+				if offsetToSegCursor(int64(nowAddr)*dmu.AlignSize, e.gcDstSeg, int64(segSize)) >= int64(e.gcDstCursor) {
 					e.gcSrcCursor += uint32(xbytes.AlignSize(int64(objSize+objHeaderSize), dmu.AlignSize))
-					e.gcDstCursor = uint32(xbytes.AlignSize(int64(nowAddr*dmu.AlignSize+objSize+objHeaderSize), dmu.AlignSize))
+					e.gcDstCursor = uint32(xbytes.AlignSize(int64(nowAddr)*dmu.AlignSize+int64(objSize)+objHeaderSize, dmu.AlignSize))
 				} else {
 					e.setState(xerrors.WithMessage(orpc.ErrExtentBroken,
 						"object has been GC, but the address is behind dst cursor"))
@@ -342,7 +342,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 
 			writeOffset := segCursorToOffset(e.gcDstSeg, int64(e.gcDstCursor), int64(segSize))
 			totalWritten, werr := e.objWriteAt(xio.ReqGCWrite, oid, writeOffset, gcObjBuf[:objSize],
-				gcWriteBuf[:objSize+objHeaderSize], e.header.nvh.SegCycles[uint8(e.gcDstSeg)])
+				gcWriteBuf, e.header.nvh.SegCycles[uint8(e.gcDstSeg)])
 			if werr != nil {
 				e.setState(err)
 				return gcDeadInterval, false
@@ -361,6 +361,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 		// One source is finished.
 		e.rwMutex.Lock()
 		e.header.nvh.Removed[e.gcSrcSeg] = 0
+		e.header.nvh.SegCycles[e.gcSrcSeg] += 1
 		srcNewState := segReserved
 		if e.isReservedEnough() {
 			e.info.AddAvail(int64(segSize))

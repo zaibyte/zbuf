@@ -473,8 +473,8 @@ func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte,
 	return written, nil
 }
 
-// oidReadAt reads oid from disk at offset.
-func (e *Extenter) oidReadAt(reqType uint64, offset int64, oidBuf []byte) (oid uint64, grains uint32, cycle uint32, err error) {
+// oHeaderReadAt reads object header from disk at offset.
+func (e *Extenter) oHeaderReadAt(reqType uint64, offset int64, oidBuf []byte) (oid uint64, grains uint32, cycle uint32, err error) {
 
 	if err = e.ioSched.DoSync(reqType, e.segsFile, offset, oidBuf); err != nil {
 		return 0, 0, 0, err
@@ -519,7 +519,7 @@ func (e *Extenter) objReadAt(reqType uint64, digest uint32, offset int64, objDat
 // It won't return the data, just checks the I/O system and its checksum.
 // buf should be cfg.SizePerRead bytes block.
 func (e *Extenter) checkReadAt(offset int64, buf []byte) (oid uint64, grains uint32, cycle uint32, err error) {
-	oid, grains, cycle, err = e.oidReadAt(xio.ReqObjRead, offset, buf[:objHeaderSize])
+	oid, grains, cycle, err = e.oHeaderReadAt(xio.ReqObjRead, offset, buf[:objHeaderSize])
 	if err != nil {
 		return 0, 0, 0, err
 	}
