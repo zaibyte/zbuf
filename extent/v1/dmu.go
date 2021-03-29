@@ -250,7 +250,7 @@ func (e *Extenter) writeDMUSnap(done chan<- error, lastFn string) {
 	e.rwMutex.RLock()
 	h.WritableHistoryIdx = e.header.nvh.WritableHistoryNextIdx - 1
 	h.WritableSeg = e.writableSeg
-	h.WritableCursor = e.writableCursor
+	h.WritableCursor = atomic.LoadInt64(&e.writableCursor)
 	h.GcSrcSeg = e.gcSrcSeg
 	h.GcDstSeg = e.gcDstSeg
 	h.GcSrcCursor = e.gcSrcCursor
