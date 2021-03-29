@@ -233,19 +233,13 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 		if e.gcSrcCursor >= segSize { // If true, means last gc src finished; if not, we'll go on last gc src.
 			e.gcSrcCursor = 0
 		}
+		srcCycle := e.header.nvh.SegCycles[uint8(e.gcSrcSeg)]
 		// We will meet e.gcSrcCursor < segSize when we get seg for cs, when we're going to finish last unfinished GC source.
 		e.rwMutex.Unlock()
 
 		// After source changed, checking the snapshot again.
 		if !e.isSnapCatchGC() {
 			return checkSnapSyncGCInterval, false // Reset checked, avoiding makeDMUSnapAsync too frequently.
-		}
-
-		// We must have at least one lastCycle for detecting have reached the end of segment.
-		_, _, lastCycle, err2 := e.oidReadAt(xio.ReqGCRead, 0, objHeaderBuf)
-		if err2 != nil {
-			e.setState(err2)
-			return gcDeadInterval, false
 		}
 
 		for { // Deal with valid objects in GC source one by one until reach the end.
@@ -273,11 +267,9 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 				e.setState(err3)
 				return gcDeadInterval, false
 			}
-			if cycle < lastCycle {
-
-			}
-
-			if oid == 0 { // Objects are written sequentially, if meet 0, means reaching the end.
+			// Meet objects written in last cycle, ignore left.
+			// Objects are written sequentially, if meet 0, means reaching the end.
+			if cycle < srcCycle || oid == 0 {
 				e.rwMutex.Lock()
 				e.gcSrcCursor = segSize
 				e.rwMutex.Unlock()
@@ -288,7 +280,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			objSize := grains * uid.GrainSize
 
 			entry := e.dmu.Search(digest)
-			if entry == 0 { // Has been removed.
+			if entry == 0 { // Has been removed in DMU.
 				e.rwMutex.Lock()
 				e.gcSrcCursor += uint32(xbytes.AlignSize(int64(objSize+objHeaderSize), dmu.AlignSize))
 				e.rwMutex.Unlock()
@@ -298,7 +290,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			_, _, _, _, nowAddr := dmu.ParseEntry(entry)
 			// It must be GC already, and the DMU is go ahead of source cursor.
 			// See https://g.tesamc.com/IT/zbuf/issues/142 for details.
-			if nowAddr*dmu.AlignSize != uint32(readOffset) {
+			if int64(nowAddr)*dmu.AlignSize != readOffset {
 
 				if addrToSeg(nowAddr, int64(segSize)) != int(e.gcDstSeg) {
 					e.setState(xerrors.WithMessage(orpc.ErrExtentBroken,
