@@ -57,6 +57,7 @@ func TestCreateLoadHeader(t *testing.T) {
 	assert.Equal(t, h.nvh.WritableHistory, lh.nvh.WritableHistory)
 	assert.Equal(t, h.nvh.WritableHistoryNextIdx, lh.nvh.WritableHistoryNextIdx)
 	assert.Equal(t, h.nvh.Removed, lh.nvh.Removed)
+	assert.Equal(t, h.nvh.SegCycles, lh.nvh.SegCycles)
 	assert.Equal(t, h.nvh.CloneJob, lh.nvh.CloneJob)
 
 	h.nvh.State += 1
@@ -67,6 +68,7 @@ func TestCreateLoadHeader(t *testing.T) {
 	h.nvh.WritableHistory[1] = 255
 	h.nvh.WritableHistoryNextIdx = 2
 	h.nvh.Removed[255] = 10
+	h.nvh.SegCycles[255] = 3
 	h.nvh.CloneJob = &metapb.CloneJob{
 		IsSource: false,
 		State:    metapb.CloneJobState_CloneJob_Doing,
@@ -97,5 +99,6 @@ func TestCreateLoadHeader(t *testing.T) {
 	assert.Equal(t, h.nvh.WritableHistory, lh.nvh.WritableHistory)
 	assert.Equal(t, h.nvh.WritableHistoryNextIdx, lh.nvh.WritableHistoryNextIdx)
 	assert.Equal(t, h.nvh.Removed, lh.nvh.Removed)
+	assert.Equal(t, h.nvh.SegCycles, lh.nvh.SegCycles)
 	assert.Equal(t, h.nvh.CloneJob, lh.nvh.CloneJob)
 }

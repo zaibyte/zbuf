@@ -241,8 +241,8 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			return checkSnapSyncGCInterval, false // Reset checked, avoiding makeDMUSnapAsync too frequently.
 		}
 
-		// We must have at least one lastCreateTS for detecting have reached the end of segment.
-		_, _, lastCreateTS, err2 := e.oidReadAt(xio.ReqGCRead, 0, objHeaderBuf)
+		// We must have at least one lastCycle for detecting have reached the end of segment.
+		_, _, lastCycle, err2 := e.oidReadAt(xio.ReqGCRead, 0, objHeaderBuf)
 		if err2 != nil {
 			e.setState(err2)
 			return gcDeadInterval, false
@@ -268,12 +268,12 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			e.rwMutex.RUnlock()
 
 			readOffset := segCursorToOffset(e.gcSrcSeg, int64(e.gcSrcCursor), int64(segSize))
-			oid, _, createTS, err3 := e.oidReadAt(xio.ReqGCRead, readOffset, objHeaderBuf)
+			oid, _, cycle, err3 := e.oidReadAt(xio.ReqGCRead, readOffset, objHeaderBuf)
 			if err3 != nil {
 				e.setState(err3)
 				return gcDeadInterval, false
 			}
-			if createTS < lastCreateTS {
+			if cycle < lastCycle {
 
 			}
 
@@ -349,7 +349,8 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			}
 
 			writeOffset := segCursorToOffset(e.gcDstSeg, int64(e.gcDstCursor), int64(segSize))
-			totalWritten, werr := e.objWriteAt(xio.ReqGCWrite, oid, writeOffset, gcObjBuf[:objSize], gcWriteBuf[:objSize+objHeaderSize])
+			totalWritten, werr := e.objWriteAt(xio.ReqGCWrite, oid, writeOffset, gcObjBuf[:objSize],
+				gcWriteBuf[:objSize+objHeaderSize], e.header.nvh.SegCycles[uint8(e.gcDstSeg)])
 			if werr != nil {
 				e.setState(err)
 				return gcDeadInterval, false
@@ -361,7 +362,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 
 			e.rwMutex.Lock()
 			e.gcSrcCursor += uint32(xbytes.AlignSize(int64(objSize+objHeaderSize), dmu.AlignSize))
-			e.gcDstCursor += uint32(xbytes.AlignSize(int64(totalWritten), dmu.AlignSize))
+			e.gcDstCursor += uint32(xbytes.AlignSize(totalWritten, dmu.AlignSize))
 			e.rwMutex.Unlock()
 		}
 

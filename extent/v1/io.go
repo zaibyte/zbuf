@@ -167,10 +167,11 @@ func (e *Extenter) updatesLoop() {
 			}
 			wseg := e.writableSeg
 			cursor := e.writableCursor
+			cycle := e.header.nvh.SegCycles[uint8(wseg)]
 			e.rwMutex.Unlock()
 
 			offset := segCursorToOffset(wseg, cursor, segSize)
-			written, err := e.objWriteAt(ur.reqType, ur.oid, offset, ur.objData, writeBuf)
+			written, err := e.objWriteAt(ur.reqType, ur.oid, offset, ur.objData, writeBuf, cycle)
 			if err != nil {
 				ur.done <- err
 				e.setState(err)
@@ -449,10 +450,10 @@ var objPadding = directio.AlignedBlock(dmu.AlignSize)
 // Although we need extra memory copy for writing, but it happens inside the userspace which means dozens of GB/s.
 // For a 4116KB copying, it will cost about 100us, but saving two disk I/O(header & padding),
 // helping for reducing P999 latency.
-func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte, buf []byte) (written int64, err error) {
+func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte, buf []byte, cycle uint32) (written int64, err error) {
 
 	objN := len(objData)
-	makeObjHeader(oid, uint32(objN/uid.GrainSize), buf)
+	makeObjHeader(oid, uint32(objN/uid.GrainSize), cycle, buf)
 	copy(buf[objHeaderSize:], objData)
 
 	// objEnd is the last non-padding byte offset.
@@ -473,7 +474,7 @@ func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte,
 }
 
 // oidReadAt reads oid from disk at offset.
-func (e *Extenter) oidReadAt(reqType uint64, offset int64, oidBuf []byte) (oid uint64, grains uint32, createTS int64, err error) {
+func (e *Extenter) oidReadAt(reqType uint64, offset int64, oidBuf []byte) (oid uint64, grains uint32, cycle uint32, err error) {
 
 	if err = e.ioSched.DoSync(reqType, e.segsFile, offset, oidBuf); err != nil {
 		return 0, 0, 0, err
@@ -517,8 +518,8 @@ func (e *Extenter) objReadAt(reqType uint64, digest uint32, offset int64, objDat
 // checkReadAt checks Extent's segments file from a certain offset(oid offset).
 // It won't return the data, just checks the I/O system and its checksum.
 // buf should be cfg.SizePerRead bytes block.
-func (e *Extenter) checkReadAt(offset int64, buf []byte) (oid uint64, grains uint32, createTS int64, err error) {
-	oid, grains, createTS, err = e.oidReadAt(xio.ReqObjRead, offset, buf[:objHeaderSize])
+func (e *Extenter) checkReadAt(offset int64, buf []byte) (oid uint64, grains uint32, cycle uint32, err error) {
+	oid, grains, cycle, err = e.oidReadAt(xio.ReqObjRead, offset, buf[:objHeaderSize])
 	if err != nil {
 		return 0, 0, 0, err
 	}
@@ -543,7 +544,7 @@ func (e *Extenter) checkReadAt(offset int64, buf []byte) (oid uint64, grains uin
 		}
 		err = e.ioSched.DoSync(xio.ReqObjRead, e.segsFile, offset, buf[:nn])
 		if err != nil {
-			return 0, grains, createTS, err
+			return 0, grains, cycle, err
 		}
 		_, _ = d.Write(buf[:nn])
 		read += nn
@@ -552,7 +553,7 @@ func (e *Extenter) checkReadAt(offset int64, buf []byte) (oid uint64, grains uin
 
 	actDigest := d.Sum32()
 	if actDigest != digest {
-		return oid, grains, createTS, orpc.ErrChecksumMismatch
+		return oid, grains, cycle, orpc.ErrChecksumMismatch
 	}
 	return
 }

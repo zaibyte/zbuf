@@ -83,6 +83,7 @@ func (c *Creator) CreateHeader(extDir string, params extent.CreateParams) (*Head
 	h.nvh.WritableHistoryNextIdx = 1 // segment_0 is writable now.
 
 	h.nvh.Removed = make([]uint32, segmentCnt)
+	h.nvh.SegCycles = make([]uint32, segmentCnt)
 
 	h.nvh.CloneJob = params.CloneJob
 

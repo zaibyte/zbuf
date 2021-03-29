@@ -37,5 +37,5 @@ func TestGcCandidates(t *testing.T) {
 	sort.Sort(gcCandidates(cs))
 
 	assert.Equal(t, uint32(math.MaxUint32), cs[0].removed)
-	assert.Equal(t, int64(0), cs[0].sealedTS)
+	assert.Equal(t, uint32(0), cs[0].sealedTS)
 }

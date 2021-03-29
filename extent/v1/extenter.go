@@ -359,7 +359,7 @@ func (e *Extenter) traverseWritableSeg() error {
 
 	buf := directio.AlignedBlock(int(e.cfg.SizePerRead))
 
-	var lastCreateTS int64 = 0
+	var lastCreateTS uint32 = 0
 
 	for i := swhi; i < hwhi; i++ {
 
@@ -379,7 +379,7 @@ func (e *Extenter) traverseWritableSeg() error {
 				wcursor = 0
 				break
 			}
-			oid, grains, createTS, err := e.checkReadAt(offset, buf)
+			oid, grains, cycle, err := e.checkReadAt(offset, buf)
 			if err != nil {
 				if i != hwhi-1 {
 					return err
@@ -399,12 +399,12 @@ func (e *Extenter) traverseWritableSeg() error {
 				break
 			}
 			// Write is sequential.
-			// When reach the createTS means reach the segment end or the left space wasn't enough for the object.
-			if createTS < lastCreateTS { //	Meet garbage.
+			// When reach the cycle means reach the segment end or the left space wasn't enough for the object.
+			if cycle < lastCreateTS { //	Meet garbage.
 				wcursor = 0
 				break
 			} else {
-				lastCreateTS = createTS
+				lastCreateTS = cycle
 			}
 			_, _, grains, digest, otype, _ := uid.ParseOID(oid)
 			err = e.dmu.Insert(digest, uint32(otype), grains, uint32(offset))

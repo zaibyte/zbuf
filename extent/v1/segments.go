@@ -8,7 +8,6 @@ import (
 	"g.tesamc.com/IT/zaipkg/xdigest"
 	"g.tesamc.com/IT/zaipkg/xerrors"
 	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
-	"github.com/templexxx/tsc"
 )
 
 // Segments layout on local file system:
@@ -31,27 +30,27 @@ const (
 
 // makeObjHeader writes object header to buf.
 //
-// The elements inside the header: oid, grains, create_ts, checksum:
+// The elements inside the header: oid, grains, segment_cycle & their checksum:
 //
 // OID & its grains will be put into the first 12Bytes starting from the offset.
-// Create Timestamp will be follow them.
+// Segment cycle will follow them.
 //
 // Their checksum will be put into the last 4Bytes in the first 4KB from the offset.
 //
 // Set grains 0, means this oid & the space taken after it could be collected.
-func makeObjHeader(oid uint64, grains uint32, buf []byte) {
+func makeObjHeader(oid uint64, grains, cycle uint32, buf []byte) {
 	binary.LittleEndian.PutUint64(buf[:8], oid)
 	binary.LittleEndian.PutUint32(buf[8:12], grains)
-	binary.LittleEndian.PutUint64(buf[12:20], uint64(tsc.UnixNano()))
+	binary.LittleEndian.PutUint32(buf[12:16], cycle)
 	hsum := xdigest.Sum32(buf[:objHeaderSize-4])
 	binary.LittleEndian.PutUint32(buf[objHeaderSize-4:], hsum)
 }
 
 // readObjHeaderFromBuf reads object header from bytes buf.
-func readObjHeaderFromBuf(buf []byte) (oid uint64, grains uint32, createTS int64, err error) {
+func readObjHeaderFromBuf(buf []byte) (oid uint64, grains uint32, cycle uint32, err error) {
 	oid = binary.LittleEndian.Uint64(buf[:8])
 	grains = binary.LittleEndian.Uint32(buf[8:12])
-	createTS = int64(binary.LittleEndian.Uint64(buf[12:20]))
+	cycle = binary.LittleEndian.Uint32(buf[12:16])
 
 	if oid == 0 && grains == 0 { // Empty header, no need calc checksum.
 		return 0, 0, 0, nil
@@ -61,7 +60,7 @@ func readObjHeaderFromBuf(buf []byte) (oid uint64, grains uint32, createTS int64
 		return 0, 0, 0, xerrors.WithMessage(orpc.ErrChecksumMismatch, fmt.Sprintf("read oid: %d", oid))
 	}
 
-	return oid, grains, createTS, nil
+	return oid, grains, cycle, nil
 }
 
 // Segment states.

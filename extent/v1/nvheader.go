@@ -28,6 +28,10 @@ type NVHeader struct {
 	// Helping GC greedy algorithm working.
 	Removed []uint32 // 256 * 4B = 1024B
 
+	// SegCycles counts segments life cycles,
+	// every time after GC, it'll be add one.
+	SegCycles []uint32 // 256 * 4B = 1024B
+
 	CloneJob *metapb.CloneJob
 }
 
@@ -66,11 +70,15 @@ func (h *NVHeader) Unmarshal(b []byte) (err error) {
 	for i := range h.Removed {
 		h.Removed[i] = binary.LittleEndian.Uint32(b[1553+i*4 : 1553+i*4+4])
 	}
-	if len(b) == 2577 {
+	h.SegCycles = make([]uint32, segmentCnt)
+	for i := range h.SegCycles {
+		h.SegCycles[i] = binary.LittleEndian.Uint32(b[2577+i*4 : 2577+i*4+4])
+	}
+	if len(b) == 3601 {
 		return nil
 	}
 	h.CloneJob = new(metapb.CloneJob)
-	return h.CloneJob.Unmarshal(b[2577:])
+	return h.CloneJob.Unmarshal(b[3601:])
 }
 
 // MarshalTo encodes o as NVHeader into buf and returns the number of bytes written.
@@ -90,14 +98,17 @@ func (h *NVHeader) MarshalTo(b []byte) (n int, err error) {
 	for i, rm := range h.Removed {
 		binary.LittleEndian.PutUint32(b[1553+i*4:1553+i*4+4], rm)
 	}
+	for i, ts := range h.SegCycles {
+		binary.LittleEndian.PutUint32(b[2577+i*4:2577+i*4+4], ts)
+	}
 
 	if h.CloneJob != nil {
-		nn, err2 := h.CloneJob.MarshalTo(b[2577:])
+		nn, err2 := h.CloneJob.MarshalTo(b[3601:])
 		if err2 != nil {
 			return 0, err2
 		}
-		return 2577 + nn, nil
+		return 3601 + nn, nil
 	}
 
-	return 2577, nil
+	return 3601, nil
 }
