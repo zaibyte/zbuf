@@ -251,10 +251,14 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 
 			xlog.Info(fmt.Sprintf("begin GC in ext:%d, seg:%d", extID, e.gcSrcSeg))
 
+			// TODO check cursor will be set to segSize if there is no next object.
+			e.rwMutex.RLock()
 			if e.gcSrcCursor >= segSize { // Meet src end.
 				xlog.Info(fmt.Sprintf("done GC in ext:%d, seg:%d", extID, e.gcSrcSeg))
+				e.rwMutex.RUnlock()
 				break
 			}
+			e.rwMutex.RUnlock()
 
 			readOffset := segCursorToOffset(e.gcSrcSeg, int64(e.gcSrcCursor), int64(segSize))
 			oid, _, _, err2 := e.oidReadAt(xio.ReqGCRead, readOffset, objHeaderBuf)
