@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
+
 	"g.tesamc.com/IT/zaipkg/xerrors"
 
 	"g.tesamc.com/IT/zproto/pkg/metapb"
@@ -21,6 +23,29 @@ import (
 	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
 	"g.tesamc.com/IT/zbuf/extent"
 )
+
+func TestGetObjOffsetSize(t *testing.T) {
+	d := dmu.New(0)
+
+	cnt := 4096
+	ens := dmu.GenEntriesFast(cnt)
+
+	for _, en := range ens {
+		err := d.Insert(en.Digest, en.Otype, en.Grains, en.Addr)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	for _, en := range ens {
+		oid := uid.MakeOID(1, 1, en.Grains, en.Digest, uint8(en.Otype))
+		has, digest, offset, size := getObjOffsetSize(d, oid)
+		assert.True(t, has)
+		assert.Equal(t, en.Digest, digest)
+		assert.Equal(t, en.Addr, uint32(offset/dmu.AlignSize))
+		assert.Equal(t, en.Grains, uint32(size/uid.GrainSize))
+	}
+}
 
 func createTestExtByCreator(cfg *Config, c extent.Creator, cloneJob *metapb.CloneJob) (ext *Extenter, err error) {
 	extDir, err := ioutil.TempDir(os.TempDir(), "ext.v1.creator")
