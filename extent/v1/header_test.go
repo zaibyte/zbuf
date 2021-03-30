@@ -28,7 +28,7 @@ func TestCreateLoadHeader(t *testing.T) {
 	cfg.SegmentSize = 256 * 1024 // We don't take too much space only for non-I/O testing.
 
 	cv := makeTestCreator(cfg)
-	c := cv.(*Creator)
+	c := cv
 
 	h, err := c.CreateHeader(extDir, extent.CreateParams{
 		InstanceID: 1,

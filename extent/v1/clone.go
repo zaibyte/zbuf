@@ -26,6 +26,8 @@ const (
 	cloneOIDsBufSize = settings.MaxObjectSize
 )
 
+// InitCloneSource sets extent to sealed and makes the set of all OIDs in this extent and put the set as a new object in Zai.
+// It won't finish until extent is unhealthy or uploading oid successfully.
 func (e *Extenter) InitCloneSource() {
 
 	if !e.info.SetState(metapb.ExtentState_Extent_Sealed, true) { // InitCloneSource only will be created by Keeper.
@@ -35,7 +37,7 @@ func (e *Extenter) InitCloneSource() {
 	d := e.dmu
 	_, usage := d.GetUsage()
 
-	oids := make([]byte, usage*8) // After sealed, the future usage only will get lower.
+	oids := make([]byte, usage*8) // After sealed, the future usage only would get smaller.
 	t0 := dmu.GetTbl(d, 0)
 	t1 := dmu.GetTbl(d, 1)
 	cnt := e.getOIDsFromDMUTbl(t0, oids, 0)
@@ -58,6 +60,9 @@ func (e *Extenter) InitCloneSource() {
 			continue
 		}
 		e.rwMutex.Lock()
+		if e.header.nvh.CloneJob == nil {
+			e.header.nvh.CloneJob = new(metapb.CloneJob)
+		}
 		e.header.nvh.CloneJob.OidsOid = oidsOID
 		e.header.nvh.CloneJob.ObjCnt = uint64(cnt)
 		e.rwMutex.Unlock()
@@ -98,7 +103,9 @@ func (e *Extenter) tryClone() {
 	ctx, cancel := context.WithCancel(e.ctx)
 	defer cancel()
 
+	e.rwMutex.RLock()
 	job := e.header.nvh.CloneJob
+	e.rwMutex.RUnlock()
 
 	if job == nil {
 		return
@@ -107,8 +114,10 @@ func (e *Extenter) tryClone() {
 	extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Doing)
 
 	oidsOID := job.OidsOid
+
 	oidsBody := bytes.NewBuffer(make([]byte, cloneOIDsBufSize))
-	_, _, grains, _, _, _ := uid.ParseOID(oidsOID)
+
+	totalSize := job.ObjCnt * 8
 	var done = uint32(job.DoneCnt * 8)
 
 	retry := &orpc.Retryer{
@@ -119,7 +128,7 @@ func (e *Extenter) tryClone() {
 
 	objDataBuf := bytes.NewBuffer(make([]byte, settings.MaxObjectSize))
 
-	for done < grains*uid.GrainSize {
+	for done < uint32(totalSize) {
 
 		var n int64
 		var err error
@@ -155,7 +164,7 @@ func (e *Extenter) tryClone() {
 			}
 
 			oid := binary.LittleEndian.Uint64(oids[i*8 : i*8+8])
-			_, _, grains, digest, _, _ := uid.ParseOID(oid)
+			_, _, grains2, digest, _, _ := uid.ParseOID(oid)
 			if e.dmu.Search(digest) != 0 { // Already has.
 				e.rwMutex.Lock()
 				e.header.nvh.CloneJob.DoneCnt += 1
@@ -182,7 +191,7 @@ func (e *Extenter) tryClone() {
 					}
 
 					if orpc.CouldRetry(err) {
-						time.Sleep(retry.GetSleepDuration(j+1, int64(grains*uid.GrainSize)))
+						time.Sleep(retry.GetSleepDuration(j+1, int64(grains2*uid.GrainSize)))
 						continue
 					} else {
 						extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Failed)

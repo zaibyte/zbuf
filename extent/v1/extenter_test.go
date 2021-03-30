@@ -9,6 +9,10 @@ import (
 	"testing"
 	"time"
 
+	"g.tesamc.com/IT/zaipkg/xerrors"
+
+	"g.tesamc.com/IT/zproto/pkg/metapb"
+
 	"github.com/stretchr/testify/assert"
 
 	"g.tesamc.com/IT/zaipkg/orpc"
@@ -17,6 +21,25 @@ import (
 	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
 	"g.tesamc.com/IT/zbuf/extent"
 )
+
+func createTestExtByCreator(cfg *Config, c extent.Creator, cloneJob *metapb.CloneJob) (ext *Extenter, err error) {
+	extDir, err := ioutil.TempDir(os.TempDir(), "ext.v1.creator")
+	if err != nil {
+		return nil, err
+	}
+
+	e, err := c.Create(context.Background(), extDir, extent.CreateParams{
+		InstanceID: 1,
+		DiskID:     1,
+		ExtID:      uid.MakeExtID(1, 0),
+		DiskInfo:   nil,
+		CloneJob:   cloneJob,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return e.(*Extenter), nil
+}
 
 func createTestExtenter(cfg *Config) (ext *Extenter, err error) {
 
@@ -44,16 +67,18 @@ func createTestExtenter(cfg *Config) (ext *Extenter, err error) {
 // which using memory for mocking Zai Box features.
 type memZai struct {
 	sync.RWMutex
-	// boxID & extID here for building oid,
-	// memZai is only made for ext.v1 testing, it's okay to share the same extID.
+	// boxID & groupID here for building oid,
+	// memZai is only made for ext.v1 testing, it's okay to share the same groupID.
 	boxID   uint32
-	extID   uint32
+	groupID uint32
 	oidData map[uint64][]byte
 }
 
 func newMemZai() *memZai {
 	mz := new(memZai)
 	mz.oidData = make(map[uint64][]byte)
+	mz.boxID = 1
+	mz.groupID = 1
 	return mz
 }
 
@@ -67,7 +92,7 @@ func (m *memZai) PutObj(objData io.Reader, timeout time.Duration) (oid uint64, r
 		return 0, 0, err
 	}
 
-	oid = uid.MakeOID(m.boxID, uint32(uid.GetGroupID(m.extID)), uint32(len(d)/uid.GrainSize), xdigest.Sum32(d), uid.NormalObj)
+	oid = uid.MakeOID(m.boxID, m.groupID, uint32(len(d)/uid.GrainSize), xdigest.Sum32(d), uid.NormalObj)
 
 	m.oidData[oid] = d
 
@@ -81,6 +106,13 @@ func (m *memZai) GetObj(oid uint64, objData io.Writer, offset, n int64, isClone 
 	d, ok := m.oidData[oid]
 	if !ok {
 		return 0, orpc.ErrNotFound
+	}
+
+	if offset >= int64(len(d)) {
+		return 0, xerrors.WithMessage(orpc.ErrBadRequest, "offset out of object")
+	}
+	if offset+n > int64(len(d)) {
+		n = int64(len(d)) - offset
 	}
 
 	exp := d[offset : offset+n]

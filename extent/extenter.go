@@ -80,3 +80,8 @@ func SetCloneJobState(cj *metapb.CloneJob, state metapb.CloneJobState) bool {
 
 	return atomic.CompareAndSwapInt32((*int32)(&cj.State), int32(oldSate), int32(state))
 }
+
+// GetCloneJobState gets clone job state.
+func GetCloneJobState(cj *metapb.CloneJob) metapb.CloneJobState {
+	return metapb.CloneJobState(atomic.LoadInt32((*int32)(&cj.State)))
+}

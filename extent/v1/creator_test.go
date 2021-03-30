@@ -30,7 +30,7 @@ func (s *testCreatorSched) GetSched(diskID uint32) (xio.Scheduler, bool) {
 	return s.sched, true
 }
 
-func makeTestCreator(cfg *Config) extent.Creator {
+func makeTestCreator(cfg *Config) *Creator {
 
 	return &Creator{
 		cfg:    cfg,
