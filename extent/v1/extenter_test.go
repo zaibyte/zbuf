@@ -51,6 +51,12 @@ type memZai struct {
 	oidData map[uint64][]byte
 }
 
+func newMemZai() *memZai {
+	mz := new(memZai)
+	mz.oidData = make(map[uint64][]byte)
+	return mz
+}
+
 func (m *memZai) PutObj(objData io.Reader, timeout time.Duration) (oid uint64, read int64, err error) {
 
 	m.Lock()
