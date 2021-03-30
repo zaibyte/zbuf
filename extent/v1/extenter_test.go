@@ -2,12 +2,17 @@ package v1
 
 import (
 	"context"
+	"errors"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"os"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/templexxx/tsc"
 
 	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
 
@@ -45,6 +50,74 @@ func TestGetObjOffsetSize(t *testing.T) {
 		assert.Equal(t, en.Addr, uint32(offset/dmu.AlignSize))
 		assert.Equal(t, en.Grains, uint32(size/uid.GrainSize))
 	}
+}
+
+func TestExtenter_DeleteObj(t *testing.T) {
+	cfg := GetDefaultConfig()
+	cfg.SegmentSize = 256 * 1024
+	ext, err := createTestExtenter(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(ext.extDir)
+
+	ext.Start()
+	defer ext.Close()
+
+	rand.Seed(tsc.UnixNano())
+
+	maxGrains := (cfg.SegmentSize / uid.GrainSize) - 1 // It's the max object which 256KB segment could have.
+	buf := make([]byte, maxGrains*uid.GrainSize)
+
+	oids := make(map[uint64]bool)
+	var written uint64
+	for i := 0; ; i++ {
+
+		if written > 16*uint64(cfg.SegmentSize) { // written is not accurate.
+			break
+		}
+
+		grains := rand.Intn(int(maxGrains))
+		if grains == 0 {
+			grains = 1
+		}
+		objData := buf[:grains*uid.GrainSize]
+		rand.Read(objData)
+		oid := uid.MakeOID(1, 1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
+		err = ext.PutObj(0, oid, objData, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		oids[oid] = true
+
+		written += uint64(grains) * uid.GrainSize
+
+		err2 := ext.DeleteObj(1, oid)
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+
+		_, err2 = ext.GetObj(1, oid, false)
+		if !errors.Is(err2, orpc.ErrNotFound) {
+			t.Fatal(err2)
+		}
+	}
+
+	wg := new(sync.WaitGroup)
+	wg.Add(runtime.NumCPU())
+	for i := 0; i < runtime.NumCPU(); i++ {
+		go func() {
+			defer wg.Done()
+			for oid := range oids {
+				_, err2 := ext.GetObj(1, oid, false)
+				if !errors.Is(err2, orpc.ErrNotFound) {
+					t.Fatal(err2)
+				}
+			}
+
+		}()
+	}
+	wg.Wait()
 }
 
 func createTestExtByCreator(cfg *Config, c extent.Creator, cloneJob *metapb.CloneJob) (ext *Extenter, err error) {
