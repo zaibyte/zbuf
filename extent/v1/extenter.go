@@ -499,8 +499,11 @@ func (e *Extenter) setState(err error) {
 		state = old
 	}
 
-	if state != old {
+	if state == old {
+		return
+	}
+
+	if e.info.SetState(state, false) {
 		xlog.Error(fmt.Sprintf("extent: %d is %s: %s", e.info.PbExt.Id, state.String(), err.Error()))
 	}
-	e.info.SetState(state, false)
 }
