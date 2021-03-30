@@ -186,7 +186,7 @@ func TestExtenter_DeleteBatch(t *testing.T) {
 
 	wg := new(sync.WaitGroup)
 	wg.Add(runtime.NumCPU())
-	for i := 0; i < runtime.NumCPU(); i++ {
+	for j := 0; j < runtime.NumCPU(); j++ {
 		go func() {
 			defer wg.Done()
 			for oid := range oids {
@@ -195,10 +195,13 @@ func TestExtenter_DeleteBatch(t *testing.T) {
 					t.Fatal(err2)
 				}
 			}
-
 		}()
 	}
 	wg.Wait()
+}
+
+func TestExtenter_ModifyObjAddr(t *testing.T) {
+
 }
 
 func createTestExtByCreator(cfg *Config, c extent.Creator, cloneJob *metapb.CloneJob) (ext *Extenter, err error) {
