@@ -3,7 +3,10 @@ package v1
 import (
 	"io/ioutil"
 	"os"
+	"sync/atomic"
 	"testing"
+
+	"g.tesamc.com/IT/zproto/pkg/metapb"
 
 	"g.tesamc.com/IT/zaipkg/directio"
 	"g.tesamc.com/IT/zaipkg/xdigest"
@@ -72,4 +75,81 @@ func TestWriteDMUTblSnap(t *testing.T) {
 	}
 	assert.Equal(t, int64(dmuSnapBlockSize*2), newOffset)
 	assert.Equal(t, uint32(cnt), totalObjCnt)
+}
+
+func TestExtenter_DMUWriteLoad(t *testing.T) {
+	cfg := GetDefaultConfig()
+	cfg.SegmentSize = 16 * 1024
+	e, err := createTestExtenter(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(e.extDir)
+
+	ens := dmu.GenEntriesFast(dmu.MinCap + 1024) // Ensure we will have two tables.
+	for _, en := range ens {
+		err = e.dmu.Insert(en.Digest, en.Otype, en.Grains, en.Addr)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	e.header.nvh.WritableHistoryNextIdx = 1
+	e.writableSeg = 2
+	e.writableCursor = 3
+	e.gcSrcSeg = 4
+	e.gcDstSeg = 5
+	e.gcSrcCursor = 6
+	e.gcDstCursor = 7
+	e.header.nvh.CloneJob = &metapb.CloneJob{
+		Version:  1,
+		IsSource: false,
+		State:    metapb.CloneJobState_CloneJob_Done,
+		Id:       1,
+		ParentId: 0,
+		ObjCnt:   100,
+		DoneCnt:  100,
+		OidsOid:  777,
+	}
+
+	done := make(chan error)
+	go e.writeDMUSnap(done, e.getLastDMUSnap().fn)
+	err = <-done
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	e2, err := createTestExtenterWithDir(cfg, e.extDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(e2.extDir)
+
+	err = e2.fs.Remove(e2.getLastDMUSnap().fn)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	atomic.StorePointer(&e2.lastDMUSnap, nil)
+
+	err = e2.loadDMUSnap()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	esnap := e.getLastDMUSnap()
+	esnap.f = nil
+
+	e2snap := e2.getLastDMUSnap()
+	e2snap.f = nil
+
+	assert.Equal(t, esnap, e2snap)
+
+	for _, en := range ens {
+		actEn := e.dmu.Search(en.Digest)
+		_, _, otype, grains, addr := dmu.ParseEntry(actEn)
+		assert.Equal(t, en.Otype, otype)
+		assert.Equal(t, en.Grains, grains)
+		assert.Equal(t, en.Addr, addr)
+	}
 }

@@ -287,6 +287,11 @@ func createTestExtenter(cfg *Config) (ext *Extenter, err error) {
 		return nil, err
 	}
 
+	return createTestExtenterWithDir(cfg, extDir)
+}
+
+func createTestExtenterWithDir(cfg *Config, extDir string) (ext *Extenter, err error) {
+
 	c := makeTestCreator(cfg)
 
 	e, err := c.Create(context.Background(), extDir, extent.CreateParams{

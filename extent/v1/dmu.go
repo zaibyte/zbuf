@@ -330,7 +330,7 @@ func (h *dmuSnapHeader) load(iosched xio.Scheduler, buf []byte, di *xdigest.Dige
 	h.GcSrcSeg = int64(binary.LittleEndian.Uint64(buf[32:40]))
 	h.GcDstSeg = int64(binary.LittleEndian.Uint64(buf[40:48]))
 	h.GcSrcCursor = binary.LittleEndian.Uint32(buf[48:52])
-	h.GcSrcCursor = binary.LittleEndian.Uint32(buf[52:56])
+	h.GcDstCursor = binary.LittleEndian.Uint32(buf[52:56])
 	h.CloneJobDoneCnt = binary.LittleEndian.Uint32(buf[56:60])
 	h.createTS = int64(binary.LittleEndian.Uint64(buf[60:68]))
 
