@@ -155,27 +155,6 @@ func TestDeleteWALChunkMixed(t *testing.T) {
 	assert.True(t, isEnd)
 }
 
-func TestObjHeaderMakeRead(t *testing.T) {
-	buf := make([]byte, objHeaderSize)
-
-	oids := uid.GenRandOIDs(1024)
-
-	for i := range oids {
-		oid := oids[i]
-		makeObjHeader(oid, uid.GetGrains(oid), uint32(i), buf)
-		aoid, grains, cycle, err := readObjHeaderFromBuf(buf)
-		assert.Nil(t, err)
-		assert.Equal(t, oid, aoid)
-		assert.Equal(t, uid.GetGrains(oid), grains)
-		assert.Equal(t, uint32(i), cycle)
-	}
-
-	makeObjHeader(oids[0], uid.GetGrains(oids[0]), 0, buf)
-	buf[0] += 1
-	_, _, _, err := readObjHeaderFromBuf(buf)
-	assert.True(t, errors.Is(err, orpc.ErrChecksumMismatch))
-}
-
 func TestShuffleSegStates(t *testing.T) {
 
 	origin := make([]uint8, segmentCnt)

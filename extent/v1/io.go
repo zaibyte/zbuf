@@ -453,7 +453,7 @@ var objPadding = directio.AlignedBlock(dmu.AlignSize)
 func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte, buf []byte, cycle uint32) (written int64, err error) {
 
 	objN := len(objData)
-	makeObjHeader(oid, uint32(objN/uid.GrainSize), cycle, buf)
+	makeObjHeader(oid, uid.GetGrains(oid), cycle, buf)
 	copy(buf[objHeaderSize:], objData)
 
 	// objEnd is the last non-padding byte offset.

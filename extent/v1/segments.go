@@ -37,7 +37,8 @@ const (
 //
 // Their checksum will be put into the last 4Bytes in the first 4KB from the offset.
 //
-// Set grains 0, means this oid & the space taken after it could be collected.
+// Warn:
+// No features rely on grains in present.
 func makeObjHeader(oid uint64, grains, cycle uint32, buf []byte) {
 	binary.LittleEndian.PutUint64(buf[:8], oid)
 	binary.LittleEndian.PutUint32(buf[8:12], grains)
