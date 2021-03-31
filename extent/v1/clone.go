@@ -19,11 +19,11 @@ import (
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 )
 
-const (
+var (
 	// cloneOIDsBufSize is the buffer size to hold clone source OIDs,
 	// the biggest OIDs maybe 102.4MB, we don't need to get them all
 	// in one call.
-	cloneOIDsBufSize = settings.MaxObjectSize
+	cloneOIDsBufSize int64 = settings.MaxObjectSize
 )
 
 // InitCloneSource sets extent to sealed and makes the set of all OIDs in this extent and put the set as a new object in Zai.
@@ -134,7 +134,7 @@ func (e *Extenter) tryClone() {
 		var err error
 		for i := 0; ; i++ { // Keeping trying.
 			oidsBody.Reset() // Avoiding dirty read.
-			n, err = e.zai.GetObj(oidsOID, oidsBody, int64(done), int64(cloneOIDsBufSize), true, 3*time.Second)
+			n, err = e.zai.GetObj(oidsOID, oidsBody, int64(done), cloneOIDsBufSize, true, 3*time.Second)
 			if err != nil {
 				xlog.Warn(xerrors.WithMessage(err, fmt.Sprintf("failed to get clone job oids_oid: %d", oidsOID)).Error())
 				if errors.Is(err, orpc.ErrReplicasCollapse) {

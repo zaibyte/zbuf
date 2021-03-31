@@ -106,3 +106,86 @@ func TestExtenter_Clone(t *testing.T) {
 		xbytes.PutAlignedBytes(getRet)
 	}
 }
+
+// CloneBig tests extent clone which has lots of objects (need several Get operations to get completed oids list)
+func TestExtenter_CloneBig(t *testing.T) {
+	cfg := GetDefaultConfig()
+	cfg.SegmentSize = 256 * 1024
+
+	mz := newMemZai()
+
+	c := makeTestCreator(cfg)
+	c.zai = mz
+
+	ext1, err := createTestExtByCreator(cfg, c, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(ext1.GetDir())
+
+	ext1.Start()
+	defer ext1.Close()
+
+	rand.Seed(tsc.UnixNano())
+
+	maxGrains := (cfg.SegmentSize / uid.GrainSize) - 1 // It's the max object which 256KB segment could have.
+	buf := make([]byte, maxGrains*uid.GrainSize)
+
+	oids := make(map[uint64]bool)
+	for i := 0; i < 522; i++ { // 512 objects will beyond 4KB buf.
+
+		grains := 3
+		objData := buf[:grains*uid.GrainSize]
+		rand.Read(objData)
+		oid := uid.MakeOID(1, 1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
+		err = ext1.PutObj(0, oid, objData, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		oids[oid] = true
+
+		mz.oidData[oid] = make([]byte, len(objData))
+		copy(mz.oidData[oid], objData)
+	}
+
+	ext1.InitCloneSource()
+
+	ext1.rwMutex.RLock()
+	oidsOID := ext1.header.nvh.CloneJob.OidsOid
+	ext1.rwMutex.RUnlock()
+
+	cloneOIDsBufSize = 4 * 1024
+
+	ext2, err := createTestExtByCreator(cfg, c, &metapb.CloneJob{
+		Version:  1,
+		Id:       1,
+		ParentId: 0,
+		ObjCnt:   uint64(len(oids)),
+		DoneCnt:  0,
+		OidsOid:  oidsOID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(ext2.GetDir())
+
+	ext2.info.PbExt.Id = uid.MakeExtID(1, 1)
+
+	ext2.Start()
+	defer ext2.Close()
+
+	for {
+		if extent.GetCloneJobState(ext2.header.nvh.CloneJob) == metapb.CloneJobState_CloneJob_Done {
+			break
+		}
+		time.Sleep(1 * time.Second) // Enough for clone finishing.
+	}
+
+	for oid := range oids {
+		getRet, err2 := ext2.GetObj(1, oid, false)
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+		xbytes.PutAlignedBytes(getRet)
+	}
+}
