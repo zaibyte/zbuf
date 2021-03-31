@@ -48,7 +48,7 @@ func TestWriteDMUTblSnap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(extDir)
+	defer vfs.GetTestFS().RemoveAll(extDir)
 
 	fs := vfs.GetFS()
 	createTS := tsc.UnixNano()
@@ -84,7 +84,7 @@ func TestExtenter_DMUWriteLoad(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(e.extDir)
+	defer vfs.GetTestFS().RemoveAll(e.extDir)
 
 	ens := dmu.GenEntriesFast(dmu.MinCap + 1024) // Ensure we will have two tables.
 	for _, en := range ens {
@@ -123,7 +123,7 @@ func TestExtenter_DMUWriteLoad(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(e2.extDir)
+	defer vfs.GetTestFS().RemoveAll(e2.extDir)
 
 	err = e2.fs.Remove(e2.getLastDMUSnap().fn)
 	if err != nil {

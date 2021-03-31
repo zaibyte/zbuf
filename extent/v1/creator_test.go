@@ -53,7 +53,7 @@ func TestCreator_Create(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(extDir)
+	defer vfs.GetTestFS().RemoveAll(extDir)
 
 	cfg := GetDefaultConfig()
 	cfg.SegmentSize = 256 * 1024 // We don't take too much space only for non-I/O testing.
@@ -90,7 +90,7 @@ func TestCreator_CreateLoad(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(extDir)
+	defer vfs.GetTestFS().RemoveAll(extDir)
 
 	cfg := GetDefaultConfig()
 	cfg.SegmentSize = 256 * 1024 // We don't take too much space only for non-I/O testing.

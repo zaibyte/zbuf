@@ -2,9 +2,10 @@ package v1
 
 import (
 	"math/rand"
-	"os"
 	"testing"
 	"time"
+
+	"g.tesamc.com/IT/zbuf/vfs"
 
 	"g.tesamc.com/IT/zaipkg/uid"
 	"g.tesamc.com/IT/zaipkg/xbytes"
@@ -31,7 +32,7 @@ func TestExtenter_Clone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(ext1.GetDir())
+	defer vfs.GetTestFS().RemoveAll(ext1.GetDir())
 
 	ext1.Start()
 	defer ext1.Close()
@@ -84,7 +85,7 @@ func TestExtenter_Clone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(ext2.GetDir())
+	defer vfs.GetTestFS().RemoveAll(ext2.GetDir())
 
 	ext2.info.PbExt.Id = uid.MakeExtID(1, 1)
 
@@ -121,7 +122,7 @@ func TestExtenter_CloneBig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(ext1.GetDir())
+	defer vfs.GetTestFS().RemoveAll(ext1.GetDir())
 
 	ext1.Start()
 	defer ext1.Close()
@@ -167,7 +168,7 @@ func TestExtenter_CloneBig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(ext2.GetDir())
+	defer vfs.GetTestFS().RemoveAll(ext2.GetDir())
 
 	ext2.info.PbExt.Id = uid.MakeExtID(1, 1)
 

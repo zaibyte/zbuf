@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"math/rand"
-	"os"
 	"runtime"
 	"sync"
 	"testing"
@@ -14,6 +13,7 @@ import (
 	"g.tesamc.com/IT/zaipkg/uid"
 	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zaipkg/xdigest"
+	"g.tesamc.com/IT/zbuf/vfs"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/templexxx/tsc"
@@ -198,7 +198,7 @@ func TestExtenter_PutSameDigest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(ext.extDir)
+	defer vfs.GetTestFS().RemoveAll(ext.extDir)
 
 	ext.Start()
 	defer ext.Close()
@@ -235,7 +235,7 @@ func TestExtenter_PutGetObj(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(ext.extDir)
+	defer vfs.GetTestFS().RemoveAll(ext.extDir)
 
 	ext.Start()
 	defer ext.Close()

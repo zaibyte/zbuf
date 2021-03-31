@@ -18,6 +18,7 @@ import (
 	"github.com/templexxx/tsc"
 
 	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
+	"g.tesamc.com/IT/zbuf/vfs"
 
 	"g.tesamc.com/IT/zaipkg/xerrors"
 
@@ -62,7 +63,7 @@ func TestExtenter_DeleteObj(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(ext.extDir)
+	defer vfs.GetTestFS().RemoveAll(ext.extDir)
 
 	ext.Start()
 	defer ext.Close()
@@ -130,7 +131,7 @@ func TestExtenter_DeleteBatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(ext.extDir)
+	defer vfs.GetTestFS().RemoveAll(ext.extDir)
 
 	ext.Start()
 	defer ext.Close()
@@ -207,7 +208,7 @@ func TestExtenter_ModifyObjAddr(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(ext.extDir)
+	defer vfs.GetTestFS().RemoveAll(ext.extDir)
 
 	ext.Start()
 	defer ext.Close()
@@ -391,7 +392,7 @@ func TestExtenter_GetNextWritableSeg(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(ext.extDir)
+	defer vfs.GetTestFS().RemoveAll(ext.extDir)
 
 	last := ext.writableSeg
 	cnt := 0
