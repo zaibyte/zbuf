@@ -164,6 +164,9 @@ func (e *Extenter) tryClone() {
 			}
 
 			oid := binary.LittleEndian.Uint64(oids[i*8 : i*8+8])
+			if oid == 0 { // Reach the end.
+				break
+			}
 			_, _, grains2, digest, _, _ := uid.ParseOID(oid)
 			if e.dmu.Search(digest) != 0 { // Already has.
 				e.rwMutex.Lock()

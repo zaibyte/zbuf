@@ -331,9 +331,12 @@ func (m *memZai) PutObj(objData io.Reader, timeout time.Duration) (oid uint64, r
 		return 0, 0, err
 	}
 
-	oid = uid.MakeOID(m.boxID, m.groupID, uint32(len(d)/uid.GrainSize), xdigest.Sum32(d), uid.NormalObj)
+	alignData := make([]byte, xbytes.AlignSize(int64(len(d)), uid.GrainSize))
+	copy(alignData, d)
 
-	m.oidData[oid] = d
+	oid = uid.MakeOID(m.boxID, m.groupID, uint32(len(alignData)/uid.GrainSize), xdigest.Sum32(alignData), uid.NormalObj)
+
+	m.oidData[oid] = alignData
 
 	return oid, int64(len(d)), nil
 }
