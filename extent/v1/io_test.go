@@ -9,6 +9,9 @@ import (
 	"sync"
 	"testing"
 
+	"g.tesamc.com/IT/zaipkg/directio"
+	"g.tesamc.com/IT/zbuf/xio"
+
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/uid"
 	"g.tesamc.com/IT/zaipkg/xbytes"
@@ -241,9 +244,6 @@ func TestExtenter_PutGetObj(t *testing.T) {
 		rand.Read(objData)
 		oid := uid.MakeOID(1, 1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
 		err = ext.PutObj(0, oid, objData, false)
-		if errors.Is(err, orpc.ErrObjDigestExisted) {
-			err = nil
-		}
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -269,6 +269,80 @@ func TestExtenter_PutGetObj(t *testing.T) {
 			defer wg.Done()
 			for oid := range oids {
 				getRet, err2 := ext.GetObj(1, oid, false)
+				if err2 != nil {
+					t.Fatal(err2)
+				}
+				xbytes.PutAlignedBytes(getRet)
+			}
+
+		}()
+	}
+	wg.Wait()
+}
+
+func TestObjWriteReadAt(t *testing.T) {
+	cfg := GetDefaultConfig()
+	cfg.SegmentSize = 32 * 1024
+	ext, err := createTestExtenter(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer vfs.GetTestFS().RemoveAll(ext.extDir)
+
+	ext.Start()
+	defer ext.Close()
+
+	rand.Seed(tsc.UnixNano())
+
+	maxGrains := (cfg.SegmentSize / uid.GrainSize) - 1 // It's the max object which 256KB segment could have.
+	buf := make([]byte, maxGrains*uid.GrainSize)
+
+	writeBuf := directio.AlignedBlock(int(maxGrains)*uid.GrainSize + 20*1024)
+
+	oids := make(map[uint64]int64)
+	var offset int64
+	for i := 0; ; i++ {
+
+		if offset >= int64(255*cfg.SegmentSize) {
+			break
+		}
+
+		grains := rand.Intn(int(maxGrains))
+		if grains == 0 {
+			grains = 1
+		}
+		objData := buf[:grains*uid.GrainSize]
+		rand.Read(objData)
+		digest := xdigest.Sum32(objData)
+		oid := uid.MakeOID(1, 1, uint32(grains), digest, uid.NormalObj)
+		written, err2 := ext.objWriteAt(xio.ReqObjWrite, oid, offset, objData, writeBuf, 0)
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+		oids[oid] = offset
+
+		getRet := xbytes.GetAlignedBytes(len(objData))
+		err2 = ext.objReadAt(xio.ReqObjRead, digest, offset, getRet)
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+
+		if !bytes.Equal(objData, getRet) {
+			t.Fatal("get result mismatched")
+		}
+		xbytes.PutAlignedBytes(getRet)
+
+		offset += written
+	}
+
+	wg := new(sync.WaitGroup)
+	wg.Add(runtime.NumCPU())
+	for i := 0; i < runtime.NumCPU(); i++ {
+		go func() {
+			defer wg.Done()
+			for oid := range oids {
+				getRet := xbytes.GetAlignedBytes(int(uid.GetGrains(oid) * uid.GrainSize))
+				err2 := ext.objReadAt(xio.ReqObjRead, uid.GetDigest(oid), oids[oid], getRet)
 				if err2 != nil {
 					t.Fatal(err2)
 				}
