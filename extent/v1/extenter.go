@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -390,7 +389,7 @@ func (e *Extenter) traverseWritableSeg() error {
 			}
 			oid, grains, cycle, err := e.checkReadAt(offset, buf)
 			if err != nil {
-				if errors.Is(err, io.EOF) {
+				if errors.Is(err, ErrUnwrittenSeg) {
 					wcursor = 0 // Meet end, should start with 0 in next writable seg if has.
 					break
 				}

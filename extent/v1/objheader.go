@@ -2,8 +2,8 @@ package v1
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
-	"io"
 
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/xdigest"
@@ -47,11 +47,13 @@ func (h *objHeader) marshalTo(p []byte) {
 	binary.LittleEndian.PutUint32(p[objHeaderSize-4:], hsum)
 }
 
+var ErrUnwrittenSeg = errors.New("reach unwritten space in segment")
+
 func (h *objHeader) unmarshal(p []byte) error {
 	h.oid = binary.LittleEndian.Uint64(p[:8])
 
 	if h.oid == 0 { // Empty. May meet the segment end(which haven't been written before).
-		return xerrors.WithMessage(io.EOF, "empty header")
+		return ErrUnwrittenSeg
 	}
 
 	if xdigest.Sum32(p[:objHeaderSize-4]) != binary.LittleEndian.Uint32(p[objHeaderSize-4:]) {

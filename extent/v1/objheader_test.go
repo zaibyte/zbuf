@@ -2,7 +2,6 @@ package v1
 
 import (
 	"errors"
-	"io"
 	"math/rand"
 	"testing"
 
@@ -44,7 +43,7 @@ func TestObjHeaderMarshal(t *testing.T) {
 	h.marshalTo(p)
 	act := new(objHeader)
 	err := act.unmarshal(p)
-	if !errors.Is(err, io.EOF) {
-		t.Fatal("should be io.EIO")
+	if !errors.Is(err, ErrUnwrittenSeg) {
+		t.Fatal("should be ErrUnwrittenSeg")
 	}
 }
