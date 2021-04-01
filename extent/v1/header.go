@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	wsegHistroyCnt = 256
+	wsegHistroyCnt = segmentCnt
 	headerSize     = 4096 // 4KiB.
 	// HeaderFileName is header filename in local file system.
 	HeaderFileName = "header"

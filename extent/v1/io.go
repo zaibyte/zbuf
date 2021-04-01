@@ -568,6 +568,7 @@ func (e *Extenter) objCheckReadAt(reqType uint64, digest, grains uint32, offset 
 }
 
 // isDMUSnapBehind checks DMU snapshot is too far behind new writable segment.
+//
 // Warn:
 // Must be used with lock.
 func (e *Extenter) isDMUSnapBehind() bool {
@@ -593,6 +594,7 @@ func (e *Extenter) isDMUSnapBehind() bool {
 
 // listSnapBehind lists segments which are in writable history, but
 // haven't been flushed to DMU snapshot fully(including writable segment in lastSnap).
+//
 // Warn:
 // Must be used with lock.
 func (e *Extenter) listSnapBehind() []uint8 {

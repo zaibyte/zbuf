@@ -361,6 +361,20 @@ func testObjWriteReadChekcAt(t *testing.T, isCheck bool) {
 	wg.Wait()
 }
 
+func TestExtenter_isDMUSnapBehind(t *testing.T) {
+	ext := &Extenter{header: &Header{nvh: &NVHeader{}}}
+
+	for i := 1; i <= wsegHistroyCnt; i++ {
+		ext.header.nvh.WritableHistoryNextIdx = int64(i)
+		if i < wsegHistroyCnt {
+			assert.False(t, ext.isDMUSnapBehind())
+		} else {
+			assert.True(t, ext.isDMUSnapBehind())
+		}
+	}
+
+}
+
 func TestExtenter_GetNextWritableSeg(t *testing.T) {
 
 	cfg := GetDefaultConfig()
