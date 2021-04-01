@@ -27,7 +27,6 @@ func TestObjHeaderMarshal(t *testing.T) {
 			grains: rand.Uint32(),
 			cycle:  rand.Uint32(),
 			extID:  rand.Uint32(),
-			segID:  uint8(rand.Intn(256)),
 			offset: rand.Int63(),
 		}
 

@@ -3,7 +3,9 @@ package v1
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
+	"io"
 	"math/rand"
 	"runtime"
 	"sync"
@@ -453,7 +455,16 @@ var objPadding = directio.AlignedBlock(dmu.AlignSize)
 func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte, buf []byte, cycle uint32) (written int64, err error) {
 
 	objN := len(objData)
-	makeObjHeader(oid, uid.GetGrains(oid), cycle, buf)
+
+	objH := &objHeader{
+		oid:    oid,
+		grains: uid.GetGrains(oid),
+		cycle:  cycle,
+		extID:  e.info.PbExt.Id,
+		offset: offset,
+	}
+	objH.marshalTo(buf)
+
 	copy(buf[objHeaderSize:], objData)
 
 	// objEnd is the last non-padding byte offset.
@@ -474,13 +485,21 @@ func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte,
 }
 
 // oHeaderReadAt reads object header from disk at offset.
-func (e *Extenter) oHeaderReadAt(reqType uint64, offset int64, oidBuf []byte) (oid uint64, grains uint32, cycle uint32, err error) {
+func (e *Extenter) oHeaderReadAt(reqType uint64, offset int64, buf []byte) (oid uint64, grains uint32, cycle uint32, err error) {
 
-	if err = e.ioSched.DoSync(reqType, e.segsFile, offset, oidBuf); err != nil {
+	if err = e.ioSched.DoSync(reqType, e.segsFile, offset, buf); err != nil {
 		return 0, 0, 0, err
 	}
 
-	return readObjHeaderFromBuf(oidBuf)
+	objH := new(objHeader)
+	err = objH.unmarshal(buf)
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return 0, 0, 0, nil
+		}
+		return 0, 0, 0, err
+	}
+	return objH.oid, objH.grains, objH.cycle, nil
 }
 
 // objReadAt reads Extent's segments file from a certain offset(its the oid offset).

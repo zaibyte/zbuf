@@ -29,10 +29,9 @@ type objHeader struct {
 	// cycle is the segment write cycle, increasing one after each GC.
 	cycle uint32
 
-	// extID & segID & offset helps to avoiding misdirected write.
+	// extID & offset helps to avoiding misdirected write.
 	// See: https://g.tesamc.com/IT/zbuf/issues/219 for details.
 	extID  uint32
-	segID  uint8
 	offset int64
 }
 
@@ -42,8 +41,7 @@ func (h *objHeader) marshalTo(p []byte) {
 	binary.LittleEndian.PutUint32(p[12:16], h.cycle)
 
 	binary.LittleEndian.PutUint32(p[16:20], h.extID)
-	p[20] = h.segID
-	binary.LittleEndian.PutUint64(p[21:29], uint64(h.offset))
+	binary.LittleEndian.PutUint64(p[20:28], uint64(h.offset))
 
 	hsum := xdigest.Sum32(p[:objHeaderSize-4])
 	binary.LittleEndian.PutUint32(p[objHeaderSize-4:], hsum)
@@ -64,8 +62,7 @@ func (h *objHeader) unmarshal(p []byte) error {
 	h.cycle = binary.LittleEndian.Uint32(p[12:16])
 
 	h.extID = binary.LittleEndian.Uint32(p[16:20])
-	h.segID = p[20]
-	h.offset = int64(binary.LittleEndian.Uint64(p[21:29]))
+	h.offset = int64(binary.LittleEndian.Uint64(p[20:28]))
 
 	return nil
 }
