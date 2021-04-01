@@ -3,7 +3,9 @@ package v1
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
+	"io"
 	"sort"
 	"sync/atomic"
 	"time"
@@ -264,12 +266,14 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			readOffset := segCursorToOffset(e.gcSrcSeg, int64(e.gcSrcCursor), int64(segSize))
 			oid, _, cycle, err3 := e.oHeaderReadAt(xio.ReqGCRead, readOffset, objHeaderBuf)
 			if err3 != nil {
-				e.setState(err3)
-				return gcDeadInterval, false
+				if !errors.Is(err3, io.EOF) {
+					e.setState(err3)
+					return gcDeadInterval, false
+				}
 			}
 			// Meet objects written in last cycle, ignore left.
 			// Objects are written sequentially, if meet 0, means reaching the end.
-			if cycle < srcCycle || oid == 0 {
+			if cycle < srcCycle || errors.Is(err3, io.EOF) {
 				e.rwMutex.Lock()
 				e.gcSrcCursor = segSize
 				e.rwMutex.Unlock()

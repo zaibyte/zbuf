@@ -3,9 +3,7 @@ package v1
 import (
 	"context"
 	"encoding/binary"
-	"errors"
 	"fmt"
-	"io"
 	"math/rand"
 	"runtime"
 	"sync"
@@ -494,9 +492,6 @@ func (e *Extenter) oHeaderReadAt(reqType uint64, offset int64, buf []byte) (oid 
 	objH := new(objHeader)
 	err = objH.unmarshal(buf)
 	if err != nil {
-		if errors.Is(err, io.EOF) {
-			return 0, 0, 0, nil
-		}
 		return 0, 0, 0, err
 	}
 
@@ -550,7 +545,7 @@ func (e *Extenter) checkReadAt(offset int64, buf []byte) (oid uint64, grains uin
 		return 0, 0, 0, err
 	}
 
-	if oid == 0 { // Meet deleted object.
+	if oid == 0 { // Reach unwritten space in segment.
 		return
 	}
 
