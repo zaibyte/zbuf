@@ -158,21 +158,6 @@ func TestDeleteWALChunkMixed(t *testing.T) {
 	assert.True(t, isEnd)
 }
 
-func TestShuffleSegStates(t *testing.T) {
-
-	origin := make([]uint8, segmentCnt)
-	for i := range origin {
-		origin[i] = uint8(rand.Intn(4))
-	}
-
-	cs := shuffleSegStates(origin)
-	for i := range cs {
-		if cs[i].state != origin[cs[i].originSeg] {
-			t.Fatal("mismatched")
-		}
-	}
-}
-
 func TestExtenter_PutSameDigest(t *testing.T) {
 	cfg := GetDefaultConfig()
 	cfg.SegmentSize = 256 * 1024
@@ -354,13 +339,30 @@ func TestObjWriteReadAt(t *testing.T) {
 	wg.Wait()
 }
 
-// We don't want the shuffle is too slow,
-// several us is acceptable, because the major cost in the process of selecting new writable segment
-// is sync header.
-func BenchmarkShuffleSegStates(b *testing.B) {
-	states := make([]uint8, segmentCnt)
+func TestExtenter_GetNextWritableSeg(t *testing.T) {
 
-	for i := 0; i < b.N; i++ {
-		_ = shuffleSegStates(states)
+	cfg := GetDefaultConfig()
+	cfg.SegmentSize = 16 * 1024
+	ext, err := createTestExtenter(cfg)
+	if err != nil {
+		t.Fatal(err)
 	}
+	defer vfs.GetTestFS().RemoveAll(ext.extDir)
+
+	last := ext.writableSeg
+	cnt := 0
+
+	wss := make(map[uint8]bool)
+
+	for i := 0; i < segmentCnt*2; i++ {
+		s, _ := ext.getNextWritableSeg(last)
+		if s != -1 {
+			wss[uint8(s)] = true
+			cnt++
+			last = s
+		}
+	}
+	// One is the first writable segment, one is the reserved segment.
+	assert.Equal(t, segmentCnt-2, cnt)
+	assert.Equal(t, segmentCnt-2, len(wss))
 }

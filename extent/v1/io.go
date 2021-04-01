@@ -626,10 +626,14 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 	}
 
 	nvh := e.header.nvh
-	cs := shuffleSegStates(nvh.SegStates)
-	for _, c := range cs {
-		if c.state == segReady {
-			next := c.originSeg
+
+	if e.randRand == nil {
+		e.randRand = rand.New(rand.NewSource(tsc.UnixNano()))
+	}
+
+	for seg, state := range nvh.SegStates {
+		if state == segReady {
+			next := seg
 			nvh.SegStates[next] = segWritable
 			nvh.SegStates[last] = segSealed
 			nvh.SealedTS[last] = MakeSealedTS(tsc.UnixNano())
@@ -653,35 +657,6 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 func (e *Extenter) getWsegByHistoryIdx(idx int64) uint8 {
 	nvh := e.header.nvh
 	return nvh.WritableHistory[idx%wsegHistroyCnt]
-}
-
-type segStateClone struct {
-	originSeg int
-	state     uint8
-}
-
-// shuffleSegStates shuffles segments states for reducing the rate of always picking up segments which
-// position is in the beginning of segments.
-func shuffleSegStates(states []uint8) []segStateClone {
-	c := make([]segStateClone, segmentCnt)
-	for i := range states {
-		c[i].originSeg = i
-		c[i].state = states[i]
-	}
-	// rand.Seed(tsc.UnixNano())
-	rand.Shuffle(segmentCnt, func(i, j int) {
-		c[i], c[j] = c[j], c[i]
-	})
-	return c
-}
-
-func shuffle(c []segStateClone, r int64) {
-	// Fisher-Yates shuffle
-	for j := 255; j > 0; j-- {
-		i := int(uint8(r&255) % uint8(j+1))
-		c[i], c[j] = c[j], c[i]
-		r >>= 8
-	}
 }
 
 // fastDiskHealthCheck checks the disk health by load boot-sector,

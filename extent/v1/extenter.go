@@ -20,11 +20,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
 	"unsafe"
+
+	"github.com/templexxx/tsc"
 
 	"g.tesamc.com/IT/zaipkg/diskutil"
 
@@ -56,6 +59,8 @@ type Extenter struct {
 	boxID uint32
 
 	cfg *Config
+
+	randRand *rand.Rand
 
 	// Using a lock here won't break down performance,
 	// in some situation, it may improve performance, e.g. copy a slice,
@@ -113,6 +118,9 @@ func (e *Extenter) Start() error {
 	if !atomic.CompareAndSwapInt64(&e.isRunning, 0, 1) {
 		return errors.New("already started")
 	}
+
+	e.randRand = rand.New(rand.NewSource(tsc.UnixNano()))
+
 	e.startBackgroundLoops()
 
 	xlog.Info(fmt.Sprintf("ext: %d has started", e.info.PbExt.Id))

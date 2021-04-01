@@ -383,26 +383,3 @@ func (m *memZai) UpdateObj(oid uint64, offset, newData io.Reader) (newOid uint64
 func (m *memZai) Close() {
 	return
 }
-
-func TestExtenter_GetNextWritableSeg(t *testing.T) {
-
-	cfg := GetDefaultConfig()
-	cfg.SegmentSize = 16 * 1024
-	ext, err := createTestExtenter(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer vfs.GetTestFS().RemoveAll(ext.extDir)
-
-	last := ext.writableSeg
-	cnt := 0
-	for i := 0; i < segmentCnt*2; i++ {
-		s, _ := ext.getNextWritableSeg(last)
-		if s != -1 {
-			cnt++
-			last = s
-		}
-	}
-	// One is the first writable segment, one is the reserved segment.
-	assert.Equal(t, segmentCnt-2, cnt)
-}
