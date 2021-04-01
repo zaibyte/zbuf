@@ -502,7 +502,8 @@ func (e *Extenter) setState(err error) {
 		state = metapb.ExtentState_Extent_Broken
 	} else if errors.Is(err, orpc.ErrExtentFull) {
 		state = metapb.ExtentState_Extent_Full
-	} else if errors.Is(err, orpc.ErrChecksumMismatch) { // Silent corruption.
+	} else if errors.Is(err, orpc.ErrChecksumMismatch) || errors.Is(err, orpc.ErrMisdirectedWrite) ||
+		errors.Is(err, orpc.ErrLostWrite) { // Silent corruption.
 		state = metapb.ExtentState_Extent_Ghost
 	} else {
 		state = old
