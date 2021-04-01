@@ -10,32 +10,17 @@ import (
 	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
 )
 
-// Segments layout on local file system:
+// Segments file layout on local file system:
 //
-// Address                                                   Address+4KB
-// | oid(8B) grains(4B) create_ts(8B) padding(4072B) checksum(4B) |  object_data |
-//
-// Address is aligned to 16KB.
-// header takes 4KB
-// object_data is started at Address + 4KB.
-//
-// p.s.
-// The structure of Header is designed for the raw version of extent.v1,
-// the grains maybe meaningless in present, but it's not harmful.
-// Unless there is break change, I won't modify it.
-
-const (
-	objHeaderSize = 4 * 1024
-)
+// Segments file is made of sequential chunks,
+// each chunk has:
+// object_header(4KB), aligned to 16KB
+// object_data[4KB, 4MB]
+// padding[0, 16KB)
 
 // makeObjHeader writes object header to buf.
 //
-// The elements inside the header: oid, grains, segment_cycle & their checksum:
-//
-// OID & its grains will be put into the first 12Bytes starting from the offset.
-// Segment cycle will follow them.
-//
-// Their checksum will be put into the last 4Bytes in the first 4KB from the offset.
+// | oid | grains | cycle | ext_id | seg_id | offset_in_segments_file | padding| checksum |
 //
 // Warn:
 // No features rely on grains in present.

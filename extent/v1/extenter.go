@@ -392,7 +392,8 @@ func (e *Extenter) traverseWritableSeg() error {
 				if i != hwhi-1 {
 					return err
 				}
-				// Last writable segment meet checksum mismatch may by caused by short write.
+				// Last writable segment meet checksum mismatch may by caused by short write or read dirty data
+				// (which have been collected in GC).
 				// If DMU doesn't have this oid or oid is 0 we regard it's short write.
 				// See: https://g.tesamc.com/IT/zbuf/issues/169 for details.
 				if errors.Is(err, orpc.ErrChecksumMismatch) {
