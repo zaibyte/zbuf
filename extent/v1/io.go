@@ -545,10 +545,6 @@ func (e *Extenter) checkReadAt(offset int64, buf []byte) (oid uint64, grains uin
 		return 0, 0, 0, err
 	}
 
-	if oid == 0 { // Reach unwritten space in segment.
-		return
-	}
-
 	_, _, _, digest, _, _ := uid.ParseOID(oid)
 
 	offset += objHeaderSize
