@@ -668,11 +668,20 @@ func shuffleSegStates(states []uint8) []segStateClone {
 		c[i].originSeg = i
 		c[i].state = states[i]
 	}
-	rand.Seed(tsc.UnixNano())
+	// rand.Seed(tsc.UnixNano())
 	rand.Shuffle(segmentCnt, func(i, j int) {
 		c[i], c[j] = c[j], c[i]
 	})
 	return c
+}
+
+func shuffle(c []segStateClone, r int64) {
+	// Fisher-Yates shuffle
+	for j := 255; j > 0; j-- {
+		i := int(uint8(r&255) % uint8(j+1))
+		c[i], c[j] = c[j], c[i]
+		r >>= 8
+	}
 }
 
 // fastDiskHealthCheck checks the disk health by load boot-sector,
