@@ -9,9 +9,9 @@ import (
 	"sync"
 	"testing"
 
-	"g.tesamc.com/IT/zaipkg/directio"
 	"g.tesamc.com/IT/zbuf/xio"
 
+	"g.tesamc.com/IT/zaipkg/directio"
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/uid"
 	"g.tesamc.com/IT/zaipkg/xbytes"
@@ -266,6 +266,10 @@ func TestExtenter_PutGetObj(t *testing.T) {
 }
 
 func TestObjWriteReadAt(t *testing.T) {
+
+}
+
+func testObjWriteReadChekcAt(t *testing.T, isCheck bool) {
 	cfg := GetDefaultConfig()
 	cfg.SegmentSize = 32 * 1024
 	ext, err := createTestExtenter(cfg)
@@ -306,16 +310,25 @@ func TestObjWriteReadAt(t *testing.T) {
 		}
 		oids[oid] = offset
 
-		getRet := xbytes.GetAlignedBytes(len(objData))
-		err2 = ext.objReadAt(xio.ReqObjRead, digest, offset, getRet)
-		if err2 != nil {
-			t.Fatal(err2)
-		}
+		if !isCheck {
+			getRet := xbytes.GetAlignedBytes(len(objData))
+			err2 = ext.objReadAt(xio.ReqObjRead, digest, offset, getRet)
+			if err2 != nil {
+				t.Fatal(err2)
+			}
 
-		if !bytes.Equal(objData, getRet) {
-			t.Fatal("get result mismatched")
+			if !bytes.Equal(objData, getRet) {
+				t.Fatal("get result mismatched")
+			}
+			xbytes.PutAlignedBytes(getRet)
+		} else {
+			checkBuf := xbytes.GetAlignedBytes(int(ext.cfg.SizePerRead))
+			_, _, _, err2 = ext.objCheckAt(offset, checkBuf)
+			if err2 != nil {
+				t.Fatal(err2)
+			}
+			xbytes.PutAlignedBytes(checkBuf)
 		}
-		xbytes.PutAlignedBytes(getRet)
 
 		offset += written
 	}
@@ -326,12 +339,21 @@ func TestObjWriteReadAt(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for oid := range oids {
-				getRet := xbytes.GetAlignedBytes(int(uid.GetGrains(oid) * uid.GrainSize))
-				err2 := ext.objReadAt(xio.ReqObjRead, uid.GetDigest(oid), oids[oid], getRet)
-				if err2 != nil {
-					t.Fatal(err2)
+				if !isCheck {
+					getRet := xbytes.GetAlignedBytes(int(uid.GetGrains(oid) * uid.GrainSize))
+					err2 := ext.objReadAt(xio.ReqObjRead, uid.GetDigest(oid), oids[oid], getRet)
+					if err2 != nil {
+						t.Fatal(err2)
+					}
+					xbytes.PutAlignedBytes(getRet)
+				} else {
+					checkBuf := xbytes.GetAlignedBytes(int(ext.cfg.SizePerRead))
+					_, _, _, err2 := ext.objCheckAt(offset, checkBuf)
+					if err2 != nil {
+						t.Fatal(err2)
+					}
+					xbytes.PutAlignedBytes(checkBuf)
 				}
-				xbytes.PutAlignedBytes(getRet)
 			}
 
 		}()

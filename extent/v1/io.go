@@ -507,7 +507,7 @@ func (e *Extenter) oHeaderReadAt(reqType uint64, offset int64, buf []byte) (oid 
 // objReadAt reads Extent's segments file from a certain offset(its the oid offset).
 func (e *Extenter) objReadAt(reqType uint64, digest uint32, offset int64, objData []byte) error {
 
-	return e.objCheckReadAt(reqType, digest, offset, objData, false)
+	return e.objCheckReadAt(reqType, digest, 0, offset, objData, false)
 }
 
 // objCheckAt checks chunk from a certain offset(oid offset).
@@ -522,20 +522,23 @@ func (e *Extenter) objCheckAt(offset int64, buf []byte) (oid uint64, grains uint
 
 	_, _, _, digest, _, _ := uid.ParseOID(oid)
 
-	err = e.objCheckReadAt(xio.ReqObjRead, digest, offset, buf, true)
+	err = e.objCheckReadAt(xio.ReqObjRead, digest, grains, offset, buf, true)
 	if err != nil {
 		return
 	}
 	return
 }
 
-func (e *Extenter) objCheckReadAt(reqType uint64, digest uint32, offset int64, objData []byte, isCheck bool) error {
+func (e *Extenter) objCheckReadAt(reqType uint64, digest, grains uint32, offset int64, p []byte, isCheck bool) error {
 
 	offset += objHeaderSize
 
-	sizePerRead := int(e.cfg.SizePerRead)
-	n := len(objData)
-	read := 0
+	sizePerRead := int64(e.cfg.SizePerRead)
+	n := int64(grains) * uid.GrainSize
+	if !isCheck {
+		n = int64(len(p))
+	}
+	var read int64 = 0
 	d := xdigest.Acquire()
 	defer xdigest.Release(d)
 	for read != n {
@@ -543,9 +546,9 @@ func (e *Extenter) objCheckReadAt(reqType uint64, digest uint32, offset int64, o
 		if n-read < nn {
 			nn = n - read
 		}
-		buf := objData[read : read+nn]
+		buf := p[read : read+nn]
 		if isCheck {
-			buf = objData[:nn]
+			buf = p[:nn]
 		}
 		err := e.ioSched.DoSync(reqType, e.segsFile, offset, buf)
 		if err != nil {
