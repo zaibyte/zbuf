@@ -499,6 +499,13 @@ func (e *Extenter) oHeaderReadAt(reqType uint64, offset int64, buf []byte) (oid 
 		}
 		return 0, 0, 0, err
 	}
+
+	if objH.extID != e.info.PbExt.Id || objH.offset != offset {
+		return 0, 0, 0, xerrors.WithMessage(orpc.ErrMisdirectedWrite,
+			fmt.Sprintf("obj header read: exp: ext_id: %d, offset: %d, but got: ext_id: %d, offset: %d",
+				e.info.PbExt.Id, offset, objH.extID, objH.offset))
+	}
+
 	return objH.oid, objH.grains, objH.cycle, nil
 }
 
