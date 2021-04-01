@@ -387,7 +387,7 @@ func (e *Extenter) traverseWritableSeg() error {
 				wcursor = 0
 				break
 			}
-			oid, grains, cycle, err := e.checkReadAt(offset, buf)
+			oid, grains, cycle, err := e.objCheckAt(offset, buf)
 			if err != nil {
 				if errors.Is(err, ErrUnwrittenSeg) {
 					wcursor = 0 // Meet end, should start with 0 in next writable seg if has.

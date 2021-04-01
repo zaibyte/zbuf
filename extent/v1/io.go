@@ -507,6 +507,30 @@ func (e *Extenter) oHeaderReadAt(reqType uint64, offset int64, buf []byte) (oid 
 // objReadAt reads Extent's segments file from a certain offset(its the oid offset).
 func (e *Extenter) objReadAt(reqType uint64, digest uint32, offset int64, objData []byte) error {
 
+	return e.objCheckReadAt(reqType, digest, offset, objData, false)
+}
+
+// objCheckAt checks chunk from a certain offset(oid offset).
+// It won't return the data, just checks the I/O system and its checksum.
+//
+// buf should be cfg.SizePerRead bytes block.
+func (e *Extenter) objCheckAt(offset int64, buf []byte) (oid uint64, grains uint32, cycle uint32, err error) {
+	oid, grains, cycle, err = e.oHeaderReadAt(xio.ReqObjRead, offset, buf[:objHeaderSize])
+	if err != nil {
+		return 0, 0, 0, err
+	}
+
+	_, _, _, digest, _, _ := uid.ParseOID(oid)
+
+	err = e.objCheckReadAt(xio.ReqObjRead, digest, offset, buf, true)
+	if err != nil {
+		return
+	}
+	return
+}
+
+func (e *Extenter) objCheckReadAt(reqType uint64, digest uint32, offset int64, objData []byte, isCheck bool) error {
+
 	offset += objHeaderSize
 
 	sizePerRead := int(e.cfg.SizePerRead)
@@ -519,11 +543,15 @@ func (e *Extenter) objReadAt(reqType uint64, digest uint32, offset int64, objDat
 		if n-read < nn {
 			nn = n - read
 		}
-		err := e.ioSched.DoSync(reqType, e.segsFile, offset, objData[read:read+nn])
+		buf := objData[read : read+nn]
+		if isCheck {
+			buf = objData[:nn]
+		}
+		err := e.ioSched.DoSync(reqType, e.segsFile, offset, buf)
 		if err != nil {
 			return err
 		}
-		_, _ = d.Write(objData[read : read+nn])
+		_, _ = d.Write(buf)
 		read += nn
 		offset += int64(nn)
 	}
@@ -534,45 +562,6 @@ func (e *Extenter) objReadAt(reqType uint64, digest uint32, offset int64, objDat
 		return err
 	}
 	return nil
-}
-
-// checkReadAt checks Extent's segments file from a certain offset(oid offset).
-// It won't return the data, just checks the I/O system and its checksum.
-// buf should be cfg.SizePerRead bytes block.
-func (e *Extenter) checkReadAt(offset int64, buf []byte) (oid uint64, grains uint32, cycle uint32, err error) {
-	oid, grains, cycle, err = e.oHeaderReadAt(xio.ReqObjRead, offset, buf[:objHeaderSize])
-	if err != nil {
-		return 0, 0, 0, err
-	}
-
-	_, _, _, digest, _, _ := uid.ParseOID(oid)
-
-	offset += objHeaderSize
-
-	sizePerRead := len(buf)
-	n := int(uid.GrainsToBytes(grains))
-	read := 0
-	d := xdigest.Acquire()
-	defer xdigest.Release(d)
-	for read != n {
-		nn := sizePerRead
-		if n-read < nn {
-			nn = n - read
-		}
-		err = e.ioSched.DoSync(xio.ReqObjRead, e.segsFile, offset, buf[:nn])
-		if err != nil {
-			return 0, grains, cycle, err
-		}
-		_, _ = d.Write(buf[:nn])
-		read += nn
-		offset += int64(nn)
-	}
-
-	actDigest := d.Sum32()
-	if actDigest != digest {
-		return oid, grains, cycle, orpc.ErrChecksumMismatch
-	}
-	return
 }
 
 // isDMUSnapBehind checks DMU snapshot is too far behind new writable segment.
