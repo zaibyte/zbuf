@@ -266,10 +266,14 @@ func TestExtenter_PutGetObj(t *testing.T) {
 }
 
 func TestObjWriteReadAt(t *testing.T) {
-
+	testObjWriteReadCheckAt(t, false)
 }
 
-func testObjWriteReadChekcAt(t *testing.T, isCheck bool) {
+func TestObjWriteCheckAt(t *testing.T) {
+	testObjWriteReadCheckAt(t, true)
+}
+
+func testObjWriteReadCheckAt(t *testing.T, isCheck bool) {
 	cfg := GetDefaultConfig()
 	cfg.SegmentSize = 32 * 1024
 	ext, err := createTestExtenter(cfg)
@@ -348,7 +352,7 @@ func testObjWriteReadChekcAt(t *testing.T, isCheck bool) {
 					xbytes.PutAlignedBytes(getRet)
 				} else {
 					checkBuf := xbytes.GetAlignedBytes(int(ext.cfg.SizePerRead))
-					_, _, _, err2 := ext.objCheckAt(offset, checkBuf)
+					_, _, _, err2 := ext.objCheckAt(oids[oid], checkBuf)
 					if err2 != nil {
 						t.Fatal(err2)
 					}
