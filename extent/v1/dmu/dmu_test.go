@@ -25,6 +25,14 @@ func TestDMU_InsertTwice(t *testing.T) {
 	assert.NotEqual(t, 0, dmu.Search(2208466672))
 }
 
+func TestDMU_SearchZero(t *testing.T) {
+
+	dmu := New(0)
+	if dmu.Search(0) != 0 {
+		t.Fatal("should not find 0")
+	}
+}
+
 func TestDMU_Search(t *testing.T) {
 
 	start := MinCap
