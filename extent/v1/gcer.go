@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"g.tesamc.com/IT/zaipkg/xerrors"
@@ -266,6 +267,9 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			oid, _, cycle, err3 := e.oHeaderReadAt(xio.ReqGCRead, readOffset, objHeaderBuf)
 			if err3 != nil {
 				if !errors.Is(err3, ErrUnwrittenSeg) {
+					if errors.Is(err3, ErrIllegalObjHeader) {
+						err3 = xerrors.WithMessage(syscall.EIO, err3.Error())
+					}
 					e.setState(err3)
 					return gcDeadInterval, false
 				}
