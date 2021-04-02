@@ -3,6 +3,7 @@ package v1
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"io"
 	"io/ioutil"
@@ -263,8 +264,125 @@ func TestExtenter_ModifyObjAddr(t *testing.T) {
 	wg.Wait()
 }
 
+// Put objects untill extenter is full.
+// And we expect after a certain number of objects put.
+func TestExtenter_MeetFull(t *testing.T) {
+	cfg := GetDefaultConfig()
+	cfg.SegmentSize = 16 * 1024
+	ext, err := createTestExtenter(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer vfs.GetTestFS().RemoveAll(ext.extDir)
+
+	ext.Start()
+	defer ext.Close()
+
+	rand.Seed(tsc.UnixNano())
+
+	buf := make([]byte, uid.GrainSize)
+
+	for i := 0; i < 255; i++ { // There is a reserved segment.
+
+		binary.LittleEndian.PutUint64(buf, uint64(i))
+		objData := buf
+		oid := uid.MakeOID(1, 1, 1, xdigest.Sum32(objData), uid.NormalObj)
+		err = ext.PutObj(0, oid, objData, false)
+		if err != nil {
+			t.Fatal(err, i)
+		}
+	}
+
+	binary.LittleEndian.PutUint64(buf, 256)
+	oid := uid.MakeOID(1, 1, 1, xdigest.Sum32(buf), uid.NormalObj)
+	err = ext.PutObj(0, oid, buf, false)
+	if !errors.Is(err, orpc.ErrExtentFull) {
+		t.Fatal("should be full, but: ", err)
+	}
+}
+
 // Load extenter by traverse writable segments but there is no entry in snapshot.
 func TestExtenter_traverseWritableSegNoSnap(t *testing.T) {
+	cfg := GetDefaultConfig()
+	cfg.SegmentSize = 32 * 1024
+	c := makeTestCreator(cfg)
+
+	ext, err := createTestExtByCreator(cfg, c, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer vfs.GetTestFS().RemoveAll(ext.extDir)
+
+	err = ext.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rand.Seed(tsc.UnixNano())
+
+	// Force set making DMU snap, so there won't be any new snapshot will be written.
+	atomic.StoreInt64(&ext.isMakingDMUSnap, 1)
+
+	maxGrains := (cfg.SegmentSize / uid.GrainSize) - 1 // It's the max object which 256KB segment could have.
+	buf := make([]byte, maxGrains*uid.GrainSize)
+
+	oids := make(map[uint64]bool)
+	okCnt := 0
+	var written uint64
+	for i := 0; ; i++ {
+
+		if written > 24*uint64(cfg.SegmentSize) { // written is not accurate.
+			break
+		}
+
+		grains := rand.Intn(int(maxGrains))
+		if grains == 0 {
+			grains = 1
+		}
+		objData := buf[:grains*uid.GrainSize]
+		rand.Read(objData)
+		oid := uid.MakeOID(1, 1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
+		err = ext.PutObj(0, oid, objData, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		oids[oid] = true
+		okCnt++
+
+		written += uint64(grains) * uid.GrainSize
+	}
+
+	ext.Close()
+
+	ext2, err := c.Load(context.Background(), ext.extDir, extent.CreateParams{
+		InstanceID: 1,
+		DiskID:     1,
+		ExtID:      uid.MakeExtID(1, 0),
+		DiskInfo:   nil,
+		CloneJob:   nil,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = ext2.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ext2.Close()
+
+	for oid := range oids {
+		objData, err2 := ext2.GetObj(1, oid, false)
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+		xbytes.PutAlignedBytes(objData)
+	}
+}
+
+// TODO
+// Load extenter by traverse writable segments but there is only part of entries in snapshot.
+func TestExtenter_traverseWritableSegPartSnap(t *testing.T) {
 	cfg := GetDefaultConfig()
 	cfg.SegmentSize = 32 * 1024
 	c := makeTestCreator(cfg)
