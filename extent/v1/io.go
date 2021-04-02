@@ -517,7 +517,7 @@ func (e *Extenter) objReadAt(reqType uint64, digest uint32, offset int64, objDat
 func (e *Extenter) objCheckAt(offset int64, buf []byte) (oid uint64, grains uint32, cycle uint32, err error) {
 	oid, grains, cycle, err = e.oHeaderReadAt(xio.ReqObjRead, offset, buf[:objHeaderSize])
 	if err != nil {
-		return 0, 0, 0, err
+		return
 	}
 
 	_, _, _, digest, _, _ := uid.ParseOID(oid)
@@ -552,6 +552,7 @@ func (e *Extenter) objCheckReadAt(reqType uint64, digest, grains uint32, offset 
 		}
 		err := e.ioSched.DoSync(reqType, e.segsFile, offset, buf)
 		if err != nil {
+			fmt.Println(offset, err)
 			return err
 		}
 		_, _ = d.Write(buf)
