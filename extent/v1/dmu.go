@@ -83,6 +83,9 @@ func (e *Extenter) getLastDMUSnap() *dmuSnapHeader {
 
 func (e *Extenter) makeDMUSnapSync(force bool) error {
 	done := e.makeDMUSnapAsync(force)
+	if done == nil {
+		return nil
+	}
 	err := <-done
 	return err
 }
