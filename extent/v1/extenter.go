@@ -395,14 +395,25 @@ func (e *Extenter) traverseWritableSeg() error {
 					wcursor = 0 // Meet end, should start with 0 in next writable seg if has.
 					break
 				}
+
+				en := e.dmu.Search(uid.GetDigest(oid))
+
 				if i != hwhi-1 {
 					// Ignore last probable chunk, the chance is deprecated incomplete chunk
 					// is much bigger than error I/O.
 					// https://g.tesamc.com/IT/zbuf/issues/220
 					if errors.Is(err, ErrIllegalObjHeader) && end-offset < objHeaderSize+settings.MaxObjectSize {
-						if e.dmu.Search(uid.GetDigest(oid)) == 0 {
+						if en == 0 {
 							wcursor = 0
 							break
+						} else {
+							_, _, _, _, addr := dmu.ParseEntry(en)
+							if offset != int64(addr)*dmu.AlignSize {
+								wcursor = 0
+								break
+							} else {
+								return err
+							}
 						}
 					}
 					return err
@@ -413,8 +424,15 @@ func (e *Extenter) traverseWritableSeg() error {
 				// See: https://g.tesamc.com/IT/zbuf/issues/169 for details.
 				if errors.Is(err, orpc.ErrChecksumMismatch) ||
 					errors.Is(err, ErrIllegalObjHeader) {
-					if e.dmu.Search(uid.GetDigest(oid)) == 0 {
+					if en == 0 {
 						return nil
+					} else {
+						_, _, _, _, addr := dmu.ParseEntry(en)
+						if offset != int64(addr)*dmu.AlignSize {
+							return nil
+						} else {
+							return err
+						}
 					}
 				}
 				return err
