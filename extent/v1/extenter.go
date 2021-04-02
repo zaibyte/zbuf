@@ -381,6 +381,8 @@ func (e *Extenter) traverseWritableSeg() error {
 		e.writableSeg = int64(wseg)
 		e.writableCursor = wcursor
 
+		xlog.Infof("begin to traverse seg: %d", wseg)
+
 		offset := segCursorToOffset(int64(wseg), wcursor, segSize)
 
 		end := segCursorToOffset(int64(wseg), segSize, segSize)
@@ -412,11 +414,11 @@ func (e *Extenter) traverseWritableSeg() error {
 								wcursor = 0
 								break
 							} else {
-								return err
+								return xerrors.WithMessage(syscall.EIO, err.Error())
 							}
 						}
 					}
-					return err
+					return xerrors.WithMessage(syscall.EIO, err.Error())
 				}
 
 				// Last writable segment meet checksum mismatch may by caused by short write.
@@ -431,11 +433,11 @@ func (e *Extenter) traverseWritableSeg() error {
 						if offset != int64(addr)*dmu.AlignSize {
 							return nil
 						} else {
-							return err
+							return xerrors.WithMessage(syscall.EIO, err.Error())
 						}
 					}
 				}
-				return err
+				return xerrors.WithMessage(syscall.EIO, err.Error())
 			}
 			// Write is sequential.
 			// When reach the cycle means reach the segment end or the left space wasn't enough for the object.
