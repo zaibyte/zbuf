@@ -271,8 +271,8 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 				}
 			}
 			// Meet objects written in last cycle, ignore left.
-			// Objects are written sequentially, if meet 0, means reaching the end.
-			if cycle < srcCycle || errors.Is(err3, ErrUnwrittenSeg) {
+			// Objects are written sequentially, if meet unwritten, means reaching the end.
+			if cycle < srcCycle || err3 != nil {
 				e.rwMutex.Lock()
 				e.gcSrcCursor = segSize
 				e.rwMutex.Unlock()
