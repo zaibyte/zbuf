@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io"
 	"sort"
 	"sync/atomic"
 	"time"
@@ -273,7 +272,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			}
 			// Meet objects written in last cycle, ignore left.
 			// Objects are written sequentially, if meet 0, means reaching the end.
-			if cycle < srcCycle || errors.Is(err3, io.EOF) {
+			if cycle < srcCycle || errors.Is(err3, ErrUnwrittenSeg) {
 				e.rwMutex.Lock()
 				e.gcSrcCursor = segSize
 				e.rwMutex.Unlock()
