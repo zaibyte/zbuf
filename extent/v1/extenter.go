@@ -398,30 +398,37 @@ func (e *Extenter) traverseWritableSeg() error {
 					break
 				}
 
-				en := e.dmu.Search(uid.GetDigest(oid))
-
 				isIllegalHeader := errors.Is(err, ErrIllegalObjHeader)
+				if isIllegalHeader {
+					// Using EIO, easier to set Extenter state.
+					err = xerrors.WithMessage(syscall.EIO, err.Error())
+				}
+
+				var isHere bool // isHere means addr is DMU is the offset we're reading.
+				// DMU may have it, because it makes snapshot async.
+				en := e.dmu.Search(uid.GetDigest(oid))
+				if en == 0 {
+					isHere = false
+				} else {
+					_, _, _, _, addr := dmu.ParseEntry(en)
+					if offset != int64(addr)*dmu.AlignSize {
+						isHere = false
+					} else {
+						isHere = true
+					}
+				}
 
 				if i != hwhi-1 {
 					// Ignore last probable chunk, the chance is deprecated incomplete chunk
 					// is much bigger than error I/O.
 					// https://g.tesamc.com/IT/zbuf/issues/220
 					if isIllegalHeader && end-offset < objHeaderSize+settings.MaxObjectSize {
-						if en == 0 {
+						if isHere {
+							return err
+						} else {
 							wcursor = 0
 							break
-						} else {
-							_, _, _, _, addr := dmu.ParseEntry(en)
-							if offset != int64(addr)*dmu.AlignSize {
-								wcursor = 0
-								break
-							} else {
-								return xerrors.WithMessage(syscall.EIO, err.Error())
-							}
 						}
-					}
-					if isIllegalHeader {
-						return xerrors.WithMessage(syscall.EIO, err.Error())
 					}
 					return err
 				}
@@ -431,18 +438,10 @@ func (e *Extenter) traverseWritableSeg() error {
 				// See: https://g.tesamc.com/IT/zbuf/issues/169 for details.
 				if errors.Is(err, orpc.ErrChecksumMismatch) ||
 					errors.Is(err, ErrIllegalObjHeader) {
-					if en == 0 {
-						return nil
+					if isHere {
+						return err
 					} else {
-						_, _, _, _, addr := dmu.ParseEntry(en)
-						if offset != int64(addr)*dmu.AlignSize {
-							return nil
-						} else {
-							if isIllegalHeader {
-								return xerrors.WithMessage(syscall.EIO, err.Error())
-							}
-							return err
-						}
+						return nil
 					}
 				}
 				return err
