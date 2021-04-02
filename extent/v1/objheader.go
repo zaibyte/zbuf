@@ -11,7 +11,9 @@ import (
 )
 
 const (
-	objHeaderSize = 4 * 1024
+	objHeaderSize                     = 4 * 1024
+	objHeaderMagicNumberOffset        = 1234
+	objHeaderMagicNumber       uint64 = 15538188201807955243
 )
 
 // objHeader is the first of chunk in segments file.
@@ -43,17 +45,27 @@ func (h *objHeader) marshalTo(p []byte) {
 	binary.LittleEndian.PutUint32(p[16:20], h.extID)
 	binary.LittleEndian.PutUint64(p[20:28], uint64(h.offset))
 
+	binary.LittleEndian.PutUint64(p[objHeaderMagicNumberOffset:], objHeaderMagicNumber)
+
 	hsum := xdigest.Sum32(p[:objHeaderSize-4])
 	binary.LittleEndian.PutUint32(p[objHeaderSize-4:], hsum)
 }
 
-var ErrUnwrittenSeg = errors.New("reach unwritten space in segment")
+var (
+	ErrUnwrittenSeg     = errors.New("reach unwritten space in segment")
+	ErrIllegalObjHeader = errors.New("illegal object header")
+)
 
 func (h *objHeader) unmarshal(p []byte) error {
 	h.oid = binary.LittleEndian.Uint64(p[:8])
 
 	if h.oid == 0 { // Empty. May meet the segment end(which haven't been written before).
 		return ErrUnwrittenSeg
+	}
+
+	if binary.LittleEndian.Uint64(p[objHeaderMagicNumberOffset:objHeaderMagicNumberOffset+8]) !=
+		objHeaderMagicNumber {
+		return xerrors.WithMessage(ErrIllegalObjHeader, "magic number mismatched")
 	}
 
 	if xdigest.Sum32(p[:objHeaderSize-4]) != binary.LittleEndian.Uint32(p[objHeaderSize-4:]) {
