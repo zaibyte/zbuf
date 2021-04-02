@@ -380,7 +380,6 @@ func TestExtenter_traverseWritableSegNoSnap(t *testing.T) {
 	}
 }
 
-// TODO
 // Load extenter by traverse writable segments but there is only part of entries in snapshot.
 func TestExtenter_traverseWritableSegPartSnap(t *testing.T) {
 	cfg := GetDefaultConfig()
@@ -400,9 +399,6 @@ func TestExtenter_traverseWritableSegPartSnap(t *testing.T) {
 
 	rand.Seed(tsc.UnixNano())
 
-	// Force set making DMU snap, so there won't be any new snapshot will be written.
-	atomic.StoreInt64(&ext.isMakingDMUSnap, 1)
-
 	maxGrains := (cfg.SegmentSize / uid.GrainSize) - 1 // It's the max object which 256KB segment could have.
 	buf := make([]byte, maxGrains*uid.GrainSize)
 
@@ -410,6 +406,14 @@ func TestExtenter_traverseWritableSegPartSnap(t *testing.T) {
 	okCnt := 0
 	var written uint64
 	for i := 0; ; i++ {
+
+		if written > 12*uint64(cfg.SegmentSize) {
+			err = ext.makeDMUSnapSync(true)
+			if err != nil {
+				t.Fatal(err)
+			}
+			atomic.StoreInt64(&ext.isMakingDMUSnap, 1) // Forbidden next snapshot sync.
+		}
 
 		if written > 24*uint64(cfg.SegmentSize) { // written is not accurate.
 			break
