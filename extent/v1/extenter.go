@@ -27,6 +27,8 @@ import (
 	"time"
 	"unsafe"
 
+	"g.tesamc.com/IT/zaipkg/config/settings"
+
 	"github.com/templexxx/tsc"
 
 	"g.tesamc.com/IT/zaipkg/diskutil"
@@ -394,12 +396,23 @@ func (e *Extenter) traverseWritableSeg() error {
 					break
 				}
 				if i != hwhi-1 {
+					// Ignore last probable chunk, the chance is deprecated incomplete chunk
+					// is much bigger than error I/O.
+					// https://g.tesamc.com/IT/zbuf/issues/220
+					if errors.Is(err, ErrIllegalObjHeader) && end-offset < objHeaderSize+settings.MaxObjectSize {
+						if e.dmu.Search(uid.GetDigest(oid)) == 0 {
+							wcursor = 0
+							break
+						}
+					}
 					return err
 				}
+
 				// Last writable segment meet checksum mismatch may by caused by short write.
 				// If DMU doesn't have this oid we regard it's short write.
 				// See: https://g.tesamc.com/IT/zbuf/issues/169 for details.
-				if errors.Is(err, orpc.ErrChecksumMismatch) {
+				if errors.Is(err, orpc.ErrChecksumMismatch) ||
+					errors.Is(err, ErrIllegalObjHeader) {
 					if e.dmu.Search(uid.GetDigest(oid)) == 0 {
 						return nil
 					}
