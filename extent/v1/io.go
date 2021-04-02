@@ -552,7 +552,6 @@ func (e *Extenter) objCheckReadAt(reqType uint64, digest, grains uint32, offset 
 		}
 		err := e.ioSched.DoSync(reqType, e.segsFile, offset, buf)
 		if err != nil {
-			fmt.Println(offset, err)
 			return err
 		}
 		_, _ = d.Write(buf)
