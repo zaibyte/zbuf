@@ -400,11 +400,13 @@ func (e *Extenter) traverseWritableSeg() error {
 
 				en := e.dmu.Search(uid.GetDigest(oid))
 
+				isIllegalHeader := errors.Is(err, ErrIllegalObjHeader)
+
 				if i != hwhi-1 {
 					// Ignore last probable chunk, the chance is deprecated incomplete chunk
 					// is much bigger than error I/O.
 					// https://g.tesamc.com/IT/zbuf/issues/220
-					if errors.Is(err, ErrIllegalObjHeader) && end-offset < objHeaderSize+settings.MaxObjectSize {
+					if isIllegalHeader && end-offset < objHeaderSize+settings.MaxObjectSize {
 						if en == 0 {
 							wcursor = 0
 							break
@@ -418,7 +420,10 @@ func (e *Extenter) traverseWritableSeg() error {
 							}
 						}
 					}
-					return xerrors.WithMessage(syscall.EIO, err.Error())
+					if isIllegalHeader {
+						return xerrors.WithMessage(syscall.EIO, err.Error())
+					}
+					return err
 				}
 
 				// Last writable segment meet checksum mismatch may by caused by short write.
@@ -433,11 +438,14 @@ func (e *Extenter) traverseWritableSeg() error {
 						if offset != int64(addr)*dmu.AlignSize {
 							return nil
 						} else {
-							return xerrors.WithMessage(syscall.EIO, err.Error())
+							if isIllegalHeader {
+								return xerrors.WithMessage(syscall.EIO, err.Error())
+							}
+							return err
 						}
 					}
 				}
-				return xerrors.WithMessage(syscall.EIO, err.Error())
+				return err
 			}
 			// Write is sequential.
 			// When reach the cycle means reach the segment end or the left space wasn't enough for the object.
