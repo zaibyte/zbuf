@@ -384,6 +384,7 @@ func (e *Extenter) traverseWritableSeg() error {
 		xlog.Infof("begin to traverse seg: %d", wseg)
 
 		offset := segCursorToOffset(int64(wseg), wcursor, segSize)
+		begin := offset
 
 		end := segCursorToOffset(int64(wseg), segSize, segSize)
 		for offset <= end {
@@ -391,7 +392,7 @@ func (e *Extenter) traverseWritableSeg() error {
 				wcursor = 0
 				break
 			}
-			oid, grains, cycle, err := e.objCheckAt(offset, buf)
+			oid, _, cycle, err := e.objCheckAt(offset, buf)
 			if err != nil {
 				if errors.Is(err, ErrUnwrittenSeg) {
 					wcursor = 0 // Meet end, should start with 0 in next writable seg if has.
@@ -436,6 +437,8 @@ func (e *Extenter) traverseWritableSeg() error {
 				// Last writable segment meet checksum mismatch may by caused by short write.
 				// If DMU doesn't have this oid we regard it's short write.
 				// See: https://g.tesamc.com/IT/zbuf/issues/169 for details.
+				// And there is chance, the object data contains object header magic number,
+				// it'll be illegal header, but checksum mismatched.
 				if errors.Is(err, orpc.ErrChecksumMismatch) ||
 					errors.Is(err, ErrIllegalObjHeader) {
 					if isHere {
@@ -446,14 +449,21 @@ func (e *Extenter) traverseWritableSeg() error {
 				}
 				return err
 			}
-			// Write is sequential.
-			// When reach the cycle means reach the segment end or the left space wasn't enough for the object.
-			if cycle < lastCycle { //	Meet garbage.
-				wcursor = 0
-				break
-			} else {
+
+			if offset == begin {
 				lastCycle = cycle
+			} else {
+				// Write is sequential.
+				// When reach the cycle means reach the segment end or the left space wasn't enough for the object.
+				if cycle < lastCycle { //	Meet garbage.
+					wcursor = 0
+					break
+				} else if cycle > lastCycle {
+					return xerrors.WithMessage(orpc.ErrExtentBroken,
+						fmt.Sprintf("cycle getting bigger in the middle of segment, exp: %d, got: %d", lastCycle, cycle))
+				}
 			}
+
 			_, _, grains, digest, otype, _ := uid.ParseOID(oid)
 			err = e.dmu.Insert(digest, uint32(otype), grains, uint32(offset/dmu.AlignSize))
 			if errors.Is(err, orpc.ErrObjDigestExisted) { // Has synced in DMU.
