@@ -121,12 +121,17 @@ func deepGCDMUTbl(tbl []uint64, used []uint32, seen *bloom.BloomFilter, segSize 
 		digest := dmu.BackToDigest(tag, uint32(len(tbl)), uint32(i), neighOff)
 		binary.LittleEndian.PutUint32(digestBuf, digest)
 		if !seen.Test(digestBuf) {
+
+			offset := int64(addr) * dmu.AlignSize
+			// objEnd is the last non-padding byte offset.
+			objEnd := offset + int64(objHeaderSize) + int64(grains)*uid.GrainSize
+			// nextAddr is the next object's address(or reach the segment end).
+			nextAddr := xbytes.AlignSize(objEnd, dmu.AlignSize)
+			paddingSize := nextAddr - objEnd
+
 			seg := addrToSeg(addr, segSize)
-			// Ignore padding here, avoiding potential overflow:
-			// e.g. last chunk's last byte is not aligned to dmu.AlignSize, but we already use the entire segment,
-			// if we plus padding, may meet overflow.
-			used[seg] += uint32(int64(grains)*uid.GrainSize + objHeaderSize)
-		} else {
+
+			used[seg] += uint32(int64(grains)*uid.GrainSize + objHeaderSize + paddingSize)
 			seen.Add(digestBuf)
 		}
 	}
