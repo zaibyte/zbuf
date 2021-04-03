@@ -273,6 +273,8 @@ func TestObjWriteCheckAt(t *testing.T) {
 	testObjWriteReadCheckAt(t, true)
 }
 
+// This testing ignore the bounds of segments(chunk may cross two segments),
+// it's okay for just testing write & read at.
 func testObjWriteReadCheckAt(t *testing.T, isCheck bool) {
 	cfg := GetDefaultConfig()
 	cfg.SegmentSize = 32 * 1024
@@ -287,7 +289,7 @@ func testObjWriteReadCheckAt(t *testing.T, isCheck bool) {
 
 	rand.Seed(tsc.UnixNano())
 
-	maxGrains := (cfg.SegmentSize / uid.GrainSize) - 1 // It's the max object which 256KB segment could have.
+	maxGrains := (cfg.SegmentSize / uid.GrainSize) - 1 // It's the max object which 32KB segment could have.
 	buf := make([]byte, maxGrains*uid.GrainSize)
 
 	writeBuf := directio.AlignedBlock(int(maxGrains)*uid.GrainSize + 20*1024)
