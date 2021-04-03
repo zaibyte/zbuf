@@ -105,6 +105,11 @@ func (e *Extenter) deepGC() {
 
 // deepGCDMUTbl traverses a certain table in DMU, ignore the existed OID.
 func (e *Extenter) deepGCDMUTbl(tbl []uint64, used []uint32, seen *bloom.BloomFilter) {
+
+	if tbl == nil {
+		return
+	}
+
 	digestBuf := make([]byte, 4)
 	for i := range tbl {
 		en := atomic.LoadUint64(&tbl[i])
