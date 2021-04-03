@@ -417,35 +417,6 @@ func (e *Extenter) countReserved() int {
 	return cnt
 }
 
-func (e *Extenter) gcSegment() {
-
-	segSize := uint32(e.cfg.SegmentSize)
-	minReserved := e.cfg.ReservedSeg
-	for {
-		if e.gcSrcCursor >= segSize {
-			newState := segReady
-			e.rwMutex.Lock()
-			if e.countReservedSeg() <= minReserved {
-				newState = segReserved
-			}
-			e.header.nvh.SegStates[e.gcSrcSeg] = newState
-
-			e.rwMutex.Unlock()
-			break
-		}
-	}
-}
-
-func (e *Extenter) countReservedSeg() int {
-	cnt := 0
-	for _, s := range e.header.nvh.SegStates {
-		if s == segReserved {
-			cnt++
-		}
-	}
-	return cnt
-}
-
 // findGCDst finds a GC dst segment from reserved segment.
 // It must have.
 func (e *Extenter) findGCDst() int64 {
