@@ -90,8 +90,9 @@ func (e *Extenter) deepGC() {
 	_, cnt := d.GetUsage()
 	seen := bloom.New(uint(cnt*8), 5) // False positive will be around 0.02, enough good for this case.
 
-	e.deepGCDMUTbl(t0, used, seen)
-	e.deepGCDMUTbl(t1, used, seen)
+	segSize := int64(e.cfg.SegmentSize)
+	deepGCDMUTbl(t0, used, seen, segSize)
+	deepGCDMUTbl(t1, used, seen, segSize)
 
 	nvh := e.header.nvh
 	e.rwMutex.Lock()
@@ -104,7 +105,7 @@ func (e *Extenter) deepGC() {
 }
 
 // deepGCDMUTbl traverses a certain table in DMU, ignore the existed OID.
-func (e *Extenter) deepGCDMUTbl(tbl []uint64, used []uint32, seen *bloom.BloomFilter) {
+func deepGCDMUTbl(tbl []uint64, used []uint32, seen *bloom.BloomFilter, segSize int64) {
 
 	if tbl == nil {
 		return
@@ -120,7 +121,7 @@ func (e *Extenter) deepGCDMUTbl(tbl []uint64, used []uint32, seen *bloom.BloomFi
 		digest := dmu.BackToDigest(tag, uint32(len(tbl)), uint32(i), neighOff)
 		binary.LittleEndian.PutUint32(digestBuf, digest)
 		if !seen.Test(digestBuf) {
-			seg := addrToSeg(addr, int64(e.cfg.SegmentSize))
+			seg := addrToSeg(addr, segSize)
 			// Ignore padding here, avoiding potential overflow:
 			// e.g. last chunk's last byte is not aligned to dmu.AlignSize, but we already use the entire segment,
 			// if we plus padding, may meet overflow.
