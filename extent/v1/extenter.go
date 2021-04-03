@@ -375,16 +375,15 @@ func (e *Extenter) traverseWritableSeg() error {
 			continue
 		}
 
-		var lastCycle uint32 = 0
-
 		wseg := e.getWsegByHistoryIdx(i)
 		e.writableSeg = int64(wseg)
 		e.writableCursor = wcursor
 
+		segCycle := e.header.nvh.SegCycles[wseg]
+
 		xlog.Infof("begin to traverse seg: %d", wseg)
 
 		offset := segCursorToOffset(int64(wseg), wcursor, segSize)
-		begin := offset
 
 		end := segCursorToOffset(int64(wseg), segSize, segSize)
 		for offset <= end {
@@ -438,7 +437,7 @@ func (e *Extenter) traverseWritableSeg() error {
 				// If DMU doesn't have this oid we regard it's short write.
 				// See: https://g.tesamc.com/IT/zbuf/issues/169 for details.
 				if errors.Is(err, orpc.ErrChecksumMismatch) ||
-					isIllegalHeader { // Meet dirty, means may haven't been written in this cycle.
+					isIllegalHeader { // Meet dirty, means may haven't been written from the offset in this cycle.
 					if isHere {
 						return err
 					} else {
@@ -448,18 +447,14 @@ func (e *Extenter) traverseWritableSeg() error {
 				return err
 			}
 
-			if offset == begin {
-				lastCycle = cycle // First cycle should be the least one.
-			} else {
-				// Write is sequential in each segment.
-				// When reach the cycle means reach the segment end or the left space wasn't enough for the object.
-				if cycle < lastCycle { //	Meet garbage, try next segment.
-					wcursor = 0
-					break
-				} else if cycle > lastCycle {
-					return xerrors.WithMessage(orpc.ErrExtentBroken,
-						fmt.Sprintf("cycle getting bigger in the middle of segment, exp: %d, got: %d", lastCycle, cycle))
-				}
+			// Write is sequential in each segment.
+			// When reach the cycle means reach the segment end or the left space wasn't enough for the object.
+			if cycle < segCycle { //	Meet garbage, try next segment.
+				wcursor = 0
+				break
+			} else if cycle > segCycle {
+				return xerrors.WithMessage(orpc.ErrExtentBroken,
+					fmt.Sprintf("cycle getting bigger in the middle of segment, exp: %d, got: %d", segCycle, cycle))
 			}
 
 			_, _, grains, digest, otype, _ := uid.ParseOID(oid)
