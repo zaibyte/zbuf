@@ -12,8 +12,13 @@ import (
 	"runtime"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
+
+	"g.tesamc.com/IT/zaipkg/directio"
+
+	"g.tesamc.com/IT/zaipkg/config/settings"
 
 	"g.tesamc.com/IT/zaipkg/xbytes"
 
@@ -275,7 +280,10 @@ func TestExtenter_MeetFull(t *testing.T) {
 	}
 	defer vfs.GetTestFS().RemoveAll(ext.extDir)
 
-	ext.Start()
+	err = ext.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer ext.Close()
 
 	rand.Seed(tsc.UnixNano())
@@ -461,6 +469,156 @@ func TestExtenter_traverseWritableSegPartSnap(t *testing.T) {
 			t.Fatal(err2)
 		}
 		xbytes.PutAlignedBytes(objData)
+	}
+}
+
+// Load extenter by traverse writable segments but there is illegal header in chunks.
+// And the illegal is allowed because there is no actually real chunk in that offset.
+// In this testing, we will simulate extenter but not create a real segemtns file for saving disk space allocation.
+func TestExtenter_traverseWritableSegIllegalHeaderPass(t *testing.T) {
+
+	cfg := GetDefaultConfig()
+	// For creating a 24MB segments file = 3 * 8 segments, two for writing, one is reserved.
+	cfg.SegmentSize = 96 * 1024
+	ext, err := createTestExtenter(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer vfs.GetTestFS().RemoveAll(ext.extDir)
+
+	err = ext.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ext.Close()
+
+	atomic.StoreInt64(&ext.isMakingDMUSnap, 1)
+
+	ext.cfg.SegmentSize = 8 * 1024 * 1024 // Simulate we have 8MB for each segment.
+
+	rand.Seed(tsc.UnixNano())
+
+	buf := make([]byte, settings.MaxObjectSize)
+
+	oids := make([]uint64, 2)
+	for i := 0; i < 2; i++ {
+
+		grains := 1024
+		objData := buf[:grains*uid.GrainSize]
+		rand.Read(objData)
+		digest := xdigest.Sum32(objData)
+		oid := uid.MakeOID(1, 1, uint32(grains), digest, uid.NormalObj)
+		err2 := ext.PutObj(1, oid, objData, false)
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+		oids[i] = oid
+	}
+
+	// Pollute first segment, should pass the traverse.
+	o2h := directio.AlignedBlock(4096)
+	_, err = ext.segsFile.ReadAt(o2h, 4096*1024+16*1024)
+	if err != nil {
+		t.Fatal(err)
+	}
+	binary.LittleEndian.PutUint64(o2h[objHeaderMagicNumberOffset:], objHeaderMagicNumber+1)
+	_, err = ext.segsFile.WriteAt(o2h, 4096*1024+16*1024)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cfg.SegmentSize = 8 * 1024 * 1024
+	c := makeTestCreator(cfg)
+	ext2, err := c.Load(context.Background(), ext.extDir, extent.CreateParams{
+		InstanceID: 1,
+		DiskID:     1,
+		ExtID:      uid.MakeExtID(1, 0),
+		DiskInfo:   nil,
+		CloneJob:   nil,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = ext2.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ext2.Close()
+
+	for _, oid := range oids {
+		objData, err2 := ext2.GetObj(1, oid, false)
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+		xbytes.PutAlignedBytes(objData)
+	}
+}
+
+// Illegal header in the offset a chunk should be.
+func TestExtenter_traverseWritableSegIllegalHeaderFail(t *testing.T) {
+
+	cfg := GetDefaultConfig()
+	// For creating a 24MB segments file = 3 * 8 segments, two for writing, one is reserved.
+	cfg.SegmentSize = 96 * 1024
+	ext, err := createTestExtenter(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer vfs.GetTestFS().RemoveAll(ext.extDir)
+
+	err = ext.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ext.Close()
+
+	atomic.StoreInt64(&ext.isMakingDMUSnap, 1)
+
+	ext.cfg.SegmentSize = 8 * 1024 * 1024 // Simulate we have 8MB for each segment.
+
+	rand.Seed(tsc.UnixNano())
+
+	buf := make([]byte, settings.MaxObjectSize)
+
+	oids := make([]uint64, 2)
+	for i := 0; i < 2; i++ {
+
+		grains := 1024
+		objData := buf[:grains*uid.GrainSize]
+		rand.Read(objData)
+		digest := xdigest.Sum32(objData)
+		oid := uid.MakeOID(1, 1, uint32(grains), digest, uid.NormalObj)
+		err2 := ext.PutObj(1, oid, objData, false)
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+		oids[i] = oid
+	}
+
+	// Pollute first segment, should pass the traverse.
+	o2h := directio.AlignedBlock(4096)
+	_, err = ext.segsFile.ReadAt(o2h, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	binary.LittleEndian.PutUint64(o2h[objHeaderMagicNumberOffset:], objHeaderMagicNumber+1)
+	_, err = ext.segsFile.WriteAt(o2h, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cfg.SegmentSize = 8 * 1024 * 1024
+	c := makeTestCreator(cfg)
+	_, err = c.Load(context.Background(), ext.extDir, extent.CreateParams{
+		InstanceID: 1,
+		DiskID:     1,
+		ExtID:      uid.MakeExtID(1, 0),
+		DiskInfo:   nil,
+		CloneJob:   nil,
+	})
+	if !errors.Is(err, syscall.EIO) {
+		t.Fatalf("should be EIO, but got: %s", err.Error())
 	}
 }
 
