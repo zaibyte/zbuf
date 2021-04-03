@@ -80,7 +80,7 @@ func (e *Extenter) gcLoop() {
 }
 
 // deepGC recalculates the removed size of segments by traversing DMU.
-// The realy GC job will be done in tryGC.
+// The GC job will still be done in tryGC.
 func (e *Extenter) deepGC() {
 	used := make([]uint32, segmentCnt)
 	d := e.dmu
@@ -192,7 +192,7 @@ func (e *Extenter) preprocGC() error {
 // tryGC will try to GC the extent if there are segments marked need to GC.
 // We use before-after checking to ensure DMU snapshot has caught up the GC src&dst changing,
 // avoiding inconsistent issue.
-func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duration, hasCheckedSnap bool) {
+func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duration, hasCheckedSnap bool) {
 
 	ctx, cancel := context.WithCancel(e.ctx)
 	defer cancel()
@@ -223,7 +223,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 
 		// Source will be changed, checking the snapshot.
 		if !e.isSnapCatchGC() {
-			if !checkedSnap {
+			if !snapChecked {
 				return checkSnapSyncGCInterval, true
 			}
 			e.makeDMUSnapAsync(true)
@@ -321,7 +321,7 @@ func (e *Extenter) tryGC(ratio float64, checkedSnap bool) (interval time.Duratio
 			if objHeaderSize+objSize > segSize-e.gcDstCursor || e.gcDstSeg == -1 { // Dst has no enough space or haven't had any GC job.
 				// Destination will be changed, checking the snapshot.
 				if !e.isSnapCatchGC() {
-					if !checkedSnap {
+					if !snapChecked {
 						return checkSnapSyncGCInterval, true
 					}
 					e.makeDMUSnapAsync(true)
