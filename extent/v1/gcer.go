@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	"g.tesamc.com/IT/zaipkg/config/settings"
+
 	"g.tesamc.com/IT/zaipkg/xerrors"
 
 	"github.com/willf/bloom"
@@ -271,29 +273,40 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 
 			xlog.Info(fmt.Sprintf("begin GC in ext:%d, seg:%d", extID, e.gcSrcSeg))
 
-			// TODO check cursor will be set to segSize if there is no next object.
-			e.rwMutex.RLock()
 			if e.gcSrcCursor >= segSize { // Meet src end.
 				xlog.Info(fmt.Sprintf("done GC in ext:%d, seg:%d", extID, e.gcSrcSeg))
-				e.rwMutex.RUnlock()
 				break
 			}
-			e.rwMutex.RUnlock()
 
 			readOffset := segCursorToOffset(e.gcSrcSeg, int64(e.gcSrcCursor), int64(segSize))
 			oid, _, cycle, err3 := e.oHeaderReadAt(xio.ReqGCRead, readOffset, objHeaderBuf)
 			if err3 != nil {
-				if !errors.Is(err3, ErrUnwrittenSeg) {
-					if errors.Is(err3, ErrIllegalObjHeader) {
+				if errors.Is(err3, ErrIllegalObjHeader) {
+					if e.gcSrcCursor+objHeaderSize+settings.MaxObjectSize > segSize {
+						err3 = nil
+						e.rwMutex.Lock()
+						e.gcSrcCursor = segSize
+						e.rwMutex.Unlock()
+						continue
+					} else {
 						err3 = xerrors.WithMessage(syscall.EIO, err3.Error())
 					}
-					e.setState(err3)
-					return gcDeadInterval, false
 				}
+
+				// Objects are written sequentially, if meet unwritten, means reaching the end.
+				if errors.Is(err3, ErrUnwrittenSeg) {
+					err3 = nil
+					e.rwMutex.Lock()
+					e.gcSrcCursor = segSize
+					e.rwMutex.Unlock()
+					continue
+				}
+
+				e.setState(err3)
+				return gcDeadInterval, false
 			}
 			// Meet objects written in last cycle, ignore left.
-			// Objects are written sequentially, if meet unwritten, means reaching the end.
-			if cycle < srcCycle || err3 != nil {
+			if cycle < srcCycle {
 				e.rwMutex.Lock()
 				e.gcSrcCursor = segSize
 				e.rwMutex.Unlock()
