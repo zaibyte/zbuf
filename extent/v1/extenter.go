@@ -369,13 +369,13 @@ func (e *Extenter) traverseWritableSeg() error {
 
 	buf := directio.AlignedBlock(int(e.cfg.SizePerRead))
 
-	var lastCycle uint32 = 0
-
 	for i := swhi; i < hwhi; i++ {
 
 		if i == -1 {
 			continue
 		}
+
+		var lastCycle uint32 = 0
 
 		wseg := e.getWsegByHistoryIdx(i)
 		e.writableSeg = int64(wseg)
@@ -437,10 +437,8 @@ func (e *Extenter) traverseWritableSeg() error {
 				// Last writable segment meet checksum mismatch may by caused by short write.
 				// If DMU doesn't have this oid we regard it's short write.
 				// See: https://g.tesamc.com/IT/zbuf/issues/169 for details.
-				// And there is chance, the object data contains object header magic number,
-				// it'll be illegal header, but checksum mismatched.
 				if errors.Is(err, orpc.ErrChecksumMismatch) ||
-					errors.Is(err, ErrIllegalObjHeader) {
+					isIllegalHeader { // Meet dirty, means may haven't been written in this cycle.
 					if isHere {
 						return err
 					} else {
@@ -451,11 +449,11 @@ func (e *Extenter) traverseWritableSeg() error {
 			}
 
 			if offset == begin {
-				lastCycle = cycle
+				lastCycle = cycle // First cycle should be the least one.
 			} else {
-				// Write is sequential.
+				// Write is sequential in each segment.
 				// When reach the cycle means reach the segment end or the left space wasn't enough for the object.
-				if cycle < lastCycle { //	Meet garbage.
+				if cycle < lastCycle { //	Meet garbage, try next segment.
 					wcursor = 0
 					break
 				} else if cycle > lastCycle {
