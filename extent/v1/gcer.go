@@ -79,7 +79,7 @@ func (e *Extenter) gcLoop() {
 	}
 }
 
-// deepGC recalculates the removed size of segments by traversing DMU.
+// deepGC recalculates the removed size of sealed segments by traversing DMU.
 // The GC job will still be done in tryGC.
 func (e *Extenter) deepGC() {
 	used := make([]uint32, segmentCnt)
@@ -118,7 +118,10 @@ func (e *Extenter) deepGCDMUTbl(tbl []uint64, used []uint32, seen *bloom.BloomFi
 		binary.LittleEndian.PutUint32(digestBuf, digest)
 		if !seen.Test(digestBuf) {
 			seg := addrToSeg(addr, int64(e.cfg.SegmentSize))
-			used[seg] += uint32(xbytes.AlignSize(int64(grains+objHeaderSize/uid.GrainSize), dmu.AlignSize/uid.GrainSize))
+			// Ignore padding here, avoiding potential overflow:
+			// e.g. last chunk's last byte is not aligned to dmu.AlignSize, but we already use the entire segment,
+			// if we plus padding, may meet overflow.
+			used[seg] += uint32(int64(grains)*uid.GrainSize + objHeaderSize)
 		} else {
 			seen.Add(digestBuf)
 		}
