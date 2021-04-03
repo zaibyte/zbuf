@@ -176,8 +176,10 @@ func (e *Extenter) startBackgroundLoops() {
 	e.stopWg.Add(1)
 	go e.updatesLoop()
 
-	e.stopWg.Add(1)
-	go e.gcLoop()
+	if !e.cfg.DisableGC {
+		e.stopWg.Add(1)
+		go e.gcLoop()
+	}
 
 	e.stopWg.Add(1)
 	go e.tryClone()

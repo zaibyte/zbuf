@@ -83,6 +83,8 @@ type Config struct {
 	// we have high probability of making snapshot.
 	MaxDirtyCount int64 `toml:"max_dirty_count"`
 
+	// DisableGC disables GC.
+	DisableGC bool `toml:"disable_gc"`
 	// GCRatio is the ratio of garbage which if the segment's garbage is beyond it, the GC will start.
 	GCRatio float64 `toml:"gc_ratio"`
 	// GCInterval is the interval of two GC job.
