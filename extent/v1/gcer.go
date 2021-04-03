@@ -113,6 +113,9 @@ func (e *Extenter) deepGCDMUTbl(tbl []uint64, used []uint32, seen *bloom.BloomFi
 	digestBuf := make([]byte, 4)
 	for i := range tbl {
 		en := atomic.LoadUint64(&tbl[i])
+		if en == 0 {
+			continue
+		}
 		tag, neighOff, _, grains, addr := dmu.ParseEntry(en)
 		digest := dmu.BackToDigest(tag, uint32(len(tbl)), uint32(i), neighOff)
 		binary.LittleEndian.PutUint32(digestBuf, digest)
