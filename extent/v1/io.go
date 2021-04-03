@@ -250,7 +250,7 @@ func (e *Extenter) updatesLoop() {
 			e.rwMutex.Lock()
 			dirtyDel.lastMod = lastMod
 			e.header.nvh.Removed[rSeg] += uint32(xbytes.AlignSize(int64(grains)*uid.GrainSize+
-				headerSize, dmu.AlignSize) / uid.GrainSize)
+				objHeaderSize, dmu.AlignSize) / uid.GrainSize)
 			e.rwMutex.Unlock()
 			dirtyWALOffset += n
 			atomic.AddInt64(&e.dirtyUpdates, 1)
@@ -295,7 +295,8 @@ func (e *Extenter) updatesLoop() {
 					dirtyDel.dirtyOneCnt++
 					rSeg := addrToSeg(rAddr, segSize)
 					dirtyDel.lastMod = lastMod
-					e.header.nvh.Removed[rSeg] += grains + objHeaderSize
+					e.header.nvh.Removed[rSeg] += uint32(xbytes.AlignSize(int64(grains)*uid.GrainSize+
+						objHeaderSize, dmu.AlignSize) / uid.GrainSize)
 					atomic.AddInt64(&e.dirtyUpdates, 1)
 				}
 			}
