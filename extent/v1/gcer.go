@@ -399,6 +399,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 			e.rwMutex.Lock()
 			e.gcSrcCursor += uint32(xbytes.AlignSize(int64(objSize+objHeaderSize), dmu.AlignSize))
 			e.gcDstCursor += uint32(xbytes.AlignSize(totalWritten, dmu.AlignSize))
+			atomic.AddInt64(&e.dirtyUpdates, 1)
 			e.rwMutex.Unlock()
 		}
 
