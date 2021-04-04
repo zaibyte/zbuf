@@ -414,7 +414,10 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 }
 
 func (e *Extenter) isReservedEnough() bool {
-	if e.countReserved() >= e.cfg.ReservedSeg {
+	// In this period, there will be one reserved segment is GC dst now.
+	// So we must have create one more reserved segment for avoiding GC dst full in future
+	// but no reserved segment in future.
+	if e.countReserved() > e.cfg.ReservedSeg {
 		return true
 	}
 	return false
