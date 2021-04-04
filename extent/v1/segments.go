@@ -20,7 +20,6 @@ const (
 
 	segWritable // Only one segment in an extent is writable.
 	segSealed   // Sealed segment, it's a full segment. Could GC if there is too much garbage.
-	segGCDst    // It's GC dst segment now.
 )
 
 // segments file is made of sequential segments, it's the objects container.
