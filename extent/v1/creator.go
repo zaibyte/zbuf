@@ -190,7 +190,7 @@ func (c *Creator) Load(ctx context.Context, extDir string, params extent.CreateP
 // but we still need it for heartbeat or other methods.
 func createBrokenExt(extDir string) extent.Extenter {
 	return &Extenter{
-		unhealthy: true,
+		failedToCreate: true,
 		info: &extent.Info{PbExt: &metapb.Extent{
 			State:   metapb.ExtentState_Extent_Broken,
 			Version: uint32(extent.Version1),

@@ -55,8 +55,8 @@ import (
 )
 
 type Extenter struct {
-	unhealthy bool // unhealthy indicates it's a unhealthy extent, which won't start any background resource.
-	isRunning int64
+	failedToCreate bool // failedToCreate indicates it's a failed to create extent, which won't start any background resource.
+	isRunning      int64
 
 	boxID uint32
 
@@ -114,7 +114,7 @@ func (e *Extenter) GetDir() string {
 }
 
 func (e *Extenter) Start() error {
-	if e.unhealthy {
+	if e.failedToCreate {
 		return nil
 	}
 	if !atomic.CompareAndSwapInt64(&e.isRunning, 0, 1) {
@@ -137,7 +137,7 @@ func (e *Extenter) GetMeta() *metapb.Extent {
 
 func (e *Extenter) Close() {
 
-	if e.unhealthy {
+	if e.failedToCreate {
 		return // Nothing to close.
 	}
 
