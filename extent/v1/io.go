@@ -256,6 +256,7 @@ func (e *Extenter) updatesLoop() {
 			atomic.AddInt64(&e.dirtyUpdates, 1)
 			ur.done <- nil
 			continue
+
 		case modReqRmBatch:
 
 			if dirtyDel.dirtyBatchCnt+len(ur.oids) > maxDirtyDelBatch {
@@ -285,7 +286,6 @@ func (e *Extenter) updatesLoop() {
 				continue
 			}
 
-			e.rwMutex.Lock()
 			for _, oid := range ur.oids {
 				_, _, grains, digest, _, _ := uid.ParseOID(oid)
 				rHas, rAddr := e.dmu.Remove(digest)
@@ -295,12 +295,13 @@ func (e *Extenter) updatesLoop() {
 					dirtyDel.dirtyOneCnt++
 					rSeg := addrToSeg(rAddr, segSize)
 					dirtyDel.lastMod = lastMod
+					e.rwMutex.Lock()
 					e.header.nvh.Removed[rSeg] += uint32(xbytes.AlignSize(int64(grains)*uid.GrainSize+
 						objHeaderSize, dmu.AlignSize) / uid.GrainSize)
+					e.rwMutex.Unlock()
 					atomic.AddInt64(&e.dirtyUpdates, 1)
 				}
 			}
-			e.rwMutex.Unlock()
 			dirtyWALOffset += n
 			ur.done <- nil
 			continue
