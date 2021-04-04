@@ -361,9 +361,9 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 				newDst := e.findGCDst() // Must have a valid dst, see GCRatio in config for details.
 				if e.gcDstSeg != -1 {
 					e.header.nvh.SegStates[e.gcDstSeg] = segSealed
+					e.gcDstSeg = newDst
+					e.gcDstCursor = 0
 				}
-				e.gcDstSeg = newDst
-				e.gcDstCursor = 0
 				e.rwMutex.Unlock()
 				// Checking again after destination changed.
 				if !e.isSnapCatchGC() {
@@ -433,13 +433,15 @@ func (e *Extenter) countReserved() int {
 // findGCDst finds a GC dst segment from reserved segment.
 // It must have.
 func (e *Extenter) findGCDst() int64 {
+
 	for i, s := range e.header.nvh.SegStates {
 		if s == segReserved {
 			return int64(i)
 		}
 	}
-	xlog.Error(fmt.Sprintf("could not find a reserved segment for GC dst, ext_id: %d", e.info.PbExt.Id))
-	e.setState(orpc.ErrExtentBroken) // Set extent broken if there is no reserved segment.
+	err := xerrors.WithMessage(orpc.ErrExtentBroken, fmt.Sprintf("could not find a reserved segment for GC dst, ext_id: %d", e.info.PbExt.Id))
+	e.setState(err) // Set extent broken if there is no reserved segment.
+	xlog.Panic(err.Error())
 	return -1
 }
 
