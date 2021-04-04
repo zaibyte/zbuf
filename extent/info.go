@@ -60,3 +60,13 @@ func (p *Info) AddAvail(delta int64) {
 	}
 	atomic.AddUint64(&p.PbExt.Avail, uint64(delta))
 }
+
+// CouldClose returns if we could close this Extenter or not.
+func (p *Info) CouldClose() bool {
+	state := p.GetState()
+	if state == metapb.ExtentState_Extent_Broken ||
+		state == metapb.ExtentState_Extent_Ghost {
+		return true
+	}
+	return false
+}
