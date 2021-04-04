@@ -222,7 +222,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 	}
 
 	state := e.info.GetState()
-	if state == metapb.ExtentState_Extent_Clone {
+	if state == metapb.ExtentState_Extent_Clone { // It's not too late GC after clone done.
 		return e.cfg.GCScanInterval.Duration, false
 	}
 	cs := e.getGCSrcCandidates(ratio)
@@ -281,6 +281,15 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 			readOffset := segCursorToOffset(e.gcSrcSeg, int64(e.gcSrcCursor), int64(segSize))
 			oid, _, cycle, err3 := e.oHeaderReadAt(xio.ReqGCRead, readOffset, objHeaderBuf)
 			if err3 != nil {
+				// Objects are written sequentially, if meet unwritten, means reaching the end.
+				if errors.Is(err3, ErrUnwrittenSeg) {
+					err3 = nil
+					e.rwMutex.Lock()
+					e.gcSrcCursor = segSize
+					e.rwMutex.Unlock()
+					continue
+				}
+
 				if errors.Is(err3, ErrIllegalObjHeader) {
 					if e.gcSrcCursor+objHeaderSize+settings.MaxObjectSize > segSize {
 						err3 = nil
@@ -293,15 +302,6 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 					}
 				}
 
-				// Objects are written sequentially, if meet unwritten, means reaching the end.
-				if errors.Is(err3, ErrUnwrittenSeg) {
-					err3 = nil
-					e.rwMutex.Lock()
-					e.gcSrcCursor = segSize
-					e.rwMutex.Unlock()
-					continue
-				}
-
 				e.setState(err3)
 				return gcDeadInterval, false
 			}
@@ -311,6 +311,13 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 				e.gcSrcCursor = segSize
 				e.rwMutex.Unlock()
 				continue
+			}
+
+			if cycle > srcCycle {
+				err = xerrors.WithMessage(orpc.ErrExtentBroken,
+					fmt.Sprintf("cycle getting bigger in the middle of segment, exp: %d, got: %d", srcCycle, cycle))
+				e.setState(err)
+				return gcDeadInterval, false
 			}
 
 			_, _, grains, digest, _, _ := uid.ParseOID(oid)

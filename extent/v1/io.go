@@ -559,7 +559,7 @@ func (e *Extenter) objCheckReadAt(reqType uint64, digest, grains uint32, offset 
 		}
 		_, _ = d.Write(buf)
 		read += nn
-		offset += int64(nn)
+		offset += nn
 	}
 
 	actDigest := d.Sum32()
