@@ -325,27 +325,33 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 			}
 
 			_, _, _, _, nowAddr := dmu.ParseEntry(entry)
-			// It must be GC already, and the DMU is go ahead of source cursor.
+			// It must have been GC already when meets it's not equal to readOffset, and the DMU is go ahead of source cursor.
 			// See https://g.tesamc.com/IT/zbuf/issues/142 for details.
 			if int64(nowAddr)*dmu.AlignSize != readOffset {
 
+				// Must be in GC dst segment. Otherwise, bug or data broken.
 				if addrToSeg(nowAddr, int64(segSize)) != int(e.gcDstSeg) {
 					e.setState(xerrors.WithMessage(orpc.ErrExtentBroken,
 						fmt.Sprintf("gc src & dst is not matched: oid: %d has been moved to seg: %d, but seg: %d is wanted",
 							oid, addrToSeg(nowAddr, int64(segSize)), e.gcDstSeg)))
-					continue
+					return gcDeadInterval, false
 				}
 
-				e.rwMutex.Lock()
-				if offsetToSegCursor(int64(nowAddr)*dmu.AlignSize, e.gcDstSeg, int64(segSize)) >= int64(e.gcDstCursor) {
+				// Try to move cursor if needed.
+				newSegCursor := offsetToSegCursor(int64(nowAddr)*dmu.AlignSize, e.gcDstSeg, int64(segSize))
+				if newSegCursor >= int64(e.gcDstCursor) {
+					e.rwMutex.Lock()
+					// Src will just ignore this object.
 					e.gcSrcCursor += uint32(xbytes.AlignSize(int64(objSize+objHeaderSize), dmu.AlignSize))
+					// Dst will move to the next avail position
 					e.gcDstCursor = uint32(xbytes.AlignSize(int64(nowAddr)*dmu.AlignSize+int64(objSize)+objHeaderSize, dmu.AlignSize))
+					e.rwMutex.Unlock()
+					continue
 				} else {
 					e.setState(xerrors.WithMessage(orpc.ErrExtentBroken,
-						"object has been GC, but the address is behind dst cursor"))
+						"object had been GC, but the address is behind dst cursor"))
+					return gcDeadInterval, false
 				}
-				e.rwMutex.Unlock()
-				continue
 			}
 
 			if objHeaderSize+objSize > segSize-e.gcDstCursor || e.gcDstSeg == -1 { // Dst has no enough space or haven't had any GC job.
