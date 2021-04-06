@@ -97,7 +97,7 @@ type Extenter struct {
 	updateChan     chan *updateRequest
 	dirtyDeleteWAL vfs.File
 
-	dirtyUpdates    int64 // dirtyUpdates is the count of DMU changes haven't flushed to disk.
+	dirtyUpdates    int64 // dirtyUpdates is the count of DMU(snapshot) changes haven't flushed to disk.
 	isMakingDMUSnap int64 // 1 is true.
 	// lastDMUSnap is the last DMU snapshot.
 	lastDMUSnap unsafe.Pointer
