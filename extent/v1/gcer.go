@@ -324,6 +324,8 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 				continue
 			}
 
+			mov := uint32(xbytes.AlignSize(int64(objSize+objHeaderSize), dmu.AlignSize))
+
 			_, _, _, _, nowAddr := dmu.ParseEntry(entry)
 			// It must have been GC already when meets it's not equal to readOffset, and the DMU is go ahead of source cursor.
 			// See https://g.tesamc.com/IT/zbuf/issues/142 for details.
@@ -340,8 +342,6 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 				// Try to move cursor if needed.
 				newSegCursor := offsetToSegCursor(int64(nowAddr)*dmu.AlignSize, e.gcDstSeg, int64(segSize))
 				if newSegCursor >= int64(e.gcDstCursor) {
-
-					mov := uint32(xbytes.AlignSize(int64(objSize+objHeaderSize), dmu.AlignSize))
 
 					e.rwMutex.Lock()
 					// Src will just ignore this object.
@@ -387,7 +387,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 			}
 
 			writeOffset := segCursorToOffset(e.gcDstSeg, int64(e.gcDstCursor), int64(segSize))
-			totalWritten, werr := e.objWriteAt(xio.ReqGCWrite, oid, writeOffset, gcObjBuf[:objSize],
+			_, werr := e.objWriteAt(xio.ReqGCWrite, oid, writeOffset, gcObjBuf[:objSize],
 				gcWriteBuf, e.header.nvh.SegCycles[uint8(e.gcDstSeg)])
 			if werr != nil {
 				e.setState(err)
@@ -395,12 +395,12 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 			}
 
 			// If returns false, means object has been deleted during the read/write process,
-			// it's okay to move on the object will be GC later when the GC dst in present become src in future.
-			_ = e.ModifyObjAddr(oid, uint32(writeOffset))
+			// it's okay to move on, and this object will be GC later when the GC dst in present become src in future.
+			_ = e.ModifyObjAddr(oid, uint32(writeOffset/dmu.AlignSize))
 
 			e.rwMutex.Lock()
-			e.gcSrcCursor += uint32(xbytes.AlignSize(int64(objSize+objHeaderSize), dmu.AlignSize))
-			e.gcDstCursor += uint32(xbytes.AlignSize(totalWritten, dmu.AlignSize))
+			e.gcSrcCursor += mov
+			e.gcDstCursor += mov
 			e.rwMutex.Unlock()
 		}
 
