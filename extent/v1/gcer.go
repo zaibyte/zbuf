@@ -287,6 +287,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 						e.rwMutex.Lock()
 						e.gcSrcCursor = segSize
 						e.rwMutex.Unlock()
+						atomic.AddInt64(&e.dirtyUpdates, 1)
 						continue
 					} else {
 						err3 = xerrors.WithMessage(syscall.EIO, err3.Error())
@@ -299,6 +300,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 					e.rwMutex.Lock()
 					e.gcSrcCursor = segSize
 					e.rwMutex.Unlock()
+					atomic.AddInt64(&e.dirtyUpdates, 1)
 					continue
 				}
 
@@ -310,6 +312,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 				e.rwMutex.Lock()
 				e.gcSrcCursor = segSize
 				e.rwMutex.Unlock()
+				atomic.AddInt64(&e.dirtyUpdates, 1)
 				continue
 			}
 
@@ -321,6 +324,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 				e.rwMutex.Lock()
 				e.gcSrcCursor += uint32(xbytes.AlignSize(int64(objSize+objHeaderSize), dmu.AlignSize))
 				e.rwMutex.Unlock()
+				atomic.AddInt64(&e.dirtyUpdates, 1)
 				continue
 			}
 
@@ -349,6 +353,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 					// Dst will move to the next avail position after new segment cursor.
 					e.gcDstCursor = uint32(newSegCursor) + mov
 					e.rwMutex.Unlock()
+					atomic.AddInt64(&e.dirtyUpdates, 1)
 					continue
 				} else {
 					e.setState(xerrors.WithMessage(orpc.ErrExtentBroken,
@@ -402,6 +407,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 			e.gcSrcCursor += mov
 			e.gcDstCursor += mov
 			e.rwMutex.Unlock()
+			atomic.AddInt64(&e.dirtyUpdates, 1)
 		}
 
 		// One source is finished.
