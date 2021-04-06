@@ -296,10 +296,21 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 						e.rwMutex.Lock()
 						e.gcSrcCursor = segSize
 						e.rwMutex.Unlock()
+						atomic.AddInt64(&e.dirtyUpdates, 1)
 						continue
 					} else {
 						err3 = xerrors.WithMessage(syscall.EIO, err3.Error())
 					}
+				}
+
+				// Objects are written sequentially, if meet unwritten, means reaching the end.
+				if errors.Is(err3, ErrUnwrittenSeg) {
+					err3 = nil
+					e.rwMutex.Lock()
+					e.gcSrcCursor = segSize
+					e.rwMutex.Unlock()
+					atomic.AddInt64(&e.dirtyUpdates, 1)
+					continue
 				}
 
 				e.setState(err3)
@@ -310,6 +321,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 				e.rwMutex.Lock()
 				e.gcSrcCursor = segSize
 				e.rwMutex.Unlock()
+				atomic.AddInt64(&e.dirtyUpdates, 1)
 				continue
 			}
 
@@ -328,34 +340,45 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 				e.rwMutex.Lock()
 				e.gcSrcCursor += uint32(xbytes.AlignSize(int64(objSize+objHeaderSize), dmu.AlignSize))
 				e.rwMutex.Unlock()
+				atomic.AddInt64(&e.dirtyUpdates, 1)
 				continue
 			}
 
+			mov := uint32(xbytes.AlignSize(int64(objSize+objHeaderSize), dmu.AlignSize))
+
 			_, _, _, _, nowAddr := dmu.ParseEntry(entry)
-			// It must be GC already, and the DMU is go ahead of source cursor.
+			// It must have been GC already when meets it's not equal to readOffset, and the DMU is go ahead of source cursor.
 			// See https://g.tesamc.com/IT/zbuf/issues/142 for details.
 			if int64(nowAddr)*dmu.AlignSize != readOffset {
 
+				// Must be in GC dst segment. Otherwise, bug or data broken.
 				if addrToSeg(nowAddr, int64(segSize)) != int(e.gcDstSeg) {
 					e.setState(xerrors.WithMessage(orpc.ErrExtentBroken,
 						fmt.Sprintf("gc src & dst is not matched: oid: %d has been moved to seg: %d, but seg: %d is wanted",
 							oid, addrToSeg(nowAddr, int64(segSize)), e.gcDstSeg)))
-					continue
+					return gcDeadInterval, false
 				}
 
-				e.rwMutex.Lock()
-				if offsetToSegCursor(int64(nowAddr)*dmu.AlignSize, e.gcDstSeg, int64(segSize)) >= int64(e.gcDstCursor) {
-					e.gcSrcCursor += uint32(xbytes.AlignSize(int64(objSize+objHeaderSize), dmu.AlignSize))
-					e.gcDstCursor = uint32(xbytes.AlignSize(int64(nowAddr)*dmu.AlignSize+int64(objSize)+objHeaderSize, dmu.AlignSize))
+				// Try to move cursor if needed.
+				newSegCursor := offsetToSegCursor(int64(nowAddr)*dmu.AlignSize, e.gcDstSeg, int64(segSize))
+				if newSegCursor >= int64(e.gcDstCursor) {
+
+					e.rwMutex.Lock()
+					// Src will just ignore this object.
+					e.gcSrcCursor += mov
+					// Dst will move to the next avail position after new segment cursor.
+					e.gcDstCursor = uint32(newSegCursor) + mov
+					e.rwMutex.Unlock()
+					atomic.AddInt64(&e.dirtyUpdates, 1)
+					continue
 				} else {
 					e.setState(xerrors.WithMessage(orpc.ErrExtentBroken,
-						"object has been GC, but the address is behind dst cursor"))
+						"object had been GC, but the address is behind dst cursor"))
+					return gcDeadInterval, false
 				}
-				e.rwMutex.Unlock()
-				continue
 			}
 
-			if objHeaderSize+objSize > segSize-e.gcDstCursor || e.gcDstSeg == -1 { // Dst has no enough space or haven't had any GC job.
+			if objHeaderSize+objSize+e.gcDstCursor > segSize || e.gcDstSeg == -1 { // Dst has no enough space or haven't had any GC job.
 				// Destination will be changed, checking the snapshot.
 				if !e.isSnapCatchGC() {
 					if !snapChecked {
@@ -368,9 +391,9 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 				newDst := e.findGCDst() // Must have a valid dst, see GCRatio in config for details.
 				if e.gcDstSeg != -1 {
 					e.header.nvh.SegStates[e.gcDstSeg] = segSealed
-					e.gcDstSeg = newDst
-					e.gcDstCursor = 0
 				}
+				e.gcDstSeg = newDst
+				e.gcDstCursor = 0
 				e.rwMutex.Unlock()
 				// Checking again after destination changed.
 				if !e.isSnapCatchGC() {
@@ -385,7 +408,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 			}
 
 			writeOffset := segCursorToOffset(e.gcDstSeg, int64(e.gcDstCursor), int64(segSize))
-			totalWritten, werr := e.objWriteAt(xio.ReqGCWrite, oid, writeOffset, gcObjBuf[:objSize],
+			_, werr := e.objWriteAt(xio.ReqGCWrite, oid, writeOffset, gcObjBuf[:objSize],
 				gcWriteBuf, e.header.nvh.SegCycles[uint8(e.gcDstSeg)])
 			if werr != nil {
 				e.setState(err)
@@ -393,14 +416,14 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 			}
 
 			// If returns false, means object has been deleted during the read/write process,
-			// it's okay to move on the object will be GC later when the GC dst in present become src in future.
-			_ = e.ModifyObjAddr(oid, uint32(writeOffset))
+			// it's okay to move on, and this object will be GC later when the GC dst in present become src in future.
+			_ = e.ModifyObjAddr(oid, uint32(writeOffset/dmu.AlignSize))
 
 			e.rwMutex.Lock()
-			e.gcSrcCursor += uint32(xbytes.AlignSize(int64(objSize+objHeaderSize), dmu.AlignSize))
-			e.gcDstCursor += uint32(xbytes.AlignSize(totalWritten, dmu.AlignSize))
-			atomic.AddInt64(&e.dirtyUpdates, 1)
+			e.gcSrcCursor += mov
+			e.gcDstCursor += mov
 			e.rwMutex.Unlock()
+			atomic.AddInt64(&e.dirtyUpdates, 1)
 		}
 
 		// One source is finished.

@@ -37,16 +37,16 @@ const (
 	// way, which means even get 90% full, the performance won't be impacted in theory.
 	defaultReservedSeg = 1
 
-	// For the worst cases, 128 means 128*4MB = 512MB, is the half of segment,
+	// For the worst cases, 256 means 256*4MB = 1GB, is the whole size of segment,
 	// snapshot still has big chance to catch up the changes enough fast.
-	// But for small objects, 128 is really bad, if every 128 updates we will do a snapshot syncing:
+	// But for small objects, 256 is really bad, if every 256 updates we will do a snapshot syncing:
 	// 1. The updates will be too frequently.
 	// 2. The snapshot will be huge because the number of objects is big in a extent.
 	// I've implemented a algorithm to measure the opportunity of making snapshot.
 	//
 	// If most of objects are small, try to raise this value avoiding creating DMU snapshot too frequently.
 	// A good practise is that setting the MaxDirtyCount be the half of possible count of objects in a segment.
-	defaultMaxDirtyCount = 128
+	defaultMaxDirtyCount = 256
 
 	// Ensure free speed is faster than the speed of taking reserved segments by GC.
 	// The min value should > 0.33, for sure there won't be too much I/O wasting.
@@ -76,11 +76,15 @@ type Config struct {
 
 	// MaxDirtyCount is the maximum dirty updates in DMU(memory) which we could tolerate,
 	// if the dirty_count > MaxDirtyCount we should trigger a snapshot making event.
-	// It should < Min_Objects_Count_in_Segment / 2,
-	// e.g. the max size of object is 4MB, and segments size is 1GB,
-	// MaxDirtyCount should be < 1GB/4MB/2
+	//
+	// It's a good choice that setting avg_objects_count_in_segment,
+	// e.g. each size of an object is 4MB, and segments size is 1GB,
+	// MaxDirtyCount should be 1GB/4MB = 256
 	// It ensures that when GCer wants to get the next source,
 	// we have high probability of making snapshot.
+	//
+	// And don't worry the snapshot will be created too frequently,
+	// there is a protection mechanism. See dmu.go for details.
 	MaxDirtyCount int64 `toml:"max_dirty_count"`
 
 	// DisableGC disables GC.
