@@ -370,9 +370,9 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 				newDst := e.findGCDst() // Must have a valid dst, see GCRatio in config for details.
 				if e.gcDstSeg != -1 {
 					e.header.nvh.SegStates[e.gcDstSeg] = segSealed
-					e.gcDstSeg = newDst
-					e.gcDstCursor = 0
 				}
+				e.gcDstSeg = newDst
+				e.gcDstCursor = 0
 				e.rwMutex.Unlock()
 				// Checking again after destination changed.
 				if !e.isSnapCatchGC() {
