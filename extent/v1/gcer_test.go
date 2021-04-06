@@ -3,8 +3,16 @@ package v1
 import (
 	"math"
 	"math/rand"
+	"runtime"
 	"sort"
+	"sync"
 	"testing"
+
+	"g.tesamc.com/IT/zaipkg/xbytes"
+
+	"g.tesamc.com/IT/zaipkg/uid"
+	"g.tesamc.com/IT/zaipkg/xdigest"
+	"g.tesamc.com/IT/zbuf/vfs"
 
 	"github.com/willf/bloom"
 
@@ -14,6 +22,116 @@ import (
 
 	"github.com/templexxx/tsc"
 )
+
+func TestTryGC(t *testing.T) {
+	cfg := GetDefaultConfig()
+	cfg.SegmentSize = 256 * 1024
+	ext, err := createTestExtenter(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer vfs.GetTestFS().RemoveAll(ext.extDir)
+
+	ext.Start()
+	defer ext.Close()
+
+	rand.Seed(tsc.UnixNano())
+
+	maxGrains := (cfg.SegmentSize / uid.GrainSize) - 1 // It's the max object which 256KB segment could have.
+	buf := make([]byte, maxGrains*uid.GrainSize)
+
+	oids := make(map[uint64]bool)
+	var written uint64
+	for i := 0; ; i++ {
+
+		if written > 128*uint64(cfg.SegmentSize) { // written is not accurate.
+			break
+		}
+
+		grains := rand.Intn(int(maxGrains))
+		if grains == 0 {
+			grains = 1
+		}
+		objData := buf[:grains*uid.GrainSize]
+		rand.Read(objData)
+		oid := uid.MakeOID(1, 1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
+		err = ext.PutObj(0, oid, objData, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		oids[oid] = true
+
+		written += uint64(grains) * uid.GrainSize
+	}
+
+	putCnt := len(oids)
+	delCnt := putCnt / 2
+
+	delDone := 0
+	for oid := range oids {
+		if delDone >= delCnt {
+			break
+		}
+		err = ext.DeleteObj(1, oid)
+		if err != nil {
+			t.Fatal(err)
+		}
+		oids[oid] = false
+		delDone++
+	}
+
+	err = ext.makeDMUSnapSync(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	gcRatio := 0.2 // Small ratio for triggering GC easier.
+
+	candidates := ext.getGCSrcCandidates(gcRatio)
+
+	if len(candidates) == 0 {
+		t.Skip("no avail candidates for GC")
+	}
+
+	ext.tryGC(gcRatio, false)
+
+	readyCnt := 0
+	reservedCnt := 0
+	ext.rwMutex.RLock()
+	for _, c := range candidates {
+		state := ext.header.nvh.SegStates[c.seg]
+		switch state {
+		case segReady:
+			readyCnt++
+		case segReserved:
+			reservedCnt++
+		default:
+			t.Fatal("after GC, no updates in candidates states")
+		}
+	}
+	ext.rwMutex.RUnlock()
+
+	wg := new(sync.WaitGroup)
+	wg.Add(runtime.NumCPU())
+	for i := 0; i < runtime.NumCPU(); i++ {
+		go func() {
+			defer wg.Done()
+			for oid := range oids {
+				if !oids[oid] {
+					continue
+				}
+				getRet, err2 := ext.GetObj(1, oid, false)
+				if err2 != nil {
+					t.Fatal(err2)
+				}
+				xbytes.PutAlignedBytes(getRet)
+			}
+
+		}()
+	}
+	wg.Wait()
+
+}
 
 func TestDeepGCDMUTbl(t *testing.T) {
 
