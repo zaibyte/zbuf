@@ -357,7 +357,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 				}
 			}
 
-			if objHeaderSize+objSize > segSize-e.gcDstCursor || e.gcDstSeg == -1 { // Dst has no enough space or haven't had any GC job.
+			if objHeaderSize+objSize+e.gcDstCursor > segSize || e.gcDstSeg == -1 { // Dst has no enough space or haven't had any GC job.
 				// Destination will be changed, checking the snapshot.
 				if !e.isSnapCatchGC() {
 					if !snapChecked {
