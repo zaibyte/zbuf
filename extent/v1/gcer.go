@@ -340,11 +340,14 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 				// Try to move cursor if needed.
 				newSegCursor := offsetToSegCursor(int64(nowAddr)*dmu.AlignSize, e.gcDstSeg, int64(segSize))
 				if newSegCursor >= int64(e.gcDstCursor) {
+
+					mov := uint32(xbytes.AlignSize(int64(objSize+objHeaderSize), dmu.AlignSize))
+
 					e.rwMutex.Lock()
 					// Src will just ignore this object.
-					e.gcSrcCursor += uint32(xbytes.AlignSize(int64(objSize+objHeaderSize), dmu.AlignSize))
-					// Dst will move to the next avail position
-					e.gcDstCursor = uint32(xbytes.AlignSize(int64(nowAddr)*dmu.AlignSize+int64(objSize)+objHeaderSize, dmu.AlignSize))
+					e.gcSrcCursor += mov
+					// Dst will move to the next avail position after new segment cursor.
+					e.gcDstCursor = uint32(newSegCursor) + mov
 					e.rwMutex.Unlock()
 					continue
 				} else {
