@@ -486,15 +486,15 @@ func TestExtenter_traverseWritableSegIllegalHeaderPass(t *testing.T) {
 	}
 	defer vfs.GetTestFS().RemoveAll(ext.extDir)
 
+	atomic.StoreInt64(&ext.isMakingDMUSnap, 1)
+
+	ext.cfg.SegmentSize = 8 * 1024 * 1024 // Simulate we have 8MB for each segment.
+
 	err = ext.Start()
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer ext.Close()
-
-	atomic.StoreInt64(&ext.isMakingDMUSnap, 1)
-
-	ext.cfg.SegmentSize = 8 * 1024 * 1024 // Simulate we have 8MB for each segment.
 
 	rand.Seed(tsc.UnixNano())
 
@@ -567,15 +567,15 @@ func TestExtenter_traverseWritableSegIllegalHeaderFail(t *testing.T) {
 	}
 	defer vfs.GetTestFS().RemoveAll(ext.extDir)
 
+	atomic.StoreInt64(&ext.isMakingDMUSnap, 1)
+
+	ext.cfg.SegmentSize = 8 * 1024 * 1024 // Simulate we have 8MB for each segment.
+
 	err = ext.Start()
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer ext.Close()
-
-	atomic.StoreInt64(&ext.isMakingDMUSnap, 1)
-
-	ext.cfg.SegmentSize = 8 * 1024 * 1024 // Simulate we have 8MB for each segment.
 
 	rand.Seed(tsc.UnixNano())
 
