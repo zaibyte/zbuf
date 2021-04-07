@@ -247,16 +247,19 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 
 		e.rwMutex.Lock()
 		if e.gcSrcSeg != c.seg {
-			if e.gcSrcCursor >= segSize || e.gcSrcSeg == -1 {
+
+			if e.gcSrcSeg == -1 {
+				e.gcSrcSeg = c.seg
+			} else if e.gcSrcCursor >= segSize {
 				e.gcSrcSeg = c.seg
 				e.gcSrcCursor = 0
+				e.gcSrcDone()
 			} else {
 				err = xerrors.WithMessage(orpc.ErrExtentBroken, fmt.Sprintf("gc src: %d unfinished, but got new gc src: %d",
 					e.gcSrcSeg, c.seg))
 				return gcDeadInterval, false
 			}
 		}
-
 		srcCycle := e.header.nvh.SegCycles[uint8(e.gcSrcSeg)]
 		// We will meet e.gcSrcCursor < segSize when we get seg for cs, when we're going to finish last unfinished GC source.
 		e.rwMutex.Unlock()
@@ -264,6 +267,9 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 		// After source changed, checking the snapshot again.
 		if !e.isSnapCatchGC() {
 			return checkSnapSyncGCInterval, false // Reset checked, avoiding makeDMUSnapAsync too frequently.
+		}
+		if e.gcSrcCursor == 0 {
+			xlog.Info(fmt.Sprintf("begin GC in ext:%d, seg:%d", extID, e.gcSrcSeg))
 		}
 
 		for { // Deal with valid objects in GC source one by one until reach the end.
@@ -274,12 +280,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 			default:
 			}
 
-			if e.gcSrcCursor == 0 {
-				xlog.Info(fmt.Sprintf("begin GC in ext:%d, seg:%d", extID, e.gcSrcSeg))
-			}
-
 			if e.gcSrcCursor >= segSize { // Meet src end.
-				e.gcSrcDone()
 				break
 			}
 
@@ -436,8 +437,8 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 
 // gcSrcDone refreshes GC source segment's state after has been collected.
 func (e *Extenter) gcSrcDone() {
+
 	// One source is finished.
-	e.rwMutex.Lock()
 	e.header.nvh.Removed[e.gcSrcSeg] = 0
 	e.header.nvh.SegCycles[e.gcSrcSeg] += 1
 	srcNewState := segReserved
@@ -449,7 +450,6 @@ func (e *Extenter) gcSrcDone() {
 	if e.info.GetState() == metapb.ExtentState_Extent_Full && srcNewState == segReady {
 		e.info.SetState(metapb.ExtentState_Extent_ReadWrite, false)
 	}
-	e.rwMutex.Unlock()
 
 	xlog.Info(fmt.Sprintf("done GC in ext:%d, seg:%d", e.info.PbExt.Id, e.gcSrcSeg))
 }

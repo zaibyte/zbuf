@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -105,7 +106,9 @@ func TestTryGC(t *testing.T) {
 	ext.cfg.GCScanInterval = typeutil.Duration{99 * time.Microsecond}
 	checkSnapSyncGCInterval = 100 * time.Microsecond
 
-	testGCLoop(t, ext, done)
+	avail := atomic.LoadUint64(&ext.info.PbExt.Avail)
+
+	go testGCLoop(t, ext, done)
 
 	<-done
 
@@ -120,10 +123,18 @@ func TestTryGC(t *testing.T) {
 		case segReserved:
 			reservedCnt++
 		default:
-			t.Fatal("after GC, no updates in candidates states")
+			t.Fatal("after GC, no updates in candidates states: ", state)
 		}
 	}
 	ext.rwMutex.RUnlock()
+
+	if reservedCnt > ext.cfg.ReservedSeg+1 {
+		t.Fatal("after GC, we got too many reserved segments")
+	}
+
+	if atomic.LoadUint64(&ext.info.PbExt.Avail)-avail != uint64(readyCnt)*uint64(ext.cfg.SegmentSize) {
+		t.Fatal("after GC, we got wrong avail increasing")
+	}
 
 	wg := new(sync.WaitGroup)
 	wg.Add(runtime.NumCPU())
