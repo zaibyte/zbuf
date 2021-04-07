@@ -32,6 +32,7 @@ import (
 func TestTryGC(t *testing.T) {
 	cfg := GetDefaultConfig()
 	cfg.SegmentSize = 256 * 1024
+	cfg.DisableGC = true
 	ext, err := createTestExtenter(cfg)
 	if err != nil {
 		t.Fatal(err)
