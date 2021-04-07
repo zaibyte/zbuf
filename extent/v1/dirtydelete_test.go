@@ -3,12 +3,15 @@ package v1
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
 	"sync/atomic"
 	"testing"
+
+	"g.tesamc.com/IT/zaipkg/orpc"
 
 	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zaipkg/xdigest"
@@ -156,7 +159,7 @@ func TestDeleteWALChunkMixed(t *testing.T) {
 	assert.True(t, isEnd)
 }
 
-func TestTraverseDirtyDeleteWAL(t *testing.T) {
+func TestTraverseDirtyDeleteWALNoSnap(t *testing.T) {
 	cfg := GetDefaultConfig()
 	cfg.SegmentSize = 32 * 1024
 	c := makeTestCreator(cfg)
@@ -206,6 +209,22 @@ func TestTraverseDirtyDeleteWAL(t *testing.T) {
 		written += uint64(grains) * uid.GrainSize
 	}
 
+	putCnt := len(oids)
+	delCnt := putCnt / 2
+
+	delDone := 0
+	for oid := range oids {
+		if delDone >= delCnt {
+			break
+		}
+		err = ext.DeleteObj(1, oid)
+		if err != nil {
+			t.Fatal(err)
+		}
+		oids[oid] = false
+		delDone++
+	}
+
 	ext.Close()
 
 	ext2, err := c.Load(context.Background(), ext.extDir, extent.CreateParams{
@@ -228,12 +247,20 @@ func TestTraverseDirtyDeleteWAL(t *testing.T) {
 	for oid := range oids {
 		objData, err2 := ext2.GetObj(1, oid, false)
 		if err2 != nil {
+			if !oids[oid] {
+				if !errors.Is(err2, orpc.ErrNotFound) {
+					t.Fatal(err)
+				} else {
+					continue
+				}
+			}
 			t.Fatal(err2)
 		}
 		xbytes.PutAlignedBytes(objData)
 	}
 }
 
+// It'll take dozens us for dirtyDelete reset, seems ok.
 func BenchmarkResetDirtyDelete(b *testing.B) {
 
 	extDir, err := ioutil.TempDir(os.TempDir(), "ext.v1")

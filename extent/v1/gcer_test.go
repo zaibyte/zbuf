@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"math"
 	"math/rand"
 	"runtime"
@@ -9,6 +10,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"g.tesamc.com/IT/zaipkg/orpc"
 
 	"g.tesamc.com/IT/zaipkg/typeutil"
 
@@ -143,14 +146,19 @@ func TestTryGC(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for oid := range oids {
-				if !oids[oid] {
-					continue
-				}
-				getRet, err2 := ext.GetObj(1, oid, false)
+
+				objData, err2 := ext.GetObj(1, oid, false)
 				if err2 != nil {
+					if !oids[oid] {
+						if !errors.Is(err2, orpc.ErrNotFound) {
+							t.Fatal(err)
+						} else {
+							continue
+						}
+					}
 					t.Fatal(err2)
 				}
-				xbytes.PutAlignedBytes(getRet)
+				xbytes.PutAlignedBytes(objData)
 			}
 
 		}()
