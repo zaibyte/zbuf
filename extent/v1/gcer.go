@@ -11,27 +11,18 @@ import (
 	"time"
 
 	"g.tesamc.com/IT/zaipkg/config/settings"
-
-	"g.tesamc.com/IT/zaipkg/xerrors"
-
-	"github.com/willf/bloom"
-
-	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
-
 	"g.tesamc.com/IT/zaipkg/directio"
-	"g.tesamc.com/IT/zaipkg/xbytes"
-
-	"g.tesamc.com/IT/zbuf/xio"
-
+	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/uid"
-
+	"g.tesamc.com/IT/zaipkg/xbytes"
+	"g.tesamc.com/IT/zaipkg/xerrors"
+	"g.tesamc.com/IT/zaipkg/xlog"
+	"g.tesamc.com/IT/zaipkg/xtime"
+	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
+	"g.tesamc.com/IT/zbuf/xio"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 
-	"g.tesamc.com/IT/zaipkg/orpc"
-
-	"g.tesamc.com/IT/zaipkg/xtime"
-
-	"g.tesamc.com/IT/zaipkg/xlog"
+	"github.com/willf/bloom"
 )
 
 // gcLoop does GC in infinite loops.
@@ -159,12 +150,15 @@ func (e *Extenter) DoGC(ratio float64) {
 	}
 }
 
-const (
+var (
 	// When we want to set new GC src/dst but meet inconsistent between GC process & DMU snapshot,
 	// wait for a while and check it again.
 	// GC will update Extenter.dirtyUpdates, and if (hasCheckedSnap) == true, tryGC will call make snapshot by force.
 	// so it won't block on checking forever unless extent unhealthy.
 	checkSnapSyncGCInterval = 16 * time.Second
+)
+
+const (
 	// gcDeadInterval is the interval when Extenter meets unexpected error and we should exit GC.
 	// Using a magic number to ensure the interval is unique.
 	gcDeadInterval = time.Hour*24*30 + 1234
@@ -174,8 +168,10 @@ const (
 // Every time we want to change src/dst should check it.
 // Return false if snapshot is behind.
 func (e *Extenter) isSnapCatchGC() bool {
+	e.rwMutex.RLock()
 	lastSrc, lastDst := e.gcSrcSeg, e.gcDstSeg
 	lastSrcCursor, lastDstCursor := e.gcSrcCursor, e.gcDstCursor
+	e.rwMutex.RUnlock()
 
 	lastSnap := e.getLastDMUSnap()
 	var lastSrcInSnap, lastDstInSnap int64 = -1, -1
@@ -250,10 +246,17 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 		}
 
 		e.rwMutex.Lock()
-		e.gcSrcSeg = c.seg
-		if e.gcSrcCursor >= segSize { // If true, means last gc src finished; if not, we'll go on last gc src.
-			e.gcSrcCursor = 0
+		if e.gcSrcSeg != c.seg {
+			if e.gcSrcCursor >= segSize || e.gcSrcSeg == -1 {
+				e.gcSrcSeg = c.seg
+				e.gcSrcCursor = 0
+			} else {
+				err = xerrors.WithMessage(orpc.ErrExtentBroken, fmt.Sprintf("gc src: %d unfinished, but got new gc src: %d",
+					e.gcSrcSeg, c.seg))
+				return gcDeadInterval, false
+			}
 		}
+
 		srcCycle := e.header.nvh.SegCycles[uint8(e.gcSrcSeg)]
 		// We will meet e.gcSrcCursor < segSize when we get seg for cs, when we're going to finish last unfinished GC source.
 		e.rwMutex.Unlock()
@@ -271,10 +274,12 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 			default:
 			}
 
-			xlog.Info(fmt.Sprintf("begin GC in ext:%d, seg:%d", extID, e.gcSrcSeg))
+			if e.gcSrcCursor == 0 {
+				xlog.Info(fmt.Sprintf("begin GC in ext:%d, seg:%d", extID, e.gcSrcSeg))
+			}
 
 			if e.gcSrcCursor >= segSize { // Meet src end.
-				xlog.Info(fmt.Sprintf("done GC in ext:%d, seg:%d", extID, e.gcSrcSeg))
+				e.gcSrcDone()
 				break
 			}
 
@@ -425,23 +430,28 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 			e.rwMutex.Unlock()
 			atomic.AddInt64(&e.dirtyUpdates, 1)
 		}
-
-		// One source is finished.
-		e.rwMutex.Lock()
-		e.header.nvh.Removed[e.gcSrcSeg] = 0
-		e.header.nvh.SegCycles[e.gcSrcSeg] += 1
-		srcNewState := segReserved
-		if e.isReservedEnough() {
-			e.info.AddAvail(int64(segSize))
-			srcNewState = segReady
-		}
-		e.header.nvh.SegStates[e.gcSrcSeg] = srcNewState
-		if e.info.GetState() == metapb.ExtentState_Extent_Full && srcNewState == segReady {
-			e.info.SetState(metapb.ExtentState_Extent_ReadWrite, false)
-		}
-		e.rwMutex.Unlock()
 	}
 	return e.cfg.GCInterval.Duration, false
+}
+
+// gcSrcDone refreshes GC source segment's state after has been collected.
+func (e *Extenter) gcSrcDone() {
+	// One source is finished.
+	e.rwMutex.Lock()
+	e.header.nvh.Removed[e.gcSrcSeg] = 0
+	e.header.nvh.SegCycles[e.gcSrcSeg] += 1
+	srcNewState := segReserved
+	if e.isReservedEnough() {
+		e.info.AddAvail(int64(e.cfg.SegmentSize))
+		srcNewState = segReady
+	}
+	e.header.nvh.SegStates[e.gcSrcSeg] = srcNewState
+	if e.info.GetState() == metapb.ExtentState_Extent_Full && srcNewState == segReady {
+		e.info.SetState(metapb.ExtentState_Extent_ReadWrite, false)
+	}
+	e.rwMutex.Unlock()
+
+	xlog.Info(fmt.Sprintf("done GC in ext:%d, seg:%d", e.info.PbExt.Id, e.gcSrcSeg))
 }
 
 func (e *Extenter) isReservedEnough() bool {

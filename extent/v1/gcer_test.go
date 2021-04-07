@@ -7,6 +7,11 @@ import (
 	"sort"
 	"sync"
 	"testing"
+	"time"
+
+	"g.tesamc.com/IT/zaipkg/typeutil"
+
+	"g.tesamc.com/IT/zaipkg/xtime"
 
 	"g.tesamc.com/IT/zaipkg/xbytes"
 
@@ -85,7 +90,9 @@ func TestTryGC(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	gcRatio := 0.2 // Small ratio for triggering GC easier.
+	gcRatio := 0.51 // Small ratio for triggering GC easier.
+
+	ext.cfg.GCRatio = gcRatio
 
 	candidates := ext.getGCSrcCandidates(gcRatio)
 
@@ -93,7 +100,14 @@ func TestTryGC(t *testing.T) {
 		t.Skip("no avail candidates for GC")
 	}
 
-	ext.tryGC(gcRatio, false)
+	done := make(chan error)
+
+	ext.cfg.GCScanInterval = typeutil.Duration{99 * time.Microsecond}
+	checkSnapSyncGCInterval = 100 * time.Microsecond
+
+	testGCLoop(t, ext, done)
+
+	<-done
 
 	readyCnt := 0
 	reservedCnt := 0
@@ -131,6 +145,41 @@ func TestTryGC(t *testing.T) {
 	}
 	wg.Wait()
 
+}
+
+// testGCLoop simulates gcLoop with a notify.
+func testGCLoop(t *testing.T, e *Extenter, done chan error) {
+	ratio := e.cfg.GCRatio
+
+	interval := e.cfg.GCScanInterval.Duration
+	tryT := time.NewTimer(interval)
+	var tryChan <-chan time.Time
+
+	hasCheckedSnap := false
+	for {
+		if interval == gcDeadInterval {
+			return
+		}
+
+		if tryChan == nil {
+			tryChan = xtime.GetTimerEvent(tryT, interval)
+		}
+
+		select {
+
+		case <-tryChan:
+			interval, hasCheckedSnap = e.tryGC(ratio, hasCheckedSnap)
+
+			if interval == e.cfg.GCInterval.Duration {
+				done <- nil // GC done.
+				return
+			}
+
+			tryChan = nil
+			ratio = e.cfg.GCRatio // After force GC once, reset the ratio back.
+			continue
+		}
+	}
 }
 
 func TestDeepGCDMUTbl(t *testing.T) {
