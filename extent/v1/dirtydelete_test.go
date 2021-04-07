@@ -1,8 +1,19 @@
 package v1
 
 import (
+	"context"
 	"encoding/binary"
+	"io/ioutil"
+	"math/rand"
+	"os"
+	"path/filepath"
+	"sync/atomic"
 	"testing"
+
+	"g.tesamc.com/IT/zaipkg/xbytes"
+	"g.tesamc.com/IT/zaipkg/xdigest"
+	"g.tesamc.com/IT/zbuf/extent"
+	"g.tesamc.com/IT/zbuf/vfs"
 
 	"g.tesamc.com/IT/zaipkg/uid"
 	"github.com/stretchr/testify/assert"
@@ -143,4 +154,102 @@ func TestDeleteWALChunkMixed(t *testing.T) {
 
 	isEnd, _, _, _, _ = readDelWALChunk(buf[done:])
 	assert.True(t, isEnd)
+}
+
+func TestTraverseDirtyDeleteWAL(t *testing.T) {
+	cfg := GetDefaultConfig()
+	cfg.SegmentSize = 32 * 1024
+	c := makeTestCreator(cfg)
+
+	ext, err := createTestExtByCreator(cfg, c, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer vfs.GetTestFS().RemoveAll(ext.extDir)
+
+	err = ext.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rand.Seed(tsc.UnixNano())
+
+	// Force set making DMU snap, so there won't be any new snapshot will be written.
+	atomic.StoreInt64(&ext.isMakingDMUSnap, 1)
+
+	maxGrains := (cfg.SegmentSize / uid.GrainSize) - 1 // It's the max object which 256KB segment could have.
+	buf := make([]byte, maxGrains*uid.GrainSize)
+
+	oids := make(map[uint64]bool)
+	okCnt := 0
+	var written uint64
+	for i := 0; ; i++ {
+
+		if written > 24*uint64(cfg.SegmentSize) { // written is not accurate.
+			break
+		}
+
+		grains := rand.Intn(int(maxGrains))
+		if grains == 0 {
+			grains = 1
+		}
+		objData := buf[:grains*uid.GrainSize]
+		rand.Read(objData)
+		oid := uid.MakeOID(1, 1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
+		err = ext.PutObj(0, oid, objData, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		oids[oid] = true
+		okCnt++
+
+		written += uint64(grains) * uid.GrainSize
+	}
+
+	ext.Close()
+
+	ext2, err := c.Load(context.Background(), ext.extDir, extent.CreateParams{
+		InstanceID: 1,
+		DiskID:     1,
+		ExtID:      uid.MakeExtID(1, 0),
+		DiskInfo:   nil,
+		CloneJob:   nil,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = ext2.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ext2.Close()
+
+	for oid := range oids {
+		objData, err2 := ext2.GetObj(1, oid, false)
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+		xbytes.PutAlignedBytes(objData)
+	}
+}
+
+func BenchmarkResetDirtyDelete(b *testing.B) {
+
+	extDir, err := ioutil.TempDir(os.TempDir(), "ext.v1")
+	if err != nil {
+		b.Fatal(err)
+	}
+	fs := vfs.GetTestFS()
+	defer fs.RemoveAll(extDir)
+
+	dwf, err := fs.Create(filepath.Join(extDir, dirtyDelWalFileName))
+	if err != nil {
+		b.Fatal(err)
+	}
+	dd := newDirtyDelete(dwf)
+
+	for i := 0; i < b.N; i++ {
+		_ = dd.reset()
+	}
 }
