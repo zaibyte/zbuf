@@ -28,7 +28,7 @@ const (
 type dirtyDelete struct {
 	wal           vfs.File
 	bf            *bloom.BloomFilter
-	lastMod       int64
+	lastMod       uint64 // It's HLC timestamp.
 	dirtyOneCnt   int
 	dirtyBatchCnt int
 }
@@ -71,19 +71,19 @@ const (
 //
 // Local struct, from low bits -> high bits.
 // type, cnt, ts, digests, padding, checksum
-func makeDelWALChunk(odigest uint32, ts int64, buf []byte) int64 {
+func makeDelWALChunk(odigest uint32, ts uint64, buf []byte) int64 {
 	buf[0] = delWALChunkSingle
 	binary.LittleEndian.PutUint32(buf[1:5], 1)
-	binary.LittleEndian.PutUint64(buf[5:13], uint64(ts))
+	binary.LittleEndian.PutUint64(buf[5:13], ts)
 	binary.LittleEndian.PutUint32(buf[13:17], odigest)
 	binary.LittleEndian.PutUint32(buf[delWALChunkMinSize-4:], xdigest.Sum32(buf[:delWALChunkMinSize-4]))
 	return delWALChunkMinSize
 }
 
-func makeDelBatchWALChunk(oids []uint64, ts int64, buf []byte) int64 {
+func makeDelBatchWALChunk(oids []uint64, ts uint64, buf []byte) int64 {
 	buf[0] = delWALChunkBatch
 	binary.LittleEndian.PutUint32(buf[1:5], uint32(len(oids)))
-	binary.LittleEndian.PutUint64(buf[5:13], uint64(ts))
+	binary.LittleEndian.PutUint64(buf[5:13], ts)
 	for i, oid := range oids {
 		_, _, _, digest, _, _ := uid.ParseOID(oid)
 		binary.LittleEndian.PutUint32(buf[i*4+13:i*4+13+4], digest)
@@ -98,7 +98,7 @@ func makeDelBatchWALChunk(oids []uint64, ts int64, buf []byte) int64 {
 // isEnd(indicates reach the end or not)
 // digests(all digests in this chunk)
 // n(bytes read, chunk size too)
-func readDelWALChunk(buf []byte) (isEnd bool, ts int64, digests []uint32, n int64, err error) {
+func readDelWALChunk(buf []byte) (isEnd bool, ts uint64, digests []uint32, n int64, err error) {
 	t := buf[0]
 	switch t {
 	case delWALChunkSingle:
@@ -106,7 +106,7 @@ func readDelWALChunk(buf []byte) (isEnd bool, ts int64, digests []uint32, n int6
 			return false, 0, nil, delWALChunkMinSize,
 				xerrors.WithMessage(orpc.ErrChecksumMismatch, "failed to read dirty delete wal chunk")
 		}
-		ts = int64(binary.LittleEndian.Uint64(buf[5:13]))
+		ts = binary.LittleEndian.Uint64(buf[5:13])
 		oid := binary.LittleEndian.Uint32(buf[13:17])
 		return false, ts, []uint32{oid}, delWALChunkMinSize, nil
 	case delWALChunkBatch:
@@ -120,7 +120,7 @@ func readDelWALChunk(buf []byte) (isEnd bool, ts int64, digests []uint32, n int6
 			return false, 0, nil, int64(int(chunkSize)),
 				xerrors.WithMessage(orpc.ErrChecksumMismatch, "failed to read dirty delete wal batch chunk")
 		}
-		ts = int64(binary.LittleEndian.Uint64(buf[5:13]))
+		ts = binary.LittleEndian.Uint64(buf[5:13])
 		digests = make([]uint32, cnt)
 		for i := 0; i < int(cnt); i++ {
 			digest := binary.LittleEndian.Uint32(buf[i*4+13 : i*4+13+4])

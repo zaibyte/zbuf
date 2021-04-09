@@ -9,6 +9,8 @@ import (
 	"time"
 	"unsafe"
 
+	"g.tesamc.com/IT/zaipkg/xtime/hlc"
+
 	"g.tesamc.com/IT/zaipkg/directio"
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/uid"
@@ -29,7 +31,11 @@ type dmuSnapHeader struct {
 
 	// createTS is the snapshot starting creating timestamp.
 	// It'll be the snapshot file name too.
+	// For recording time & calculating snapshot cost.
 	createTS int64
+	// HLC timestamp for comparing with other HLC timestamp.
+	hlcTS uint64
+
 	// Total objects count, indicating DMU capacity.
 	objCnt uint32
 	// Snapshot's blocks count, indicating the I/O cost of snapshot.
@@ -241,6 +247,7 @@ func (e *Extenter) writeDMUSnap(done chan<- error, lastFn string) {
 	}()
 
 	createTS := tsc.UnixNano()
+	hlcTS := hlc.Next()
 
 	fn := makeDMUSnapFp(e.extDir, createTS)
 	f, err2 := e.fs.Create(fn)
@@ -253,6 +260,7 @@ func (e *Extenter) writeDMUSnap(done chan<- error, lastFn string) {
 	h.f = f
 	h.fn = fn
 	h.createTS = createTS
+	h.hlcTS = hlcTS
 
 	e.rwMutex.RLock()
 	h.WritableHistoryIdx = e.header.nvh.WritableHistoryNextIdx - 1
@@ -308,6 +316,7 @@ func (h *dmuSnapHeader) writeDown(iosched xio.Scheduler, buf []byte, di *xdigest
 	binary.LittleEndian.PutUint32(buf[52:56], h.GcDstCursor)
 	binary.LittleEndian.PutUint32(buf[56:60], h.CloneJobDoneCnt)
 	binary.LittleEndian.PutUint64(buf[60:68], uint64(h.createTS))
+	binary.LittleEndian.PutUint64(buf[68:76], h.hlcTS)
 
 	_, _ = di.Write(buf[:dmuSnapHeaderSize-4])
 	binary.LittleEndian.PutUint32(buf[dmuSnapHeaderSize-4:], di.Sum32())
@@ -340,6 +349,7 @@ func (h *dmuSnapHeader) load(iosched xio.Scheduler, buf []byte, di *xdigest.Dige
 	h.GcDstCursor = binary.LittleEndian.Uint32(buf[52:56])
 	h.CloneJobDoneCnt = binary.LittleEndian.Uint32(buf[56:60])
 	h.createTS = int64(binary.LittleEndian.Uint64(buf[60:68]))
+	h.hlcTS = binary.LittleEndian.Uint64(buf[68:76])
 
 	return nil
 }

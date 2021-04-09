@@ -9,6 +9,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"g.tesamc.com/IT/zaipkg/xtime/hlc"
+
 	"g.tesamc.com/IT/zbuf/xio"
 
 	"g.tesamc.com/IT/zaipkg/directio"
@@ -162,7 +164,7 @@ func (e *Extenter) updatesLoop() {
 
 			if dirtyDel.dirtyOneCnt+1 > maxDirtyDelOne {
 				lastSnap := e.getLastDMUSnap()
-				if lastSnap.createTS >= dirtyDel.lastMod {
+				if lastSnap.hlcTS >= dirtyDel.lastMod {
 					err := dirtyDel.reset()
 					if err != nil {
 						err = fmt.Errorf("ext: %d broken: failed to reset dirty_delete_wal", e.info.PbExt.Id)
@@ -184,7 +186,7 @@ func (e *Extenter) updatesLoop() {
 				ur.done <- orpc.ErrNotFound
 				continue
 			}
-			lastMod := tsc.UnixNano()
+			lastMod := hlc.Next()
 			n := makeDelWALChunk(digest, lastMod, writeBuf)
 			err := e.ioSched.DoSync(xio.ReqMetaWrite, e.dirtyDeleteWAL, dirtyWALOffset, writeBuf[:n])
 			if err != nil {
@@ -211,7 +213,7 @@ func (e *Extenter) updatesLoop() {
 
 			if dirtyDel.dirtyBatchCnt+len(ur.oids) > maxDirtyDelBatch {
 				lastSnap := e.getLastDMUSnap()
-				if lastSnap.createTS >= dirtyDel.lastMod {
+				if lastSnap.hlcTS >= dirtyDel.lastMod {
 					err := dirtyDel.reset()
 					if err != nil {
 						err = fmt.Errorf("ext: %d broken: failed to reset dirty_delete_wal", e.info.PbExt.Id)
@@ -227,7 +229,7 @@ func (e *Extenter) updatesLoop() {
 					continue
 				}
 			}
-			lastMod := tsc.UnixNano()
+			lastMod := hlc.Next()
 			n := makeDelBatchWALChunk(ur.oids, lastMod, writeBuf)
 			err := e.ioSched.DoSync(xio.ReqMetaWrite, e.dirtyDeleteWAL, dirtyWALOffset, writeBuf[:n])
 			if err != nil {

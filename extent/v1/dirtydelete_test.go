@@ -63,7 +63,7 @@ func TestDeleteWALChunk(t *testing.T) {
 	cnt := 10
 	buf := make([]byte, delWALChunkMinSize*cnt)
 	digests := uid.GenRandDigests(cnt)
-	expTS := tsc.UnixNano()
+	expTS := getTimestamp()
 	for i := 0; i < cnt; i++ {
 		makeDelWALChunk(digests[i], expTS, buf[i*delWALChunkMinSize:])
 	}
@@ -85,7 +85,7 @@ func TestDeleteBatchWALChunk(t *testing.T) {
 	cnt := maxDirtyDelBatch
 	buf := make([]byte, 128*1024) // Batch chunk won't > 128KB.
 	oids := uid.GenRandOIDs(cnt)
-	expTS := tsc.UnixNano()
+	expTS := getTimestamp()
 	expN := makeDelBatchWALChunk(oids, expTS, buf)
 
 	isEnd, ts, rdigests, n, err := readDelWALChunk(buf)
@@ -108,15 +108,15 @@ func TestDeleteWALChunkMixed(t *testing.T) {
 	batchCnt := maxDirtyDelBatch
 	buf := make([]byte, dirtyDeleteWALSize)
 	digests := uid.GenRandDigests(singleCnt0 + singleCnt1)
-	expTS0 := tsc.UnixNano()
+	expTS0 := getTimestamp()
 	for i := 0; i < singleCnt0; i++ {
 		makeDelWALChunk(digests[i], expTS0, buf[i*delWALChunkMinSize:])
 	}
 	oids := uid.GenRandOIDs(batchCnt)
-	expTSBatch := tsc.UnixNano()
+	expTSBatch := getTimestamp()
 	batchN := makeDelBatchWALChunk(oids, expTSBatch, buf[singleCnt0*delWALChunkMinSize:])
 
-	expTS1 := tsc.UnixNano()
+	expTS1 := getTimestamp()
 	start := int64(singleCnt0*delWALChunkMinSize) + batchN
 	for i := 0; i < singleCnt1; i++ {
 		makeDelWALChunk(digests[singleCnt0+i], expTS1, buf[start+int64(i)*delWALChunkMinSize:start+(int64(i+1)*delWALChunkMinSize)])

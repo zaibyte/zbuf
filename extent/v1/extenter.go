@@ -510,7 +510,7 @@ func (e *Extenter) traverseDirtyDeleteWAL() error {
 			return resetDirtyDelWALF(e.dirtyDeleteWAL)
 		}
 
-		if ts < lastSnap.createTS {
+		if ts < lastSnap.hlcTS {
 			done += n
 			continue
 		}
