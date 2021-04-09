@@ -24,14 +24,14 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/templexxx/tsc"
-
-	"g.tesamc.com/IT/zaipkg/xerrors"
-	"g.tesamc.com/IT/zbuf/server"
-
 	"g.tesamc.com/IT/zaipkg/config"
+	"g.tesamc.com/IT/zaipkg/xerrors"
 	"g.tesamc.com/IT/zaipkg/xlog"
+	"g.tesamc.com/IT/zaipkg/xtime/hlc"
+	"g.tesamc.com/IT/zaipkg/xtime/hlc/mhlc"
+	"g.tesamc.com/IT/zbuf/server"
 	scfg "g.tesamc.com/IT/zbuf/server/config"
+	"github.com/templexxx/tsc"
 )
 
 const _appName = "zbuf"
@@ -73,6 +73,9 @@ func main() {
 	}()
 
 	rand.Seed(tsc.UnixNano())
+
+	mh := mhlc.New()
+	hlc.InitGlobalHLC(mh)
 
 	if err = svr.Run(); err != nil {
 		xlog.Fatal(xerrors.WithMessage(err, "run server failed").Error())
