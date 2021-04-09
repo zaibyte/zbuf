@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"g.tesamc.com/IT/zaipkg/vfs"
 	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
 	"g.tesamc.com/IT/zaipkg/xtest"
 	"g.tesamc.com/IT/zbuf/vdisk"
-	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zbuf/xio"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 

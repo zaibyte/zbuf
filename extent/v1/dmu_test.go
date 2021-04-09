@@ -9,11 +9,11 @@ import (
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 
 	"g.tesamc.com/IT/zaipkg/directio"
+	"g.tesamc.com/IT/zaipkg/vfs"
 	"g.tesamc.com/IT/zaipkg/xdigest"
 	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
 	"g.tesamc.com/IT/zaipkg/xmath"
 	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
-	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zbuf/xio"
 	"github.com/stretchr/testify/assert"
 	"github.com/templexxx/tsc"

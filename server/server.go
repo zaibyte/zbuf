@@ -9,6 +9,7 @@ import (
 
 	"g.tesamc.com/IT/zaipkg/app"
 	"g.tesamc.com/IT/zaipkg/orpc/otcp"
+	"g.tesamc.com/IT/zaipkg/vfs"
 	"g.tesamc.com/IT/zaipkg/xlog"
 	"g.tesamc.com/IT/zaipkg/xnet/xhttp"
 	"g.tesamc.com/IT/zaipkg/xtime/systimemon"
@@ -16,7 +17,6 @@ import (
 	v1 "g.tesamc.com/IT/zbuf/extent/v1"
 	"g.tesamc.com/IT/zbuf/server/config"
 	"g.tesamc.com/IT/zbuf/vdisk"
-	"g.tesamc.com/IT/zbuf/vfs"
 
 	"github.com/templexxx/tsc"
 )

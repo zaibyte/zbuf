@@ -12,7 +12,7 @@ import (
 
 	"g.tesamc.com/IT/zbuf/vdisk"
 
-	"g.tesamc.com/IT/zbuf/vfs"
+	"g.tesamc.com/IT/zaipkg/vfs"
 	"g.tesamc.com/IT/zbuf/xio"
 	"g.tesamc.com/IT/zbuf/xio/sched"
 

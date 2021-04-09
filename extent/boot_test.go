@@ -9,8 +9,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"g.tesamc.com/IT/zaipkg/vfs"
 	"g.tesamc.com/IT/zbuf/extent"
-	"g.tesamc.com/IT/zbuf/vfs"
 )
 
 func TestCreateLoadBootSector(t *testing.T) {

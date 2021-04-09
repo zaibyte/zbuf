@@ -7,7 +7,7 @@ import (
 	"sort"
 	"testing"
 
-	"g.tesamc.com/IT/zbuf/vfs"
+	"g.tesamc.com/IT/zaipkg/vfs"
 
 	"github.com/spf13/cast"
 	"github.com/stretchr/testify/assert"

@@ -11,11 +11,11 @@ import (
 
 	zai "g.tesamc.com/IT/zai/client"
 	"g.tesamc.com/IT/zaipkg/uid"
+	"g.tesamc.com/IT/zaipkg/vfs"
 	"g.tesamc.com/IT/zaipkg/xdigest"
 	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
 	"g.tesamc.com/IT/zbuf/extent"
 	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
-	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zbuf/xio"
 
 	"github.com/stretchr/testify/assert"

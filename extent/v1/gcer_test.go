@@ -20,8 +20,8 @@ import (
 	"g.tesamc.com/IT/zaipkg/xbytes"
 
 	"g.tesamc.com/IT/zaipkg/uid"
+	"g.tesamc.com/IT/zaipkg/vfs"
 	"g.tesamc.com/IT/zaipkg/xdigest"
-	"g.tesamc.com/IT/zbuf/vfs"
 
 	"github.com/willf/bloom"
 

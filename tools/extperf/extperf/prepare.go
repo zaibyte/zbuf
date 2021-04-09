@@ -12,10 +12,10 @@ import (
 
 	zai "g.tesamc.com/IT/zai/client"
 	"g.tesamc.com/IT/zaipkg/uid"
+	"g.tesamc.com/IT/zaipkg/vfs"
 	"g.tesamc.com/IT/zaipkg/xdigest"
 	"g.tesamc.com/IT/zbuf/extent"
 	v1 "g.tesamc.com/IT/zbuf/extent/v1"
-	"g.tesamc.com/IT/zbuf/vfs"
 
 	"github.com/templexxx/tsc"
 )

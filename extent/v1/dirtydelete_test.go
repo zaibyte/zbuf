@@ -13,10 +13,10 @@ import (
 
 	"g.tesamc.com/IT/zaipkg/orpc"
 
+	"g.tesamc.com/IT/zaipkg/vfs"
 	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zaipkg/xdigest"
 	"g.tesamc.com/IT/zbuf/extent"
-	"g.tesamc.com/IT/zbuf/vfs"
 
 	"g.tesamc.com/IT/zaipkg/uid"
 	"github.com/stretchr/testify/assert"

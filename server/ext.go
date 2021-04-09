@@ -12,7 +12,7 @@ import (
 
 	"g.tesamc.com/IT/zbuf/extent"
 
-	"g.tesamc.com/IT/zbuf/vfs"
+	"g.tesamc.com/IT/zaipkg/vfs"
 
 	"github.com/spf13/cast"
 )

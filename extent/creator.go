@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"g.tesamc.com/IT/zbuf/vfs"
+	"g.tesamc.com/IT/zaipkg/vfs"
 	"github.com/spf13/cast"
 
 	"g.tesamc.com/IT/zbuf/vdisk"

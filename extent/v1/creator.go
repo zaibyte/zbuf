@@ -10,10 +10,10 @@ import (
 	"g.tesamc.com/IT/zaipkg/orpc"
 
 	zai "g.tesamc.com/IT/zai/client"
+	"g.tesamc.com/IT/zaipkg/vfs"
 	"g.tesamc.com/IT/zaipkg/xerrors"
 	"g.tesamc.com/IT/zbuf/extent"
 	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
-	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zbuf/xio"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 )

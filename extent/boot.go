@@ -11,8 +11,8 @@ import (
 	"g.tesamc.com/IT/zaipkg/xerrors"
 
 	"g.tesamc.com/IT/zaipkg/directio"
+	"g.tesamc.com/IT/zaipkg/vfs"
 	"g.tesamc.com/IT/zaipkg/xdigest"
-	"g.tesamc.com/IT/zbuf/vfs"
 	"github.com/templexxx/tsc"
 )
 

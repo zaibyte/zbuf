@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cast"
 
-	"g.tesamc.com/IT/zbuf/vfs"
+	"g.tesamc.com/IT/zaipkg/vfs"
 
 	"github.com/stretchr/testify/assert"
 )

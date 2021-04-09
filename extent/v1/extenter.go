@@ -48,9 +48,9 @@ import (
 
 	"g.tesamc.com/IT/zbuf/vdisk"
 
+	"g.tesamc.com/IT/zaipkg/vfs"
 	"g.tesamc.com/IT/zbuf/extent"
 	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
-	"g.tesamc.com/IT/zbuf/vfs"
 	"g.tesamc.com/IT/zbuf/xio"
 )
 
