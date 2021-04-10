@@ -14,11 +14,14 @@ import (
 	"github.com/willf/bloom"
 )
 
-const (
+var (
 	// 8192 for delete batch, 512 for delete one by one.
 	// The batch WAL won't beyond 128KB, the normal delete WAL won't beyond 2MB. Total WAL will be < 4MB.
-	maxDirtyDelOne     = 512
-	maxDirtyDelBatch   = 8192
+	maxDirtyDelOne   = 512
+	maxDirtyDelBatch = 8192
+)
+
+const (
 	dirtyDeleteWALSize = 4 * 1024 * 1024
 	// False positive will be around 0.02.
 	maxDirtyBloomBits  = 65536

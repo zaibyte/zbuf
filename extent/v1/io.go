@@ -243,7 +243,7 @@ func (e *Extenter) updatesLoop() {
 				if rHas {
 					binary.LittleEndian.PutUint32(digestBuf, digest)
 					dirtyDel.bf.Add(digestBuf)
-					dirtyDel.dirtyOneCnt++
+					dirtyDel.dirtyBatchCnt++
 					rSeg := addrToSeg(rAddr, segSize)
 					dirtyDel.lastMod = lastMod
 					e.rwMutex.Lock()

@@ -284,6 +284,8 @@ func TestExtenter_DeleteOneTooFast(t *testing.T) {
 	ext.Start()
 	defer ext.Close()
 
+	maxDirtyDelOne = 16
+
 	atomic.StoreInt64(&ext.isMakingDMUSnap, 1)
 
 	rand.Seed(tsc.UnixNano())
@@ -329,6 +331,8 @@ func TestExtenter_DeleteOneReachMax(t *testing.T) {
 
 	buf := make([]byte, uid.GrainSize)
 
+	maxDirtyDelOne = 16
+
 	oids := make([]uint64, maxDirtyDelOne+1)
 	for i := 0; i < maxDirtyDelOne+1; i++ {
 
@@ -357,7 +361,43 @@ func TestExtenter_DeleteOneReachMax(t *testing.T) {
 }
 
 func TestExtenter_DeleteBatchTooFast(t *testing.T) {
+	cfg := GetDefaultConfig()
+	cfg.SegmentSize = 64 * 1024
+	ext, err := createTestExtenter(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer vfs.GetTestFS().RemoveAll(ext.extDir)
 
+	ext.Start()
+	defer ext.Close()
+
+	atomic.StoreInt64(&ext.isMakingDMUSnap, 1)
+
+	rand.Seed(tsc.UnixNano())
+
+	buf := make([]byte, uid.GrainSize)
+
+	maxDirtyDelBatch = 16
+
+	oids := make([]uint64, maxDirtyDelBatch+1)
+	for i := 0; i < maxDirtyDelBatch+1; i++ {
+
+		objData := buf
+		rand.Read(objData)
+		oid := uid.MakeOID(1, 1, 1, xdigest.Sum32(objData), uid.NormalObj)
+		err = ext.PutObj(0, oid, objData, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		oids[i] = oid
+	}
+
+	err = ext.DeleteBatch(1, oids[:maxDirtyDelBatch])
+	assert.Nil(t, err)
+
+	err = ext.DeleteBatch(1, oids[maxDirtyDelBatch:])
+	assert.True(t, errors.Is(err, orpc.ErrTooManyRequests))
 }
 
 // Reach max dirty but has been synced in DMU snapshot.
