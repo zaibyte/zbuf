@@ -444,8 +444,22 @@ func TestExtenter_DeleteBatchReachMax(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestExtenter_ListSnapBehind(t *testing.T) {
+func TestExtenter_ListSnapBehindNoSnap(t *testing.T) {
+	ext := &Extenter{header: &Header{nvh: &NVHeader{}}}
 
+	histroy := make([]uint8, 0, wsegHistroyCnt)
+
+	for i := 1; i <= wsegHistroyCnt; i++ {
+		behind := ext.listSnapBehind()
+		if i == 1 {
+			assert.Nil(t, behind)
+		} else {
+			assert.Equal(t, behind, histroy)
+		}
+		histroy = append(histroy, uint8(i-1))
+		ext.header.nvh.WritableHistory = histroy
+		ext.header.nvh.WritableHistoryNextIdx = int64(i)
+	}
 }
 
 func TestExtenter_isDMUSnapBehind(t *testing.T) {
@@ -459,7 +473,6 @@ func TestExtenter_isDMUSnapBehind(t *testing.T) {
 			assert.True(t, ext.isDMUSnapBehind())
 		}
 	}
-
 }
 
 func TestExtenter_GetNextWritableSeg(t *testing.T) {
