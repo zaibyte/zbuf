@@ -314,7 +314,46 @@ func TestExtenter_DeleteOneTooFast(t *testing.T) {
 
 // Reach max dirty but has been synced in DMU snapshot.
 func TestExtenter_DeleteOneReachMax(t *testing.T) {
+	cfg := GetDefaultConfig()
+	cfg.SegmentSize = 64 * 1024
+	ext, err := createTestExtenter(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer vfs.GetTestFS().RemoveAll(ext.extDir)
 
+	ext.Start()
+	defer ext.Close()
+
+	rand.Seed(tsc.UnixNano())
+
+	buf := make([]byte, uid.GrainSize)
+
+	oids := make([]uint64, maxDirtyDelOne+1)
+	for i := 0; i < maxDirtyDelOne+1; i++ {
+
+		objData := buf
+		rand.Read(objData)
+		oid := uid.MakeOID(1, 1, 1, xdigest.Sum32(objData), uid.NormalObj)
+		err = ext.PutObj(0, oid, objData, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		oids[i] = oid
+	}
+
+	for i := 0; i < maxDirtyDelOne; i++ {
+		err = ext.DeleteObj(1, oids[i])
+		assert.Nil(t, err)
+	}
+
+	err = ext.makeDMUSnapSync(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = ext.DeleteObj(1, oids[maxDirtyDelOne])
+	assert.Nil(t, err)
 }
 
 func TestExtenter_DeleteBatchTooFast(t *testing.T) {
