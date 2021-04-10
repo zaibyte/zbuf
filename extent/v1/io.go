@@ -20,7 +20,6 @@ import (
 	"g.tesamc.com/IT/zaipkg/xdigest"
 	"g.tesamc.com/IT/zaipkg/xerrors"
 	"g.tesamc.com/IT/zaipkg/xlog"
-	"g.tesamc.com/IT/zbuf/extent"
 	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 
@@ -552,14 +551,6 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 func (e *Extenter) getWsegByHistoryIdx(idx int64) uint8 {
 	nvh := e.header.nvh
 	return nvh.WritableHistory[idx%wsegHistroyCnt]
-}
-
-// fastDiskHealthCheck checks the disk health by load boot-sector,
-// if succeed, we think the EIO is just happens inside an extent but not the whole disk.
-// And we regard EIO as sector read error, the firmware in driver will remap the bad sector
-func (e *Extenter) fastDiskHealthCheck() error {
-	_, err := extent.LoadBootSector(e.fs, e.ioSched, e.extDir)
-	return err
 }
 
 // offsetToAddr transfers offset in segments file to address in DMU.
