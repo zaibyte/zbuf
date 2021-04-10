@@ -272,6 +272,64 @@ func TestExtenter_RejectDirtyDelete(t *testing.T) {
 	assert.True(t, xerrors.Is(err, orpc.ErrObjDigestExisted))
 }
 
+func TestExtenter_DeleteOneTooFast(t *testing.T) {
+	cfg := GetDefaultConfig()
+	cfg.SegmentSize = 64 * 1024
+	ext, err := createTestExtenter(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer vfs.GetTestFS().RemoveAll(ext.extDir)
+
+	ext.Start()
+	defer ext.Close()
+
+	atomic.StoreInt64(&ext.isMakingDMUSnap, 1)
+
+	rand.Seed(tsc.UnixNano())
+
+	buf := make([]byte, uid.GrainSize)
+
+	oids := make([]uint64, maxDirtyDelOne+1)
+	for i := 0; i < maxDirtyDelOne+1; i++ {
+
+		objData := buf
+		rand.Read(objData)
+		oid := uid.MakeOID(1, 1, 1, xdigest.Sum32(objData), uid.NormalObj)
+		err = ext.PutObj(0, oid, objData, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		oids[i] = oid
+	}
+
+	for i := 0; i < maxDirtyDelOne; i++ {
+		err = ext.DeleteObj(1, oids[i])
+		assert.Nil(t, err)
+	}
+
+	err = ext.DeleteObj(1, oids[maxDirtyDelOne])
+	assert.True(t, errors.Is(err, orpc.ErrTooManyRequests))
+}
+
+// Reach max dirty but has been synced in DMU snapshot.
+func TestExtenter_DeleteOneReachMax(t *testing.T) {
+
+}
+
+func TestExtenter_DeleteBatchTooFast(t *testing.T) {
+
+}
+
+// Reach max dirty but has been synced in DMU snapshot.
+func TestExtenter_DeleteBatchReachMax(t *testing.T) {
+
+}
+
+func TestExtenter_ListSnapBehind(t *testing.T) {
+
+}
+
 func TestExtenter_isDMUSnapBehind(t *testing.T) {
 	ext := &Extenter{header: &Header{nvh: &NVHeader{}}}
 
