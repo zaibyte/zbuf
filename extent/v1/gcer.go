@@ -293,6 +293,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 					e.rwMutex.Lock()
 					e.gcSrcCursor = segSize
 					e.rwMutex.Unlock()
+					atomic.AddInt64(&e.dirtyUpdates, 1)
 					continue
 				}
 
@@ -307,16 +308,6 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 					} else {
 						err3 = xerrors.WithMessage(syscall.EIO, err3.Error())
 					}
-				}
-
-				// Objects are written sequentially, if meet unwritten, means reaching the end.
-				if errors.Is(err3, ErrUnwrittenSeg) {
-					err3 = nil
-					e.rwMutex.Lock()
-					e.gcSrcCursor = segSize
-					e.rwMutex.Unlock()
-					atomic.AddInt64(&e.dirtyUpdates, 1)
-					continue
 				}
 
 				e.setState(err3)
