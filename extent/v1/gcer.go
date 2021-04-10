@@ -251,9 +251,9 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 			if e.gcSrcSeg == -1 {
 				e.gcSrcSeg = c.seg
 			} else if e.gcSrcCursor >= segSize {
+				e.gcSrcDone()
 				e.gcSrcSeg = c.seg
 				e.gcSrcCursor = 0
-				e.gcSrcDone()
 			} else {
 				err = xerrors.WithMessage(orpc.ErrExtentBroken, fmt.Sprintf("gc src: %d unfinished, but got new gc src: %d",
 					e.gcSrcSeg, c.seg))

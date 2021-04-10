@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"encoding/binary"
 	"errors"
 	"math"
 	"math/rand"
@@ -34,7 +35,7 @@ import (
 
 func TestTryGC(t *testing.T) {
 	cfg := GetDefaultConfig()
-	cfg.SegmentSize = 256 * 1024
+	cfg.SegmentSize = 64 * 1024
 	cfg.DisableGC = true
 	ext, err := createTestExtenter(cfg)
 	if err != nil {
@@ -63,7 +64,7 @@ func TestTryGC(t *testing.T) {
 			grains = 1
 		}
 		objData := buf[:grains*uid.GrainSize]
-		rand.Read(objData)
+		binary.LittleEndian.PutUint64(objData, uint64(i))
 		oid := uid.MakeOID(1, 1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
 		err = ext.PutObj(0, oid, objData, false)
 		if err != nil {
