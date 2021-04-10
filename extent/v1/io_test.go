@@ -7,7 +7,10 @@ import (
 	"math/rand"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"testing"
+
+	"golang.org/x/xerrors"
 
 	"g.tesamc.com/IT/zbuf/xio"
 
@@ -229,6 +232,44 @@ func testObjWriteReadCheckAt(t *testing.T, isCheck bool) {
 		}()
 	}
 	wg.Wait()
+}
+
+// Try to add object which digest is as same as an object which just deleted(but not sync to DMU snapshot).
+func TestExtenter_RejectDirtyDelete(t *testing.T) {
+	cfg := GetDefaultConfig()
+	cfg.SegmentSize = 32 * 1024
+	ext, err := createTestExtenter(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer vfs.GetTestFS().RemoveAll(ext.extDir)
+
+	ext.Start()
+	defer ext.Close()
+
+	rand.Seed(tsc.UnixNano())
+
+	atomic.StoreInt64(&ext.isMakingDMUSnap, 1)
+
+	grains := 4
+	buf := make([]byte, grains*uid.GrainSize)
+	rand.Read(buf)
+
+	objData := buf[:grains*uid.GrainSize]
+	rand.Read(objData)
+	oid := uid.MakeOID(1, 1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
+	err = ext.PutObj(0, oid, objData, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = ext.DeleteObj(1, oid)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = ext.PutObj(0, oid, objData, false)
+	assert.True(t, xerrors.Is(err, orpc.ErrObjDigestExisted))
 }
 
 func TestExtenter_isDMUSnapBehind(t *testing.T) {
