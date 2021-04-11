@@ -234,7 +234,9 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 
 	extID := e.info.PbExt.Id
 
-	for _, c := range cs { // Deal with candidates one by one.
+	for i := 0; i < len(cs); i++ { // Deal with candidates one by one.
+
+		c := cs[i]
 
 		// Source will be changed, checking the snapshot.
 		if !e.isSnapCatchGC() {
@@ -246,9 +248,10 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 		}
 
 		e.rwMutex.Lock()
+
 		if e.gcSrcSeg != c.seg {
 
-			if e.gcSrcSeg == -1 {
+			if e.gcSrcSeg == -1 || e.gcSrcCursor == 0 {
 				e.gcSrcSeg = c.seg
 			} else if e.gcSrcCursor >= segSize {
 				e.gcSrcDone()
@@ -257,7 +260,15 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 			} else {
 				err = xerrors.WithMessage(orpc.ErrExtentBroken, fmt.Sprintf("gc src: %d unfinished, but got new gc src: %d",
 					e.gcSrcSeg, c.seg))
+				e.rwMutex.Unlock()
 				return gcDeadInterval, false
+			}
+		} else {
+			if e.gcSrcCursor >= segSize {
+				e.gcSrcDone()
+				e.gcSrcCursor = 0
+				e.rwMutex.Unlock()
+				continue
 			}
 		}
 		srcCycle := e.header.nvh.SegCycles[uint8(e.gcSrcSeg)]
@@ -274,14 +285,14 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 
 		for { // Deal with valid objects in GC source one by one until reach the end.
 
+			if e.gcSrcCursor >= segSize { // Meet src end.
+				break
+			}
+
 			select {
 			case <-ctx.Done():
 				return
 			default:
-			}
-
-			if e.gcSrcCursor >= segSize { // Meet src end.
-				break
 			}
 
 			readOffset := segCursorToOffset(e.gcSrcSeg, int64(e.gcSrcCursor), int64(segSize))
@@ -332,16 +343,16 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 			_, _, grains, digest, _, _ := uid.ParseOID(oid)
 			objSize := grains * uid.GrainSize
 
+			mov := uint32(xbytes.AlignSize(int64(objSize+objHeaderSize), dmu.AlignSize))
+
 			entry := e.dmu.Search(digest)
 			if entry == 0 { // Has been removed in DMU.
 				e.rwMutex.Lock()
-				e.gcSrcCursor += uint32(xbytes.AlignSize(int64(objSize+objHeaderSize), dmu.AlignSize))
+				e.gcSrcCursor += mov
 				e.rwMutex.Unlock()
 				atomic.AddInt64(&e.dirtyUpdates, 1)
 				continue
 			}
-
-			mov := uint32(xbytes.AlignSize(int64(objSize+objHeaderSize), dmu.AlignSize))
 
 			_, _, _, _, nowAddr := dmu.ParseEntry(entry)
 			// It must have been GC already when meets it's not equal to readOffset, and the DMU is go ahead of source cursor.
@@ -423,6 +434,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 			atomic.AddInt64(&e.dirtyUpdates, 1)
 		}
 	}
+
 	return e.cfg.GCInterval.Duration, false
 }
 
@@ -523,26 +535,33 @@ func (e *Extenter) getGCSrcCandidates(ratio float64) []gcCandidate {
 
 	// At the beginning, the Extenter will load last unfinished GC job from DMU snapshot.
 	if e.gcSrcSeg != -1 { // There is one unfinished GC source segment.
-		cnt++
-		cs = append(cs, gcCandidate{
-			seg: e.gcSrcSeg,
-			// Set all removed, so the unfinished segment will come first.
-			removed: uint32(e.cfg.SegmentSize / uid.GrainSize),
-			// Set sealedTS 0, none candidate could compete with it.
-			sealedTS: 0,
-		})
+		if e.header.nvh.Removed[e.gcSrcSeg] != 0 { // Unfinished.
+			cnt++
+			cs = append(cs, gcCandidate{
+				seg: e.gcSrcSeg,
+				// Set all removed, so the unfinished segment will come first.
+				removed: uint32(e.cfg.SegmentSize / uid.GrainSize),
+				// Set sealedTS 0, none candidate could compete with it.
+				sealedTS: 0,
+			})
+		}
 	}
 
 	wsegNotInSnap := e.listSnapBehind()
 
 	nvh := e.header.nvh
 	for i, s := range nvh.SegStates {
+
+		if int64(i) == e.gcSrcSeg {
+			continue
+		}
+
 		// The segment must be sealed & not in the writable history which haven't synced to the snapshot.
 		// If we GC the un-flushed segments, it'll break the logic of loading writable history segments in present.
 		//
 		// It may pause the whole GC process, but won't cause serious delay.(The cost of snapshot isn't high, should be
 		// finished fastly.)
-		if s == segSealed && !isInUint8(s, wsegNotInSnap) {
+		if s == segSealed && !isInUint8(uint8(i), wsegNotInSnap) {
 			rm := nvh.Removed[i]
 			if rm >= threshold {
 				cnt++

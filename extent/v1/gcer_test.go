@@ -12,8 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"g.tesamc.com/IT/zaipkg/orpc"
-
 	"g.tesamc.com/IT/zaipkg/typeutil"
 
 	"g.tesamc.com/IT/zaipkg/xtime"
@@ -35,7 +33,7 @@ import (
 
 func TestTryGC(t *testing.T) {
 	cfg := GetDefaultConfig()
-	cfg.SegmentSize = 64 * 1024
+	cfg.SegmentSize = 128 * 1024
 	cfg.DisableGC = true
 	ext, err := createTestExtenter(cfg)
 	if err != nil {
@@ -48,7 +46,7 @@ func TestTryGC(t *testing.T) {
 
 	rand.Seed(tsc.UnixNano())
 
-	maxGrains := (cfg.SegmentSize / uid.GrainSize) - 1 // It's the max object which 256KB segment could have.
+	maxGrains := 7 // 28KB.
 	buf := make([]byte, maxGrains*uid.GrainSize)
 
 	oids := make(map[uint64]bool)
@@ -76,19 +74,17 @@ func TestTryGC(t *testing.T) {
 	}
 
 	putCnt := len(oids)
-	delCnt := putCnt / 2
-
-	delDone := 0
+	oidsInFlat := make([]uint64, 0, putCnt)
 	for oid := range oids {
-		if delDone >= delCnt {
-			break
-		}
-		err = ext.DeleteObj(1, oid)
-		if err != nil {
-			t.Fatal(err)
-		}
-		oids[oid] = false
-		delDone++
+		oidsInFlat = append(oidsInFlat, oid)
+	}
+	delCnt := putCnt / 2
+	delOIDs := oidsInFlat[:delCnt]
+	leftOIDs := oidsInFlat[delCnt:]
+
+	err = ext.DeleteBatch(1, delOIDs)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	err = ext.makeDMUSnapSync(true)
@@ -120,7 +116,7 @@ func TestTryGC(t *testing.T) {
 	readyCnt := 0
 	reservedCnt := 0
 	ext.rwMutex.RLock()
-	for _, c := range candidates {
+	for i, c := range candidates {
 		state := ext.header.nvh.SegStates[c.seg]
 		switch state {
 		case segReady:
@@ -128,7 +124,7 @@ func TestTryGC(t *testing.T) {
 		case segReserved:
 			reservedCnt++
 		default:
-			t.Fatal("after GC, no updates in candidates states: ", state)
+			t.Fatalf("after GC, no updates in candidates[%d] states: seg: %d", i, c.seg)
 		}
 	}
 	ext.rwMutex.RUnlock()
@@ -146,17 +142,10 @@ func TestTryGC(t *testing.T) {
 	for i := 0; i < runtime.NumCPU(); i++ {
 		go func() {
 			defer wg.Done()
-			for oid := range oids {
+			for _, oid := range leftOIDs {
 
 				objData, err2 := ext.GetObj(1, oid, false)
 				if err2 != nil {
-					if !oids[oid] {
-						if !errors.Is(err2, orpc.ErrNotFound) {
-							t.Fatal(err)
-						} else {
-							continue
-						}
-					}
 					t.Fatal(err2)
 				}
 				xbytes.PutAlignedBytes(objData)
@@ -193,6 +182,11 @@ func testGCLoop(t *testing.T, e *Extenter, done chan error) {
 
 			if interval == e.cfg.GCInterval.Duration {
 				done <- nil // GC done.
+				return
+			}
+
+			if interval == gcDeadInterval {
+				done <- errors.New("meets error in GC")
 				return
 			}
 
