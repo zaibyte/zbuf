@@ -80,7 +80,7 @@ func TestTryGC(t *testing.T) {
 	}
 	delCnt := putCnt / 2
 	delOIDs := oidsInFlat[:delCnt]
-	leftOIDs := oidsInFlat[delCnt:]
+	leftOIDs := oidsInFlat[delCnt:putCnt]
 
 	err = ext.DeleteBatch(1, delOIDs)
 	if err != nil {
@@ -138,7 +138,6 @@ func TestTryGC(t *testing.T) {
 	newReadyCnt := 0
 	ext.rwMutex.RLock()
 	for _, c := range candidates {
-
 		state := ext.header.nvh.SegStates[c.seg]
 		switch state {
 		case segReady:
@@ -156,11 +155,11 @@ func TestTryGC(t *testing.T) {
 	for i := 0; i < runtime.NumCPU(); i++ {
 		go func() {
 			defer wg.Done()
-			for _, oid := range leftOIDs {
+			for i, oid := range leftOIDs {
 
 				objData, err2 := ext.GetObj(1, oid, false)
 				if err2 != nil {
-					t.Fatal(err2)
+					t.Fatalf("failed to get obj after gc: #%d, %s", i, err2.Error())
 				}
 				xbytes.PutAlignedBytes(objData)
 			}
