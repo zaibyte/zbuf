@@ -155,11 +155,16 @@ func TestTryGC(t *testing.T) {
 	for i := 0; i < runtime.NumCPU(); i++ {
 		go func() {
 			defer wg.Done()
+			cbuf := make([]byte, maxGrains*uid.GrainSize)
 			for i, oid := range leftOIDs {
 
 				objData, err2 := ext.GetObj(1, oid, false)
 				if err2 != nil {
-					t.Fatalf("failed to get obj after gc: #%d, %s", i, err2.Error())
+					en := ext.dmu.Search(uid.GetDigest(oid))
+					_, _, _, _, addr := dmu.ParseEntry(en)
+					oid2, _, _, err3 := ext.objCheckAt(int64(addr)*dmu.AlignSize, cbuf)
+					t.Logf("try to check read after read failed, oid: %d, err: %v", oid2, err3)
+					t.Fatalf("failed to get obj after gc: #%d, oid: %d, addr: %d: %s", i, oid, addr, err2.Error())
 				}
 				xbytes.PutAlignedBytes(objData)
 			}

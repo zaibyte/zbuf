@@ -238,7 +238,8 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 
 		c := cs[i]
 
-		// Source will be changed, checking the snapshot.
+		// Source may be changed, checking the snapshot.
+		// And dst may be changed caused by after dst changing checking.
 		if !e.isSnapCatchGC() {
 			if !snapChecked {
 				return checkSnapSyncGCInterval, true
@@ -396,7 +397,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 					return checkSnapSyncGCInterval, false // Reset checked, avoiding makeDMUSnapAsync too frequently.
 				}
 				e.rwMutex.Lock()
-				newDst := e.findGCDst() // Must have a valid dst, see GCRatio in config for details.
+				newDst := e.findGCDst(e.gcDstSeg) // Must have a valid dst, see GCRatio in config for details.
 				if e.gcDstSeg != -1 {
 					e.header.nvh.SegStates[e.gcDstSeg] = segSealed
 				}
@@ -481,10 +482,10 @@ func (e *Extenter) countReserved() int {
 
 // findGCDst finds a GC dst segment from reserved segment.
 // It must have.
-func (e *Extenter) findGCDst() int64 {
+func (e *Extenter) findGCDst(segNow int64) int64 {
 
 	for i, s := range e.header.nvh.SegStates {
-		if s == segReserved {
+		if s == segReserved && int64(i) != segNow {
 			return int64(i)
 		}
 	}
