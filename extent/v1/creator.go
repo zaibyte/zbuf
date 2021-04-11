@@ -171,6 +171,8 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 		params.DiskInfo.AddUsed(int64(taken))
 	}
 
+	ext.info.AddAvail(-int64(c.cfg.SegmentSize)) // At the beginning, we have one writable segment.
+
 	return ext, nil
 }
 
