@@ -104,7 +104,7 @@ func TestTryGC(t *testing.T) {
 
 	done := make(chan error)
 
-	ext.cfg.GCScanInterval = typeutil.Duration{99 * time.Microsecond}
+	ext.cfg.GCScanInterval = typeutil.Duration{Duration: 99 * time.Microsecond}
 	checkSnapSyncGCInterval = 100 * time.Microsecond
 
 	avail := atomic.LoadUint64(&ext.info.PbExt.Avail)
@@ -115,16 +115,18 @@ func TestTryGC(t *testing.T) {
 
 	readyCnt := 0
 	reservedCnt := 0
+	sealedCnt := 0
+
 	ext.rwMutex.RLock()
-	for i, c := range candidates {
-		state := ext.header.nvh.SegStates[c.seg]
+	for _, state := range ext.header.nvh.SegStates {
+
 		switch state {
 		case segReady:
 			readyCnt++
 		case segReserved:
 			reservedCnt++
-		default:
-			t.Fatalf("after GC, no updates in candidates[%d] states: seg: %d", i, c.seg)
+		case segSealed:
+			sealedCnt++
 		}
 	}
 	ext.rwMutex.RUnlock()
@@ -133,7 +135,19 @@ func TestTryGC(t *testing.T) {
 		t.Fatal("after GC, we got too many reserved segments")
 	}
 
-	if atomic.LoadUint64(&ext.info.PbExt.Avail)-avail != uint64(readyCnt)*uint64(ext.cfg.SegmentSize) {
+	newReadyCnt := 0
+	ext.rwMutex.RLock()
+	for _, c := range candidates {
+
+		state := ext.header.nvh.SegStates[c.seg]
+		switch state {
+		case segReady:
+			newReadyCnt++
+		}
+	}
+	ext.rwMutex.RUnlock()
+
+	if atomic.LoadUint64(&ext.info.PbExt.Avail)-avail != uint64(newReadyCnt)*uint64(ext.cfg.SegmentSize) {
 		t.Fatal("after GC, we got wrong avail increasing")
 	}
 

@@ -55,6 +55,8 @@ import (
 )
 
 type Extenter struct {
+	gcSrcDoneCnt int64
+
 	failedToCreate bool // failedToCreate indicates it's a failed to create extent, which won't start any background resource.
 	isRunning      int64
 

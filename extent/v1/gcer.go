@@ -454,6 +454,8 @@ func (e *Extenter) gcSrcDone() {
 		e.info.SetState(metapb.ExtentState_Extent_ReadWrite, false)
 	}
 
+	atomic.AddInt64(&e.gcSrcDoneCnt, 1)
+
 	xlog.Info(fmt.Sprintf("done GC in ext:%d, seg:%d", e.info.PbExt.Id, e.gcSrcSeg))
 }
 
@@ -533,9 +535,8 @@ func (e *Extenter) getGCSrcCandidates(ratio float64) []gcCandidate {
 	cnt := 0
 	cs := make([]gcCandidate, 0, segmentCnt)
 
-	// At the beginning, the Extenter will load last unfinished GC job from DMU snapshot.
-	if e.gcSrcSeg != -1 { // There is one unfinished GC source segment.
-		if e.header.nvh.Removed[e.gcSrcSeg] != 0 { // Unfinished.
+	if e.gcSrcSeg != -1 {
+		if e.header.nvh.Removed[e.gcSrcSeg] != 0 { // There is unfinished GC source segment.
 			cnt++
 			cs = append(cs, gcCandidate{
 				seg: e.gcSrcSeg,
@@ -552,7 +553,7 @@ func (e *Extenter) getGCSrcCandidates(ratio float64) []gcCandidate {
 	nvh := e.header.nvh
 	for i, s := range nvh.SegStates {
 
-		if int64(i) == e.gcSrcSeg {
+		if int64(i) == e.gcSrcSeg { // Bypass gc src segment which already existed, because we have handled it in last codes block.
 			continue
 		}
 
