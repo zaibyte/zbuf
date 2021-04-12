@@ -4,7 +4,9 @@
 
 Linux with X86-64 supports.
 
-**Could meet weird issues on Windows, Do NOT waste time on fixing it!**
+*You could run the test on MacOS.
+
+**May meet weird issues on Windows, Do NOT waste time on fixing it!**
 
 ## Filesystem Layout
 

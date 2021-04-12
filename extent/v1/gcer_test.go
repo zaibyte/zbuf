@@ -49,7 +49,7 @@ func TestTryGC(t *testing.T) {
 	maxGrains := 7 // 28KB.
 	buf := make([]byte, maxGrains*uid.GrainSize)
 
-	oids := make(map[uint64]bool)
+	oids := make(map[uint64]uint32) // oids is oid:address mapping.
 	var written uint64
 	for i := 0; ; i++ {
 
@@ -68,7 +68,9 @@ func TestTryGC(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		oids[oid] = true
+		en := ext.dmu.Search(uid.GetDigest(oid))
+		_, _, _, _, addr := dmu.ParseEntry(en)
+		oids[oid] = addr
 
 		written += uint64(grains) * uid.GrainSize
 	}
@@ -156,7 +158,7 @@ func TestTryGC(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			cbuf := make([]byte, maxGrains*uid.GrainSize)
-			for i, oid := range leftOIDs {
+			for j, oid := range leftOIDs {
 
 				objData, err2 := ext.GetObj(1, oid, false)
 				if err2 != nil {
@@ -164,15 +166,33 @@ func TestTryGC(t *testing.T) {
 					_, _, _, _, addr := dmu.ParseEntry(en)
 					oid2, _, _, err3 := ext.objCheckAt(int64(addr)*dmu.AlignSize, cbuf)
 					t.Logf("try to check read after read failed, oid: %d, err: %v", oid2, err3)
-					t.Fatalf("failed to get obj after gc: #%d, oid: %d, addr: %d: %s", i, oid, addr, err2.Error())
+					t.Errorf("failed to get obj after gc: #%d, oid: %d, addr: %d: %s", j, oid, addr, err2.Error())
+					return
 				}
 				xbytes.PutAlignedBytes(objData)
+
+				if isInGcCandidates(addrToSeg(oids[oid], int64(cfg.SegmentSize)), candidates) {
+					en := ext.dmu.Search(uid.GetDigest(oid))
+					_, _, _, _, addr := dmu.ParseEntry(en)
+					if addr == oids[oid] {
+						t.Errorf("after gc, oid: %d not change, addr: %d", oid, addr)
+					}
+				}
 			}
 
 		}()
 	}
 	wg.Wait()
 
+}
+
+func isInGcCandidates(seg int, cs gcCandidates) bool {
+	for _, c := range cs {
+		if seg == int(c.seg) {
+			return true
+		}
+	}
+	return false
 }
 
 // testGCLoop simulates gcLoop with a notify.
