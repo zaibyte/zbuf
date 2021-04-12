@@ -111,7 +111,9 @@ func (e *Extenter) tryClone() {
 		return
 	}
 
-	extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Doing)
+	if !extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Doing) {
+		return
+	}
 
 	oidsOID := job.OidsOid
 
