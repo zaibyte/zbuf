@@ -63,6 +63,7 @@ func (e *Extenter) InitCloneSource() {
 		if e.header.nvh.CloneJob == nil {
 			e.header.nvh.CloneJob = new(metapb.CloneJob)
 		}
+		e.header.nvh.CloneJob.IsSource = true
 		e.header.nvh.CloneJob.OidsOid = oidsOID
 		e.header.nvh.CloneJob.ObjCnt = uint64(cnt)
 		e.rwMutex.Unlock()
