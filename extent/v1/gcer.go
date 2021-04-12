@@ -254,7 +254,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 
 			if e.gcSrcSeg == -1 || e.gcSrcCursor == 0 {
 				e.gcSrcSeg = c.seg
-			} else if e.gcSrcCursor >= segSize {
+			} else if e.gcSrcCursor >= segSize { // In logic, the branch cannot be reached actually.
 				e.gcSrcDone()
 				e.gcSrcSeg = c.seg
 				e.gcSrcCursor = 0
