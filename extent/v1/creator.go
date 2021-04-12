@@ -291,6 +291,8 @@ func (e *Extenter) loadDMU() error {
 		return xerrors.WithMessage(err, "failed to load DMU snapshot")
 	}
 
+	e.traverseGC()
+
 	// After invoking, we won't miss any written objects.
 	err = e.traverseWritableSeg()
 	if err != nil {

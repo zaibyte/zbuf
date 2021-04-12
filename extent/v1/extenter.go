@@ -524,6 +524,45 @@ func (e *Extenter) traverseDirtyDeleteWAL() error {
 	return resetDirtyDelWALF(e.dirtyDeleteWAL)
 }
 
+// traverseGC will clean up all objects in DMU if their addresses
+// go ahead of GC dst cursor.
+// see: https://g.tesamc.com/IT/zbuf/issues/250 for details
+// traverseGC will be done after load DMU snapshot.
+func (e *Extenter) traverseGC() {
+
+	if e.gcDstSeg == -1 {
+		return
+	}
+
+	t0 := dmu.GetTbl(e.dmu, 0)
+	t1 := dmu.GetTbl(e.dmu, 1)
+
+	offset := segCursorToOffset(e.gcDstSeg, int64(e.gcDstCursor), int64(e.cfg.SegmentSize))
+	addr := offsetToAddr(offset)
+
+	traverGCTbl(e.dmu, t0, addr)
+	traverGCTbl(e.dmu, t1, addr)
+}
+
+func traverGCTbl(d *dmu.DMU, tbl []uint64, addr uint32) {
+
+	if tbl == nil {
+		return
+	}
+
+	for i := range tbl {
+		en := atomic.LoadUint64(&tbl[i])
+		if en == 0 {
+			continue
+		}
+		tag, neighOff, _, _, eaddr := dmu.ParseEntry(en)
+		if eaddr >= addr {
+			digest := dmu.BackToDigest(tag, uint32(len(tbl)), uint32(i), neighOff)
+			d.Remove(digest)
+		}
+	}
+}
+
 // cleanDirtyUpdates set dirtyUpdates 0 directly.
 func (e *Extenter) cleanDirtyUpdates() {
 	atomic.StoreInt64(&e.dirtyUpdates, 0)
