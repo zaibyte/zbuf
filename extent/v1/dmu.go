@@ -443,7 +443,8 @@ func calcSnapCost(n, lastCreate, now int64) float64 {
 }
 
 const (
-	waitExpCoeff = -0.000618 // waitExpCoeff controls the decay speed.
+	waitExpCoeff   = -0.000618 // waitExpCoeff controls the decay speed.
+	waitDeltaCoeff = float64(time.Millisecond)
 )
 
 // calcWaitCoeff calculates coefficient according snapshot waiting time,
@@ -452,7 +453,7 @@ const (
 //
 // coeff = e^(waitExpCoeff * waiting_time)
 func calcWaitCoeff(last, now int64) float64 {
-	delta := float64(now-last) / float64(time.Millisecond)
+	delta := float64(now-last) / waitDeltaCoeff
 	return math.Pow(math.E, waitExpCoeff*delta)
 }
 

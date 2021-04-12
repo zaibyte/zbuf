@@ -228,8 +228,11 @@ func calcCost(n, pts, now, shares int64) float64 {
 	return c0 * calcWaitCoeff(pts, now)
 }
 
-// waitExpCoeff controls the decay speed.
-const waitExpCoeff = -0.003
+const (
+	// waitExpCoeff controls the decay speed.
+	waitExpCoeff   = -0.003
+	waitDeltaCoeff = float64(time.Microsecond)
+)
 
 // calcWaitCoeff calculates coefficient according request waiting time in queue,
 // it's an exponential decay.
@@ -237,7 +240,7 @@ const waitExpCoeff = -0.003
 //
 // coeff = e^(waitExpCoeff * waiting_time)
 func calcWaitCoeff(pts, now int64) float64 {
-	delta := float64(now-pts) / float64(time.Microsecond) // Using microsecond as unit.
+	delta := float64(now-pts) / waitDeltaCoeff // Using microsecond as unit.
 	return math.Pow(math.E, waitExpCoeff*delta)
 }
 
