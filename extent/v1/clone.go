@@ -112,6 +112,7 @@ func (e *Extenter) tryClone() {
 		return
 	}
 
+	// If it's unhealthy, we could find it.
 	if !extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Doing) {
 		xlog.Warnf("ext: %d, clone_job: %d, cannot start to clone, because state cannot be changed to doing",
 			e.info.PbExt.Id, job.Id)
@@ -238,6 +239,7 @@ func (e *Extenter) tryClone() {
 						time.Sleep(retry.GetSleepDuration(j+1, int64(grains2*uid.GrainSize)))
 						continue
 					} else {
+						// If unhealthy, put will fail.
 						xlog.Error(xerrors.WithMessage(err, fmt.Sprintf("ext: %d, clone_job: %d, failed to clone: put object: %d when clone",
 							e.info.PbExt.Id, job.Id, oid)).Error())
 						extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Failed)
