@@ -358,33 +358,14 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 			_, _, _, _, nowAddr := dmu.ParseEntry(entry)
 			// It must have been GC already when meets it's not equal to readOffset, and the DMU is go ahead of source cursor.
 			// See https://g.tesamc.com/IT/zbuf/issues/142 for details.
+			// After invoking traverseGC, it must not happen.
+			//
+			// And it could be a bug or data corruption.
 			if int64(nowAddr)*dmu.AlignSize != readOffset {
 
-				// Must be in GC dst segment. Otherwise, bug or data broken.
-				if addrToSeg(nowAddr, int64(segSize)) != int(e.gcDstSeg) {
-					e.setState(xerrors.WithMessage(orpc.ErrExtentBroken,
-						fmt.Sprintf("gc src & dst is not matched: oid: %d has been moved to seg: %d, but seg: %d is wanted",
-							oid, addrToSeg(nowAddr, int64(segSize)), e.gcDstSeg)))
-					return gcDeadInterval, false
-				}
-
-				// Try to move cursor if needed.
-				newSegCursor := offsetToSegCursor(int64(nowAddr)*dmu.AlignSize, e.gcDstSeg, int64(segSize))
-				if newSegCursor >= int64(e.gcDstCursor) {
-
-					e.rwMutex.Lock()
-					// Src will just ignore this object.
-					e.gcSrcCursor += mov
-					// Dst will move to the next avail position after new segment cursor.
-					e.gcDstCursor = uint32(newSegCursor) + mov
-					e.rwMutex.Unlock()
-					atomic.AddInt64(&e.dirtyUpdates, 1)
-					continue
-				} else {
-					e.setState(xerrors.WithMessage(orpc.ErrExtentBroken,
-						"object had been GC, but the address is behind dst cursor"))
-					return gcDeadInterval, false
-				}
+				e.setState(xerrors.WithMessage(orpc.ErrExtentBroken,
+					"object had been GC, but the address is behind dst cursor"))
+				return gcDeadInterval, false
 			}
 
 			if mov+e.gcDstCursor > segSize || e.gcDstSeg == -1 { // Dst has no enough space or haven't had any GC job.
