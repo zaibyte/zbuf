@@ -112,8 +112,13 @@ func (e *Extenter) tryClone() {
 	}
 
 	if !extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Doing) {
+		xlog.Warnf("ext: %d, clone_job: %d, cannot start to clone, because state cannot be changed to doing",
+			e.info.PbExt.Id, job.Id)
 		return
 	}
+
+	xlog.Infof("ext: %d, start to clone job: %d",
+		e.info.PbExt.Id, job.Id)
 
 	oidsOID := job.OidsOid
 
@@ -138,15 +143,20 @@ func (e *Extenter) tryClone() {
 			oidsBody.Reset() // Avoiding dirty read.
 			n, err = e.zai.GetObj(oidsOID, oidsBody, int64(done), cloneOIDsBufSize, true, 3*time.Second)
 			if err != nil {
-				xlog.Warn(xerrors.WithMessage(err, fmt.Sprintf("failed to get clone job oids_oid: %d", oidsOID)).Error())
 				if errors.Is(err, orpc.ErrReplicasCollapse) {
-					extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Failed)
+					xlog.Error(xerrors.WithMessage(err, fmt.Sprintf("ext: %d, clone_job: %d, failed to clone: get clone job oids_oid: %d",
+						e.info.PbExt.Id, job.Id, oidsOID)).Error())
+					extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Collapse)
 					return
 				}
 				if orpc.CouldRetry(err) {
-					time.Sleep(retry.GetSleepDuration(i+1, cloneOIDsBufSize))
+					xlog.Warn(xerrors.WithMessage(err, fmt.Sprintf("ext: %d, clone_job: %d, failed to clone : get clone job oids_oid: %d, try again later",
+						e.info.PbExt.Id, job.Id, oidsOID)).Error())
+					time.Sleep(retry.GetSleepDuration(i+1, n))
 					continue
 				} else {
+					xlog.Warn(xerrors.WithMessage(err, fmt.Sprintf("ext: %d, clone_job: %d, failed to clone: get clone job oids_oid: %d",
+						e.info.PbExt.Id, job.Id, oidsOID)).Error())
 					extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Failed)
 					return
 				}
@@ -181,7 +191,8 @@ func (e *Extenter) tryClone() {
 				objDataBuf.Reset()
 				_, err = e.zai.GetObj(oid, objDataBuf, 0, settings.MaxObjectSize, true, 3*time.Second)
 				if err != nil {
-					xlog.Warn(xerrors.WithMessage(err, fmt.Sprintf("failed to get clone job oid: %d", oid)).Error())
+					xlog.Warn(xerrors.WithMessage(err, fmt.Sprintf("ext: %d, clone_job: %d, failed to get clone job oid: %d",
+						e.info.PbExt.Id, job.Id, oid)).Error())
 					if errors.Is(err, orpc.ErrNotFound) {
 						e.rwMutex.Lock()
 						e.header.nvh.CloneJob.DoneCnt += 1
@@ -191,14 +202,20 @@ func (e *Extenter) tryClone() {
 					}
 
 					if errors.Is(err, orpc.ErrReplicasCollapse) {
+						xlog.Error(xerrors.WithMessage(err, fmt.Sprintf("ext: %d, clone_job: %d, failed to clone: get object from remote: %d",
+							e.info.PbExt.Id, job.Id, oid)).Error())
 						extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Collapse)
 						return
 					}
 
 					if orpc.CouldRetry(err) {
+						xlog.Warn(xerrors.WithMessage(err, fmt.Sprintf("ext: %d, clone_job: %d, failed to clone: get object from remote: %d, try again later",
+							e.info.PbExt.Id, job.Id, oid)).Error())
 						time.Sleep(retry.GetSleepDuration(j+1, int64(grains2*uid.GrainSize)))
 						continue
 					} else {
+						xlog.Error(xerrors.WithMessage(err, fmt.Sprintf("ext: %d, clone_job: %d, failed to clone: get object from remote: %d",
+							e.info.PbExt.Id, job.Id, oid)).Error())
 						extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Failed)
 						return
 					}
@@ -211,21 +228,37 @@ func (e *Extenter) tryClone() {
 				continue
 			}
 
-			err = e.PutObj(0, oid, objDataBuf.Bytes(), true)
-			if err != nil {
-				xlog.Error(xerrors.WithMessage(err, fmt.Sprintf("failed to put object: %d when clone", oid)).Error())
-				extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Failed)
-				return
+			for j := 0; ; j++ {
+				err = e.PutObj(0, oid, objDataBuf.Bytes(), true)
+				if err != nil {
+					if orpc.CouldRetry(err) {
+						xlog.Warn(xerrors.WithMessage(err, fmt.Sprintf("ext: %d, clone_job: %d, failed to clone: put object: %d, try again later",
+							e.info.PbExt.Id, job.Id, oid)).Error())
+						time.Sleep(retry.GetSleepDuration(j+1, int64(grains2*uid.GrainSize)))
+						continue
+					} else {
+						xlog.Error(xerrors.WithMessage(err, fmt.Sprintf("ext: %d, clone_job: %d, failed to clone: put object: %d when clone",
+							e.info.PbExt.Id, job.Id, oid)).Error())
+						extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Failed)
+						return
+					}
+				} else {
+					break
+				}
 			}
+
 			e.rwMutex.Lock()
 			e.header.nvh.CloneJob.DoneCnt += 1
 			e.rwMutex.Unlock()
 		}
 
 		done += uint32(n)
-
+		xlog.Infof("ext: %d, have put: %d objects, clone job: %d",
+			e.info.PbExt.Id, n, job.Id)
 	}
 
 	extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Done)
 	e.info.SetState(metapb.ExtentState_Extent_ReadWrite, false)
+	xlog.Infof("ext: %d, have done clone job: %d",
+		e.info.PbExt.Id, job.Id)
 }
