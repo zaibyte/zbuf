@@ -455,8 +455,6 @@ func (e *Extenter) gcSrcDone() {
 		e.info.SetState(metapb.ExtentState_Extent_ReadWrite, false)
 	}
 
-	atomic.AddInt64(&e.gcSrcDoneCnt, 1)
-
 	xlog.Info(fmt.Sprintf("done GC in ext:%d, seg:%d", e.info.PbExt.Id, e.gcSrcSeg))
 }
 
