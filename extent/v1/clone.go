@@ -214,6 +214,7 @@ func (e *Extenter) tryClone() {
 			err = e.PutObj(0, oid, objDataBuf.Bytes(), true)
 			if err != nil {
 				xlog.Error(xerrors.WithMessage(err, fmt.Sprintf("failed to put object: %d when clone", oid)).Error())
+				extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Failed)
 				return
 			}
 			e.rwMutex.Lock()

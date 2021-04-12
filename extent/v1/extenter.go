@@ -173,6 +173,7 @@ func (e *Extenter) closeFiles() {
 }
 
 func (e *Extenter) startBackgroundLoops() {
+
 	e.stopWg.Add(1)
 	go e.updatesLoop()
 
