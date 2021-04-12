@@ -364,7 +364,8 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 			if int64(nowAddr)*dmu.AlignSize != readOffset {
 
 				e.setState(xerrors.WithMessage(orpc.ErrExtentBroken,
-					"object had been GC, but the address is behind dst cursor"))
+					fmt.Sprintf("gc meet unexpected address in dmu, oid: %d, exp: %d, but got: %d",
+						oid, readOffset/dmu.AlignSize, nowAddr)))
 				return gcDeadInterval, false
 			}
 
