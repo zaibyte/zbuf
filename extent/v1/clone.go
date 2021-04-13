@@ -19,6 +19,8 @@ import (
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 )
 
+// In ext.v1, we only have one way to clone, so the field 'version' in CloneJob is meaningless here.
+
 var (
 	// cloneOIDsBufSize is the buffer size to hold clone source OIDs,
 	// the biggest OIDs maybe 102.4MB, we don't need to get them all
