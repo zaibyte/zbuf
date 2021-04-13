@@ -24,14 +24,16 @@ import (
 	"os/signal"
 	"syscall"
 
+	"g.tesamc.com/IT/zaipkg/app"
+	"g.tesamc.com/IT/zaipkg/xtime/hlc"
+	"g.tesamc.com/IT/zaipkg/xtime/hlc/mhlc"
+
 	"g.tesamc.com/IT/zaipkg/xtime/systimemon"
 	"g.tesamc.com/IT/zbuf/metric"
 
 	"g.tesamc.com/IT/zaipkg/config"
 	"g.tesamc.com/IT/zaipkg/xerrors"
 	"g.tesamc.com/IT/zaipkg/xlog"
-	"g.tesamc.com/IT/zaipkg/xtime/hlc"
-	"g.tesamc.com/IT/zaipkg/xtime/hlc/mhlc"
 	"g.tesamc.com/IT/zbuf/server"
 	scfg "g.tesamc.com/IT/zbuf/server/config"
 	"github.com/templexxx/tsc"
@@ -77,13 +79,15 @@ func main() {
 
 	rand.Seed(tsc.UnixNano())
 
-	mh := mhlc.New()
-	hlc.InitGlobalHLC(mh)
-
 	go systimemon.StartMonitor(ctx, tsc.UnixNano, func() {
 		xlog.Error("system time jumps backward")
 		metric.TimeJumpBackCounter.Inc()
 	})
+
+	go app.TimeCalibrateLoop(ctx, cfg.App.TimeCalibrateInterval.Duration)
+
+	mh := mhlc.New()
+	hlc.InitGlobalHLC(mh)
 
 	if err = svr.Run(); err != nil {
 		xlog.Fatal(xerrors.WithMessage(err, "run server failed").Error())

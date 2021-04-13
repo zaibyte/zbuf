@@ -5,7 +5,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"g.tesamc.com/IT/zaipkg/app"
 	"g.tesamc.com/IT/zaipkg/orpc/otcp"
 	"g.tesamc.com/IT/zaipkg/vfs"
 	"g.tesamc.com/IT/zaipkg/xlog"
@@ -94,8 +93,6 @@ func (s *Server) isClosed() bool {
 
 // startBgLoops starts Server background jobs which running in loops.
 func (s *Server) startBgLoops() {
-	s.stopWg.Add(1)
-	go app.TimeCalibrateLoop(s.ctx, &s.stopWg, s.cfg.App.TimeCalibrateInterval.Duration)
 
 }
 
