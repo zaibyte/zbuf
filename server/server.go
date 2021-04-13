@@ -5,6 +5,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"g.tesamc.com/IT/zbuf/xio"
+
 	"g.tesamc.com/IT/zaipkg/orpc/otcp"
 	"g.tesamc.com/IT/zaipkg/vfs"
 	"g.tesamc.com/IT/zaipkg/xlog"
@@ -118,7 +120,13 @@ func (s *Server) Close() {
 
 	s.exts.Range(func(key, value interface{}) bool {
 		ext := value.(extent.Extenter)
-		_ = ext.Close()
+		ext.Close()
+		return true
+	})
+
+	s.scheds.Range(func(key, value interface{}) bool {
+		sch := value.(xio.Scheduler)
+		sch.Close()
 		return true
 	})
 
