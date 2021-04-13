@@ -5,20 +5,15 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"g.tesamc.com/IT/zbuf/metric"
-
 	"g.tesamc.com/IT/zaipkg/app"
 	"g.tesamc.com/IT/zaipkg/orpc/otcp"
 	"g.tesamc.com/IT/zaipkg/vfs"
 	"g.tesamc.com/IT/zaipkg/xlog"
 	"g.tesamc.com/IT/zaipkg/xnet/xhttp"
-	"g.tesamc.com/IT/zaipkg/xtime/systimemon"
 	"g.tesamc.com/IT/zbuf/extent"
 	v1 "g.tesamc.com/IT/zbuf/extent/v1"
 	"g.tesamc.com/IT/zbuf/server/config"
 	"g.tesamc.com/IT/zbuf/vdisk"
-
-	"github.com/templexxx/tsc"
 )
 
 // Server is the ZBuf server.
@@ -80,11 +75,6 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 
 // TODO should start tsc.Calibrate()
 func (s *Server) Run() error {
-
-	go systimemon.StartMonitor(s.ctx, tsc.UnixNano, func() {
-		xlog.Error("system time jumps backward")
-		metric.TimeJumpBackCounter.Inc()
-	})
 
 	err := s.objSvr.Start()
 	if err != nil {

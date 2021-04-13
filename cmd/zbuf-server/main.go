@@ -24,6 +24,9 @@ import (
 	"os/signal"
 	"syscall"
 
+	"g.tesamc.com/IT/zaipkg/xtime/systimemon"
+	"g.tesamc.com/IT/zbuf/metric"
+
 	"g.tesamc.com/IT/zaipkg/config"
 	"g.tesamc.com/IT/zaipkg/xerrors"
 	"g.tesamc.com/IT/zaipkg/xlog"
@@ -43,7 +46,7 @@ func main() {
 	var cfg scfg.Config
 	config.Load(&cfg)
 
-	_, err := cfg.Log.MakeLogger(_appName)
+	_, err := cfg.App.Log.MakeLogger(_appName)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -76,6 +79,11 @@ func main() {
 
 	mh := mhlc.New()
 	hlc.InitGlobalHLC(mh)
+
+	go systimemon.StartMonitor(ctx, tsc.UnixNano, func() {
+		xlog.Error("system time jumps backward")
+		metric.TimeJumpBackCounter.Inc()
+	})
 
 	if err = svr.Run(); err != nil {
 		xlog.Fatal(xerrors.WithMessage(err, "run server failed").Error())
