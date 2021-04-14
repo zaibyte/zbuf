@@ -68,6 +68,8 @@ const (
 	DefaultOpSrvAddr  = "0.0.0.0:8881"
 	DefaultObjSrvAddr = "0.0.0.0:8882"
 	DefaultDataRoot   = "/zai/zbuf/data"
+
+	// DefaultGOMAXPROCS is the default settings of GOMAXPROCS.
 	// Store GOMAXPROCS bigger for these reasons:
 	//
 	// 1. SSD is superb, and assume ZBuf runs on a server with multi-SSD, so there is a problem:
@@ -78,7 +80,7 @@ const (
 	DefaultGOMAXPROCS = 256
 )
 
-func (c *Config) adjust() {
+func (c *Config) Adjust() {
 
 	config.Adjust(&c.App.HTTPServerAddr, DefaultOpSrvAddr)
 	config.Adjust(&c.ObjSrvAddr, DefaultObjSrvAddr)
