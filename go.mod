@@ -1,6 +1,6 @@
 module g.tesamc.com/IT/zbuf
 
-go 1.15
+go 1.16
 
 require (
 	g.tesamc.com/IT/zai v0.0.0-20210223033300-3ff542d347f8
