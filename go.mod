@@ -17,7 +17,7 @@ require (
 	github.com/stretchr/testify v1.6.1
 	github.com/templexxx/cpu v0.0.8-0.20200904080713-862a179c181c
 	github.com/templexxx/fnc v1.0.1
-	github.com/templexxx/tsc v0.0.2-0.20201016082558-86c1143c3415
+	github.com/templexxx/tsc v0.0.3
 	github.com/willf/bitset v1.1.11 // indirect
 	github.com/willf/bloom v2.0.3+incompatible
 	golang.org/x/mod v0.4.1 // indirect

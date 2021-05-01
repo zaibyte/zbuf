@@ -84,6 +84,7 @@ func main() {
 		metric.TimeJumpBackCounter.Inc()
 	})
 
+	tsc.ResetEnabled(true)	// There is no sequence events in ZBuf server rely on clock.
 	go app.TimeCalibrateLoop(ctx, cfg.App.TimeCalibrateInterval.Duration)
 
 	mh := mhlc.New()
