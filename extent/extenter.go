@@ -3,6 +3,8 @@ package extent
 import (
 	"sync/atomic"
 
+	"g.tesamc.com/IT/zaipkg/config/settings"
+
 	"g.tesamc.com/IT/zbuf/xio"
 
 	"g.tesamc.com/IT/zproto/pkg/metapb"
@@ -42,11 +44,10 @@ type Cloner interface {
 }
 
 const (
-	Version1    uint16 = 1
-	VersionTest uint16 = 666
+	Version1    uint16 = settings.ExtV1
+	Version2    uint16 = settings.ExtV2
+	VersionTest uint16 = settings.ExtVtest
 )
-
-var AvailVersions = []uint16{Version1, VersionTest}
 
 // GCer are methods collector of GC.
 type GCer interface {

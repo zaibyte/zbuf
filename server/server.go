@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"g.tesamc.com/IT/zaipkg/config/settings"
 	"sync"
 	"sync/atomic"
 
@@ -63,7 +64,7 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 	})
 	s.addOpHandlers()
 
-	s.availExtentVersion = extent.AvailVersions
+	s.availExtentVersion = settings.ExtAvailVersion
 
 	s.listDisks()
 
