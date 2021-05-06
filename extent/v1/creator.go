@@ -7,6 +7,8 @@ import (
 	"sync"
 	"unsafe"
 
+	"g.tesamc.com/IT/zaipkg/extutil"
+
 	"g.tesamc.com/IT/zaipkg/orpc"
 
 	zai "g.tesamc.com/IT/zai/client"
@@ -128,7 +130,7 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 		rwMutex: new(sync.RWMutex),
 		fs:      fs,
 		extDir:  extDir,
-		info: &extent.Info{PbExt: &metapb.Extent{
+		info: &extutil.Info{PbExt: &metapb.Extent{
 			State:      metapb.ExtentState(h.nvh.State),
 			Id:         params.ExtID,
 			Size_:      uint64(c.cfg.SegmentSize) * uint64(segmentCnt),
@@ -194,7 +196,7 @@ func (c *Creator) Load(ctx context.Context, extDir string, params extent.CreateP
 func createBrokenExt(extDir string) extent.Extenter {
 	return &Extenter{
 		failedToCreate: true,
-		info: &extent.Info{PbExt: &metapb.Extent{
+		info: &extutil.Info{PbExt: &metapb.Extent{
 			State:   metapb.ExtentState_Extent_Broken,
 			Version: uint32(extent.Version1),
 		}},
@@ -240,7 +242,7 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 		rwMutex: new(sync.RWMutex),
 		fs:      fs,
 		extDir:  extDir,
-		info: &extent.Info{PbExt: &metapb.Extent{
+		info: &extutil.Info{PbExt: &metapb.Extent{
 			State:      metapb.ExtentState(h.nvh.State),
 			Id:         params.ExtID,
 			Size_:      uint64(c.cfg.SegmentSize) * uint64(segmentCnt),

@@ -27,6 +27,8 @@ import (
 	"time"
 	"unsafe"
 
+	"g.tesamc.com/IT/zaipkg/extutil"
+
 	"g.tesamc.com/IT/zaipkg/config/settings"
 
 	"github.com/templexxx/tsc"
@@ -50,7 +52,6 @@ import (
 
 	"g.tesamc.com/IT/zaipkg/vfs"
 	"g.tesamc.com/IT/zaipkg/xio"
-	"g.tesamc.com/IT/zbuf/extent"
 	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
 )
 
@@ -78,7 +79,7 @@ type Extenter struct {
 	header   *Header
 	fs       vfs.FS
 	extDir   string
-	info     *extent.Info
+	info     *extutil.Info
 	diskInfo *vdisk.Info
 	ioSched  xio.Scheduler
 	segsFile vfs.File
