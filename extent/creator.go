@@ -8,8 +8,8 @@ import (
 	"g.tesamc.com/IT/zaipkg/vfs"
 	"github.com/spf13/cast"
 
-	"g.tesamc.com/IT/zbuf/vdisk"
-	sdisk "g.tesamc.com/IT/zbuf/vdisk/svr"
+	"g.tesamc.com/IT/zaipkg/vdisk"
+	sdisk "g.tesamc.com/IT/zaipkg/vdisk/svr"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 )
 

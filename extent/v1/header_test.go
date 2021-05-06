@@ -9,7 +9,7 @@ import (
 	"g.tesamc.com/IT/zbuf/extent"
 
 	"g.tesamc.com/IT/zaipkg/vfs"
-	"g.tesamc.com/IT/zbuf/xio"
+	"g.tesamc.com/IT/zaipkg/xio"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 	"github.com/stretchr/testify/assert"
 	"github.com/templexxx/tsc"

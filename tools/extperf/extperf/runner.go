@@ -8,12 +8,12 @@ import (
 
 	"g.tesamc.com/IT/zaipkg/vfs"
 
-	"g.tesamc.com/IT/zbuf/vdisk"
+	"g.tesamc.com/IT/zaipkg/vdisk"
 
-	"g.tesamc.com/IT/zbuf/xio/sched"
+	"g.tesamc.com/IT/zaipkg/xio/sched"
 
+	sdisk "g.tesamc.com/IT/zaipkg/vdisk/svr"
 	"g.tesamc.com/IT/zbuf/extent"
-	sdisk "g.tesamc.com/IT/zbuf/vdisk/svr"
 
 	"github.com/elastic/go-hdrhistogram"
 	"github.com/templexxx/tsc"

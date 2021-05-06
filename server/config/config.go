@@ -19,7 +19,7 @@ package config
 import (
 	"runtime"
 
-	"g.tesamc.com/IT/zbuf/xio/sched"
+	"g.tesamc.com/IT/zaipkg/xio/sched"
 
 	"g.tesamc.com/IT/zaipkg/typeutil"
 

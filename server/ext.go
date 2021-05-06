@@ -8,7 +8,7 @@ import (
 
 	"g.tesamc.com/IT/zaipkg/xlog"
 
-	"g.tesamc.com/IT/zbuf/vdisk"
+	"g.tesamc.com/IT/zaipkg/vdisk"
 
 	"g.tesamc.com/IT/zbuf/extent"
 

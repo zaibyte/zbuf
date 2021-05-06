@@ -11,7 +11,7 @@ import (
 
 	"g.tesamc.com/IT/zaipkg/xtime/hlc"
 
-	"g.tesamc.com/IT/zbuf/xio"
+	"g.tesamc.com/IT/zaipkg/xio"
 
 	"g.tesamc.com/IT/zaipkg/directio"
 	"g.tesamc.com/IT/zaipkg/orpc"

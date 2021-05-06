@@ -46,12 +46,12 @@ import (
 	"g.tesamc.com/IT/zaipkg/uid"
 	"g.tesamc.com/IT/zaipkg/xerrors"
 
-	"g.tesamc.com/IT/zbuf/vdisk"
+	"g.tesamc.com/IT/zaipkg/vdisk"
 
 	"g.tesamc.com/IT/zaipkg/vfs"
+	"g.tesamc.com/IT/zaipkg/xio"
 	"g.tesamc.com/IT/zbuf/extent"
 	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
-	"g.tesamc.com/IT/zbuf/xio"
 )
 
 type Extenter struct {

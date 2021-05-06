@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"g.tesamc.com/IT/zbuf/xio"
+	"g.tesamc.com/IT/zaipkg/xio"
 
 	"github.com/stretchr/testify/assert"
 

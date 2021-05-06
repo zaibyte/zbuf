@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"path/filepath"
 
-	"g.tesamc.com/IT/zbuf/xio"
+	"g.tesamc.com/IT/zaipkg/xio"
 
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/xerrors"
