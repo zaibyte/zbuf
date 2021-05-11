@@ -51,10 +51,6 @@ type Config struct {
 	// GCDuration is the duration between two GCs,
 	// each disk will have a goroutine to do the GC job.
 	GCDuration typeutil.Duration `toml:"gc_duration"`
-
-	// If ExposeProcessMetrics is true, then various `go_*` and `process_*` metrics
-	// are exposed for the current process.
-	ExposeProcessMetrics bool `toml:"expose_process_metrics"`
 }
 
 // DevConfig is the configs only used in development, not service for production.
