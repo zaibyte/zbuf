@@ -27,6 +27,8 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/gogo/protobuf/proto"
+
 	"g.tesamc.com/IT/zaipkg/extutil"
 
 	"g.tesamc.com/IT/zaipkg/config/settings"
@@ -133,7 +135,11 @@ func (e *Extenter) Start() error {
 
 func (e *Extenter) GetMeta() *metapb.Extent {
 
-	return e.info.Clone()
+	e.rwMutex.RLock()
+	ext := e.info.Clone()
+	ext.Clone = proto.Clone(e.header.nvh.CloneJob).(*metapb.CloneJob)
+	e.rwMutex.RUnlock()
+	return ext
 }
 
 func (e *Extenter) Close() {
