@@ -45,7 +45,6 @@ type Cloner interface {
 
 const (
 	Version1    uint16 = settings.ExtV1
-	Version2    uint16 = settings.ExtV2
 	VersionTest uint16 = settings.ExtVtest
 )
 
