@@ -127,7 +127,9 @@ func (e *Extenter) GetMeta() *metapb.Extent {
 
 	e.rwMutex.RLock()
 	ext := e.info.Clone()
-	ext.Clone = proto.Clone(e.header.nvh.CloneJob).(*metapb.CloneJob)
+	if e.header.nvh.CloneJob != nil {
+		ext.Clone = proto.Clone(e.header.nvh.CloneJob).(*metapb.CloneJob)
+	}
 	e.rwMutex.RUnlock()
 	return ext
 }

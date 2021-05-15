@@ -197,6 +197,7 @@ func createBrokenExt(extDir string) extent.Extenter {
 			State:   metapb.ExtentState_Extent_Broken,
 			Version: uint32(extent.Version1),
 		}},
+		header: &Header{nvh: &NVHeader{CloneJob: nil}},
 		extDir: extDir,
 	}
 }
