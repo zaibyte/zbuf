@@ -69,7 +69,14 @@ func (c *Creator) GetVersion() uint16 {
 }
 
 func (c *Creator) Create(ctx context.Context, extDir string, params extent.CreateParams) (extent.Extenter, error) {
+	e, err := c.create(ctx, extDir, params)
+	if err != nil {
+		return createBrokenExt(extDir), err
+	}
+	return e, nil
+}
 
+func (c *Creator) create(ctx context.Context, extDir string, params extent.CreateParams) (extent.Extenter, error) {
 	sched, started := c.scheds.GetSched(params.DiskID)
 	if sched == nil {
 		return nil, xerrors.WithMessage(orpc.ErrNotFound, fmt.Sprintf("failed to find disk: %d scheduler", params.DiskID))
