@@ -153,17 +153,10 @@ func (e *Extenter) tryClone() {
 					extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Collapse)
 					return
 				}
-				if orpc.CouldRetry(err) {
-					xlog.Warn(xerrors.WithMessage(err, fmt.Sprintf("ext: %d, clone_job: %d, failed to clone : get clone job oids_oid: %d, try again later",
-						e.info.PbExt.Id, job.Id, oidsOID)).Error())
-					time.Sleep(retry.GetSleepDuration(i+1, n))
-					continue
-				} else {
-					xlog.Warn(xerrors.WithMessage(err, fmt.Sprintf("ext: %d, clone_job: %d, failed to clone: get clone job oids_oid: %d",
-						e.info.PbExt.Id, job.Id, oidsOID)).Error())
-					extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Failed)
-					return
-				}
+				xlog.Warn(xerrors.WithMessage(err, fmt.Sprintf("ext: %d, clone_job: %d, failed to clone : get clone job oids_oid: %d, try again later",
+					e.info.PbExt.Id, job.Id, oidsOID)).Error())
+				time.Sleep(retry.GetSleepDuration(i+1, n))
+				continue
 			}
 			break
 		}
@@ -212,17 +205,10 @@ func (e *Extenter) tryClone() {
 						return
 					}
 
-					if orpc.CouldRetry(err) {
-						xlog.Warn(xerrors.WithMessage(err, fmt.Sprintf("ext: %d, clone_job: %d, failed to clone: get object from remote: %d, try again later",
-							e.info.PbExt.Id, job.Id, oid)).Error())
-						time.Sleep(retry.GetSleepDuration(j+1, int64(grains2*uid.GrainSize)))
-						continue
-					} else {
-						xlog.Error(xerrors.WithMessage(err, fmt.Sprintf("ext: %d, clone_job: %d, failed to clone: get object from remote: %d",
-							e.info.PbExt.Id, job.Id, oid)).Error())
-						extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Failed)
-						return
-					}
+					xlog.Warn(xerrors.WithMessage(err, fmt.Sprintf("ext: %d, clone_job: %d, failed to clone: get object from remote: %d, try again later",
+						e.info.PbExt.Id, job.Id, oid)).Error())
+					time.Sleep(retry.GetSleepDuration(j+1, int64(grains2*uid.GrainSize)))
+					continue
 				} else {
 					break
 				}
