@@ -335,6 +335,8 @@ func (e *Extenter) callModify(reqType uint64, oid uint64, oids []uint64, newAddr
 	return err
 }
 
+// traverseWritableSeg start at the write_cursor, if meet checksum mismatched, stopping but not regard as broken,
+// because it may caused by power off, and because of we wouldn't return ok in this situation, the consistence won't be broken.
 func (e *Extenter) traverseWritableSeg() error {
 
 	lastSnap := e.getLastDMUSnap() // Must not be nil.
