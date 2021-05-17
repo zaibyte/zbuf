@@ -1,1 +1,112 @@
 package server
+
+import (
+	"errors"
+	"path/filepath"
+	"strings"
+	"sync"
+
+	"g.tesamc.com/IT/zaipkg/xio/sched"
+
+	"g.tesamc.com/IT/zaipkg/vdisk"
+
+	"g.tesamc.com/IT/zaipkg/vfs"
+	"github.com/spf13/cast"
+)
+
+// .
+// ├── <data_root>
+// │    ├── disk_<disk_id0>
+//
+const (
+	diskNamePrefix = "disk_"
+)
+
+var ErrNoDisk = errors.New("no disk for ZBuf in this instance")
+
+// makeDiskDir makes disk path according diskID
+func makeDiskDir(diskID uint32, root string) string {
+	return filepath.Join(root, diskNamePrefix+cast.ToString(diskID))
+}
+
+func (s *Server) listDisks() {
+
+	root := s.cfg.DataRoot
+
+	diskIDs, _ := listDiskIDs(s.fs, root)
+	s.getDisksInfo(diskIDs)
+
+	s.scheds = new(sync.Map)
+	for _, diskID := range diskIDs {
+		v, _ := s.diskInfos.Load(diskID) // Must be ok here.
+		dv := v.(*vdisk.Info)
+		s.scheds.Store(diskID, sched.New(s.ctx, &s.cfg.Scheduler, dv))
+	}
+}
+
+func listDiskIDs(fs vfs.FS, root string) (diskIDs []uint32, err error) {
+	diskFns, err := fs.List(root)
+	if err != nil {
+		return
+	}
+
+	diskIDs = make([]uint32, 0, len(diskFns))
+	cnt := 0
+	for _, fn := range diskFns {
+		if strings.HasPrefix(fn, diskNamePrefix) {
+			cnt++
+			idStr := strings.TrimPrefix(fn, diskNamePrefix)
+			id := cast.ToUint32(idStr)
+			diskIDs = append(diskIDs, id)
+		}
+	}
+	if cnt == 0 {
+		return nil, ErrNoDisk
+	}
+	return diskIDs[:cnt], nil
+}
+
+func (s *Server) addDisk(diskID uint32, root string) error {
+
+	fp := makeDiskDir(diskID, root)
+	f, err := s.fs.OpenDir(fp)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	info := getDiskInfo(s.vdisk, diskID, s.cfg.DataRoot, s.cfg.DiskWeights[diskID])
+	s.diskInfos.Store(diskID, info)
+	return nil
+}
+
+// getDisksInfo initializes Server disks info.
+func (s *Server) getDisksInfo(diskIDs []uint32) {
+
+	for _, diskID := range diskIDs {
+		disk := getDiskInfo(s.vdisk, diskID, s.cfg.DataRoot, s.cfg.DiskWeights[diskID])
+		s.diskInfos.Store(diskID, disk)
+	}
+}
+
+func getDiskInfo(disk vdisk.Disk, diskID uint32, root string, weight float64) *vdisk.Info {
+
+	info := new(vdisk.Info)
+	info.PbDisk.Id = diskID
+	path := makeDiskDir(diskID, root)
+	info.PbDisk.Type = disk.GetType(path)
+	_ = disk.InitUsage(path, info)
+	if weight != 0 {
+		info.PbDisk.Weight = weight
+	}
+
+	return info
+}
+
+func (s *Server) getDiskInfo(diskID uint32) *vdisk.Info {
+	d, ok := s.diskInfos.Load(diskID)
+	if !ok {
+		return nil
+	}
+	return d.(*vdisk.Info)
+}
