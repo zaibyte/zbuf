@@ -16,20 +16,19 @@ TEST_PKGS := $(shell find . -iname "*_test.go" -exec dirname {} \; | \
 
 all: test build
 
-build: export GO111MODULE=on
 build:
-    CGO_ENABLED=0 go build -ldflags '$(LDFLAGS)' -o bin/zbuf cmd/zbuf-server/main.go
+	go build -ldflags '$(LDFLAGS)' -o bin/zbuf cmd/zbuf-server/main.go
 
 test:
     # testing...
-    CGO_ENABLED=0 GO111MODULE=on go test -race -cover $(TEST_PKGS)
+	go test -race -cover $(TEST_PKGS)
 
 tidy:
 	@echo "go mod tidy"
-	GO111MODULE=on go mod tidy
+	go mod tidy
 	git diff --quiet
 
 clean:
-    rm -rf bin/*
+	rm -rf bin/*
 
 .PHONY: all tidy clean
