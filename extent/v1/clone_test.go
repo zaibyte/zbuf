@@ -93,6 +93,7 @@ func TestExtenter_Clone(t *testing.T) {
 	defer ext2.Close()
 
 	for {
+
 		if extent.GetCloneJobState(ext2.header.nvh.CloneJob) == metapb.CloneJobState_CloneJob_Done {
 			break
 		}

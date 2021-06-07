@@ -20,7 +20,7 @@ func TestCreateLoadBootSector(t *testing.T) {
 	}
 	defer os.RemoveAll(extPath)
 
-	err = extent.CreateBootSector(vfs.DefaultFS, extPath, extent.VersionTest)
+	err = extent.CreateBootSector(vfs.DefaultFS, extPath, extent.Version1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,5 +30,6 @@ func TestCreateLoadBootSector(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, extent.VersionTest, over)
+	assert.Equal(t, extent.Version1, over)
+
 }

@@ -44,8 +44,7 @@ type Cloner interface {
 }
 
 const (
-	Version1    uint16 = settings.ExtV1
-	VersionTest uint16 = settings.ExtVtest
+	Version1 uint16 = settings.ExtV1
 )
 
 // GCer are methods collector of GC.
