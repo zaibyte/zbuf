@@ -59,7 +59,11 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 
 	s.development = s.cfg.Develop.Development
 
-	s.objSvr = otcp.NewServer(cfg.ObjSrvAddr, s)
+	if !cfg.UDPEnabled {
+		s.objSvr = otcp.NewServer(cfg.ObjSrvAddr, s)
+	} else {
+		// TODO using UDP
+	}
 	s.opSvr = xhttp.NewServer(&xhttp.ServerConfig{
 		Address: cfg.App.HTTPServerAddr,
 	})

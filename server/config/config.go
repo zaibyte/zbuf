@@ -51,6 +51,10 @@ type Config struct {
 	// GCDuration is the duration between two GCs,
 	// each disk will have a goroutine to do the GC job.
 	GCDuration typeutil.Duration `toml:"gc_duration"`
+
+	// Default protocol is TCP,
+	// if true, using UDP.
+	UDPEnabled bool `toml:"udp_enabled"`
 }
 
 // DevConfig is the configs only used in development, not service for production.
@@ -82,8 +86,6 @@ func (c *Config) Adjust() {
 	config.Adjust(&c.ObjSrvAddr, DefaultObjSrvAddr)
 
 	config.Adjust(&c.DataRoot, DefaultDataRoot)
-
-	config.Adjust(&c.App.TimeCalibrateInterval, app.DefaultTimeCalibrateInterval)
 
 	config.Adjust(&c.App.GOMAXPROCS, DefaultGOMAXPROCS)
 	runtime.GOMAXPROCS(c.App.GOMAXPROCS) // TODO maybe 512 if you got lots of cores and NVMe SSD
