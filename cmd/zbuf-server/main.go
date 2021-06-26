@@ -48,6 +48,8 @@ func main() {
 	var cfg scfg.Config
 	config.Load(&cfg)
 
+	cfg.App.Adjust()
+
 	_, err := cfg.App.Log.MakeLogger(_appName)
 	if err != nil {
 		log.Fatal(err)
@@ -84,7 +86,7 @@ func main() {
 		metric.TimeJumpBackCounter.Inc()
 	})
 
-	tsc.ResetEnabled(true)	// There is no sequence events in ZBuf server rely on clock.
+	tsc.ResetEnabled(true) // There is no sequence events in ZBuf server rely on clock.
 	go app.TimeCalibrateLoop(ctx, cfg.App.TimeCalibrateInterval.Duration)
 
 	mh := mhlc.New()
