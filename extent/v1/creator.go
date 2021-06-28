@@ -286,6 +286,8 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 		return nil, err
 	}
 
+	// TODO load clone job, if cnt == done, set clone job done
+
 	return ext, nil
 }
 

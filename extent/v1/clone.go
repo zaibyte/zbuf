@@ -248,6 +248,12 @@ func (e *Extenter) tryClone() {
 			e.info.PbExt.Id, n, job.Id)
 	}
 
+	e.rwMutex.Lock()
+	// TODO should store header before set it done.
+	// Avoiding inconsitence between keeper and zBuf (zBuf may failed but clone_job got done)
+	err := e.header.Store(metapb.ExtentState_Extent_Clone)
+	e.rwMutex.Unlock()
+
 	extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Done)
 	e.info.SetState(metapb.ExtentState_Extent_ReadWrite, false)
 	xlog.Infof("ext: %d, have done clone job: %d",
