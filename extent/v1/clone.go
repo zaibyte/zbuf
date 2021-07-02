@@ -67,7 +67,7 @@ func (e *Extenter) InitCloneSource() {
 		}
 		e.header.nvh.CloneJob.IsSource = true
 		e.header.nvh.CloneJob.OidsOid = oidsOID
-		e.header.nvh.CloneJob.ObjCnt = uint64(cnt)
+		e.header.nvh.CloneJob.Total = uint64(cnt)
 		e.rwMutex.Unlock()
 		break
 	}

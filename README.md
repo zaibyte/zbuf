@@ -29,3 +29,21 @@ Extent on local file system:
 
 p.s.
 header, idx-snap, segments are extent/v1's concepts.
+
+## TODO
+
+testing 4KB
+
+Intel: 
+
+Random Read (100% Span)
+641800 IOPS
+
+Random Write (100% Span)
+134500 IOPS
+
+Latency - Read
+77 µs
+
+Latency - Write
+18 µs
