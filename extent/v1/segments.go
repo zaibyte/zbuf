@@ -22,7 +22,7 @@ const (
 	segSealed   // Sealed segment, it's a full segment. Could GC if there is too much garbage.
 )
 
-// segments file is made of sequential segments, it's the objects container.
+// SegmentsFileName is segment file's name, this file is made of sequential segments, it's the objects container.
 const SegmentsFileName = "segments"
 
 // addrToSeg gets what is the segment address belongs to.

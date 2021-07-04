@@ -3,6 +3,8 @@ package v1
 import (
 	"time"
 
+	"g.tesamc.com/IT/zaipkg/config/settings"
+
 	"g.tesamc.com/IT/zaipkg/config"
 	"g.tesamc.com/IT/zaipkg/typeutil"
 )
@@ -27,7 +29,7 @@ const (
 	// Warn:
 	// Don't change it, because in present there are some hard codes are using 256 directly.
 	// e.g. header.
-	segmentCnt = 256
+	segmentCnt = settings.ExtV1SegCnt
 	// There are 1 segments are reserved for GC:
 	// 99.6% usable storage is quite good for NVMe drivers:
 	// NVMe drivers need to scrub before writing when there is a new writing if there is no free space,
