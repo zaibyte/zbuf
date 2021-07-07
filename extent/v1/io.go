@@ -121,6 +121,7 @@ func (e *Extenter) updatesLoop() {
 			cycle := e.header.nvh.SegCycles[uint8(wseg)]
 			e.rwMutex.Unlock()
 
+			// Write down data first, avoiding polluting the DMU.
 			offset := segCursorToOffset(wseg, cursor, segSize)
 			written, err := e.objWriteAt(ur.reqType, ur.oid, offset, ur.objData, writeBuf, cycle)
 			if err != nil {
@@ -132,6 +133,9 @@ func (e *Extenter) updatesLoop() {
 			if !e.cfg.UpdateOrInsert {
 				err = e.dmu.Insert(digest, uint32(otype), grains, offsetToAddr(offset))
 				if err != nil {
+					// Actually we can't just return succeed after checking existed object which has the same digest
+					// having the same content or not. Because it may bring new issues when we want to delete one of them,
+					// the GC will get hard to implement in right way.
 					ur.done <- err
 					e.setState(err)
 					continue
