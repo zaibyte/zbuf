@@ -24,6 +24,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"g.tesamc.com/IT/zaipkg/xbytes"
+
 	"g.tesamc.com/IT/zaipkg/app"
 	"g.tesamc.com/IT/zaipkg/xtime/hlc"
 	"g.tesamc.com/IT/zaipkg/xtime/hlc/mhlc"
@@ -59,6 +61,12 @@ func main() {
 		beforeExit()
 	}()
 
+	if cfg.Development {
+		xbytes.EnableDefault()
+	} else {
+		xbytes.EnableMax()
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	svr, err := server.Create(ctx, &cfg)
@@ -79,6 +87,8 @@ func main() {
 		cancel()
 	}()
 
+	tsc.ResetEnabled(true) // There is no sequence events in ZBuf server rely on clock.
+
 	rand.Seed(tsc.UnixNano())
 
 	go systimemon.StartMonitor(ctx, tsc.UnixNano, func() {
@@ -86,7 +96,6 @@ func main() {
 		metric.TimeJumpBackCounter.Inc()
 	})
 
-	tsc.ResetEnabled(true) // There is no sequence events in ZBuf server rely on clock.
 	go app.TimeCalibrateLoop(ctx, cfg.App.TimeCalibrateInterval.Duration)
 
 	mh := mhlc.New()

@@ -54,7 +54,11 @@ type Config struct {
 
 	// Default protocol is TCP,
 	// if true, using UDP.
+	// TODO implement UDP
 	UDPEnabled bool `toml:"udp_enabled"`
+
+	// Development mode, for testing.
+	Development bool `toml:"development"`
 }
 
 // DevConfig is the configs only used in development, not service for production.
@@ -74,7 +78,7 @@ const (
 	//
 	// 1. SSD is superb, and assume ZBuf runs on a server with multi-SSD, so there is a problem:
 	// SSD's latency is very low, but it will take 20μs-10ms to find a thread blocked in Go.
-	// So the block may finish before notice it, the GO Process will be wasted in this situation,
+	// So the block may finish before notice it, the Go Process will be wasted in this situation,
 	// That's why we need more process
 	// (I found this trick from this discussion: https://groups.google.com/forum/#!topic/golang-nuts/jPb_h3TvlKE/discussion)
 	DefaultGOMAXPROCS = 256
