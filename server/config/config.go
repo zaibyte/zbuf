@@ -52,11 +52,6 @@ type Config struct {
 	// each disk will have a goroutine to do the GC job.
 	GCDuration typeutil.Duration `toml:"gc_duration"`
 
-	// Default protocol is TCP,
-	// if true, using UDP.
-	// TODO implement UDP
-	UDPEnabled bool `toml:"udp_enabled"`
-
 	// Development mode, for testing.
 	Development bool `toml:"development"`
 }
