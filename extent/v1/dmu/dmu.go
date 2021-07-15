@@ -14,7 +14,8 @@
 //    we'll make a new 2x space for inserting. The new space must be big enough. If the rare thing
 //    happen, we set extent full, and it must be closed to full.
 //
-// p.s. You could find a proof here: https://github.com/templexxx/u64
+// p.s.
+// 1. You could find a proof here: https://github.com/templexxx/u64
 
 //
 // Basic Concepts:
@@ -29,6 +30,10 @@
 // It's a virtual struct made of neighbourhood slots.
 // 5. Table:
 // An array of buckets.
+// 6. Load Factor:
+// Here, load factor may have some different meaning. Load factor means the threshold that
+// won't trigger expanding. e.g., Table has 1000 slots which could keep 1000 elements,
+// until 901 elements has been inserted, the table expands to 2000 slots. The load factor is 0.9.
 //
 // The total memory usage of DMU is about: [512KB, 128MB]*x, x is the amplification.
 // The x is up to 1.6(0.5 for the middle status in expanding process, 0.1 for load factor overhead),
@@ -39,6 +44,7 @@
 // In practice, most of objects in Tesamc are large, we could make a DMU with 2^16 capacity at the beginning,
 // and because of the GC overhead, there will be 20% of slots in DMU are empty, which means 2^16 (512KB) is just
 // the DMU's memory usage. For a server with 4*8TB disks, 64MB is the total usage.
+
 package dmu
 
 import (
@@ -56,11 +62,11 @@ import (
 	"github.com/templexxx/cpu"
 )
 
-// NeighBour is the hopscotch hash neighbourhood size.
+// Neighbour is the hopscotch hash neighbourhood size.
 // 64 could reach high load factor(e.g. 0.9) and the performance is good.
 //
 // If there is no place to set key, try to resize to another bucket until meet MaxCap.
-const NeighBour = 64
+const Neighbour = 64
 
 const (
 	// Start with a MinCap, saving memory.
@@ -202,8 +208,8 @@ func (u *DMU) Search(digest uint32) (entry uint64) {
 	if wt != nil {
 		slotCnt := len(wt)
 		slot := CalcSlot(slotCnt, digest)
-		n := NeighBour
-		if slot+NeighBour >= slotCnt {
+		n := Neighbour
+		if slot+Neighbour >= slotCnt {
 			n = slotCnt - slot
 		}
 
@@ -224,8 +230,8 @@ func (u *DMU) Search(digest uint32) (entry uint64) {
 	if nt != nil {
 		slotCnt := len(nt)
 		slot := CalcSlot(slotCnt, digest)
-		n := NeighBour
-		if slot+NeighBour >= slotCnt {
+		n := Neighbour
+		if slot+Neighbour >= slotCnt {
 			n = slotCnt - slot
 		}
 
@@ -293,8 +299,8 @@ func (u *DMU) Update(digest, newAddr uint32) bool {
 	if wt != nil {
 		slotCnt := len(wt)
 		slot := CalcSlot(slotCnt, digest)
-		n := NeighBour
-		if slot+NeighBour >= slotCnt {
+		n := Neighbour
+		if slot+Neighbour >= slotCnt {
 			n = slotCnt - slot
 		}
 
@@ -317,8 +323,8 @@ func (u *DMU) Update(digest, newAddr uint32) bool {
 	if nt != nil {
 		slotCnt := len(nt)
 		slot := CalcSlot(slotCnt, digest)
-		n := NeighBour
-		if slot+NeighBour >= slotCnt {
+		n := Neighbour
+		if slot+Neighbour >= slotCnt {
 			n = slotCnt - slot
 		}
 
@@ -413,8 +419,8 @@ func (u *DMU) tryRemove(digest uint32) (has bool, addr uint32) {
 		}
 		slotCnt := len(tbl)
 		slot := CalcSlot(slotCnt, digest)
-		n := NeighBour
-		if slot+NeighBour >= slotCnt {
+		n := Neighbour
+		if slot+Neighbour >= slotCnt {
 			n = slotCnt - slot
 		}
 
@@ -444,11 +450,11 @@ func (u *DMU) tryInsert(digest, otype, grains, addr uint32) error {
 	tbl := GetTbl(u, int(idx))
 
 	// 1. Try to find free slot within neighbourhood.
-	slotOff := NeighBour // slotOff is the distance between avail slot from hashed slot.
+	slotOff := Neighbour // slotOff is the distance between avail slot from hashed slot.
 	slotCnt := len(tbl)
 	slot := CalcSlot(slotCnt, digest)
-	n := NeighBour
-	if slot+NeighBour >= slotCnt {
+	n := Neighbour
+	if slot+Neighbour >= slotCnt {
 		n = slotCnt - slot
 	}
 	for i := 0; i < n; i++ {
@@ -459,22 +465,22 @@ func (u *DMU) tryInsert(digest, otype, grains, addr uint32) error {
 		}
 	}
 
-	// 2. Try to Add within NeighBour.
-	if slotOff < NeighBour {
+	// 2. Try to Add within Neighbour.
+	if slotOff < Neighbour {
 		entry := MakeEntry(digest, uint32(slotOff), otype, grains, addr)
 		atomic.StoreUint64(&tbl[slot+slotOff], entry)
 		return nil
 	}
 
 	// 3. Linear probe to find an empty slot and swap.
-	j := slot + NeighBour
+	j := slot + Neighbour
 	for { // Closer and closer.
 		free, status := u.swap(j, len(tbl), tbl)
 		if status == swapFull {
 			return ErrIsFull
 		}
 
-		if free-slot < NeighBour {
+		if free-slot < Neighbour {
 			entry := MakeEntry(digest, uint32(free-slot), otype, grains, addr)
 			atomic.StoreUint64(&tbl[free], entry)
 			return nil
@@ -494,7 +500,7 @@ func (u *DMU) swap(start, slotCnt int, tbl []uint64) (int, uint8) {
 
 	for i := start; i < slotCnt; i++ {
 		if atomic.LoadUint64(&tbl[i]) == 0 { // Find a free one.
-			j := i - NeighBour + 1
+			j := i - Neighbour + 1
 			if j < 0 {
 				j = 0
 			}
@@ -503,7 +509,7 @@ func (u *DMU) swap(start, slotCnt int, tbl []uint64) (int, uint8) {
 				tag, neighOff, otype, grains, addr := ParseEntry(e)
 				digest := BackToDigest(tag, uint32(slotCnt), uint32(j), neighOff)
 				jslot := CalcSlot(slotCnt, digest)
-				if i-jslot < NeighBour {
+				if i-jslot < Neighbour {
 					e = MakeEntry(digest,
 						uint32(i)-uint32(jslot), otype, grains, addr)
 					// Put e first may cause meet same entry twice in traverse process temporally,
