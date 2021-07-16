@@ -19,7 +19,6 @@ package main
 import (
 	"context"
 	"log"
-	"math/rand"
 	"os"
 	"os/signal"
 	"syscall"
@@ -88,8 +87,6 @@ func main() {
 	}()
 
 	tsc.ResetEnabled(true) // There is no sequence events in ZBuf server rely on clock.
-
-	rand.Seed(tsc.UnixNano())
 
 	go systimemon.StartMonitor(ctx, tsc.UnixNano, func() {
 		xlog.Error("system time jumps backward")

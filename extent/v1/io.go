@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"math/rand"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -524,10 +523,6 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 	}
 
 	nvh := e.header.nvh
-
-	if e.randRand == nil {
-		e.randRand = rand.New(rand.NewSource(tsc.UnixNano()))
-	}
 
 	for seg, state := range nvh.SegStates {
 		if state == segReady {
