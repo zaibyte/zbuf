@@ -31,11 +31,11 @@ type Creator struct {
 
 type CreatorScheduler interface {
 	// GetSched gets scheduler by diskID and started or not.
-	GetSched(diskID uint32) (xio.Scheduler, bool)
+	GetSched(diskID string) (xio.Scheduler, bool)
 }
 
 // NewCreator creates an ext.v1 Creator.
-func NewCreator(cfg *Config, scheds CreatorScheduler, fs vfs.FS, zai zai.Client, boxID uint32) *Creator {
+func NewCreator(cfg *Config, scheds CreatorScheduler, fs vfs.FS, zai zai.ObjClient, boxID uint32) *Creator {
 
 	cfg.Adjust()
 

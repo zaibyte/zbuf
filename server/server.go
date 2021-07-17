@@ -6,6 +6,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"g.tesamc.com/IT/zaipkg/vdisk/svr"
+
 	"github.com/VictoriaMetrics/metrics"
 	"github.com/julienschmidt/httprouter"
 
@@ -31,26 +33,26 @@ type Server struct {
 
 	cfg *config.Config
 
+	availExtentVersion []uint16
+
+	fs    vfs.FS
+	vdisk vdisk.Disk
+
 	objSvr  *otcp.Server  // Object server.
 	httpSvr *xhttp.Server // Operator server using HTTP protocol.
 
 	zc zai.ObjClient
 
-	fs    vfs.FS
-	vdisk vdisk.Disk
-
-	availExtentVersion []uint16
-
-	diskInfos sync.Map  // diskID : metapb.Disk
-	scheds    *sync.Map // Each disk has its own scheduler.
+	zBufDisks *svr.ZBufDisks
 
 	// creators is the collector that this server supports extent versions.
 	creators map[uint16]extent.Creator
-	exts     sync.Map // extID: extent.Extenter
+
+	exts sync.Map // extID: extent.Extenter
 
 	ctx    context.Context
 	cancel func()
-	stopWg sync.WaitGroup
+	stopWg *sync.WaitGroup
 }
 
 // Create creates a ZBuf server.
@@ -74,21 +76,33 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 		metrics.WritePrometheus(w, false)
 	})
 
+	zc, err := zai.NewProClient(&s.cfg.ZaiConfig)
+	if err != nil {
+		return nil, err
+	}
+	s.zc = zc
+
+	s.fs = vfs.GetFS()
+	s.vdisk = vdisk.GetDisk()
+
 	s.availExtentVersion = []uint16{settings.ExtV1}
 
-	s.listDisks()
+	s.stopWg = new(sync.WaitGroup)
+	s.stopWg.Add(1)
+
+	s.zBufDisks = svr.NewZBufDisks(ctx, s.stopWg, s.vdisk, s.cfg.App.InstanceID,
+		s.cfg.DataRoot, &s.cfg.Scheduler)
 
 	s.creators = map[uint16]extent.Creator{
-		extent.Version1: v1.NewCreator(&s.cfg.ExtV1Config),
+		extent.Version1: v1.NewCreator(&s.cfg.ExtV1Config, s.zBufDisks, s.fs, s.zc, s.cfg.App.BoxID),
 	}
-
-	s.listExtents()
 
 	return s, nil
 }
 
-// TODO should start tsc.Calibrate()
 func (s *Server) Run() error {
+
+	s.listExtents()
 
 	err := s.objSvr.Start()
 	if err != nil {

@@ -10,6 +10,8 @@ import (
 	"g.tesamc.com/IT/zaipkg/xerrors"
 )
 
+var _osvr orpc.ServerHandler = new(Server)
+
 func (s *Server) PutObj(reqid, oid uint64, extID uint32, objData []byte) error {
 	panic("implement me")
 }
@@ -18,7 +20,7 @@ func (s *Server) DeleteBatch(reqid uint64, extID uint32, oids []byte) error {
 	panic("implement me")
 }
 
-func (s *Server) GetObj(reqid, oid uint64, extID uint32, isClone bool) (objData []byte, err error) {
+func (s *Server) GetObj(reqid, oid uint64, extID uint32, isClone bool, offset, n uint32) (objData []byte, crc uint32, err error) {
 
 	groupID, err := isValidOID(s.cfg.App.BoxID, oid)
 	if err != nil {

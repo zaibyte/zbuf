@@ -46,6 +46,10 @@ type Config struct {
 
 	ZaiConfig zai.Config `toml:"zai_config"`
 
+	// TODO in present, we only set full when disk used >= size.
+	// disk won't have new extent if Keeper server think there is no enough space for making new extent.
+	// DiskReservedRatio is the capacity ratio that won't make any extent anymore.
+	DiskReservedRatio float64 `toml:"disk_reserved_ratio"`
 	// Development mode, for testing.
 	Development bool `toml:"development"`
 }

@@ -82,7 +82,7 @@ func Create(ctx context.Context, cfg *Config) (*Runner, error) {
 
 func (r *Runner) Run() (err error) {
 
-	r.disks.Init(vfs.GetFS(), nil)
+	r.disks.Init(vfs.GetFS())
 	r.disks.StartSched()
 	err = r.createExtents()
 	if err != nil {
