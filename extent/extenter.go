@@ -32,7 +32,7 @@ type Extenter interface {
 
 type Objecter interface {
 	PutObj(reqid, oid uint64, objData []byte, isClone bool) error
-	GetObj(reqid, oid uint64, isClone bool) (objData []byte, err error)
+	GetObj(reqid, oid uint64, isClone bool, offset, n uint32) (objData []byte, crc32 uint32, err error)
 	DeleteObj(reqid, oid uint64) error
 	DeleteBatch(reqid uint64, oids []uint64) error
 }
