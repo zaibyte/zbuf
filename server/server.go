@@ -118,6 +118,9 @@ func (s *Server) Run() error {
 	atomic.StoreInt64(&s.isRunning, 1)
 	xlog.Info("server is running")
 
+	s.sendZBufHeartbeat()
+	s.sendExtsHeartbeat()
+
 	return nil
 }
 
