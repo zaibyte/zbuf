@@ -105,8 +105,6 @@ func (s *Server) Run() error {
 
 	s.zBufDisks.StartSched()
 
-	s.startBgLoops()
-
 	s.listExtents()
 
 	err := s.objSvr.Start()
@@ -115,11 +113,13 @@ func (s *Server) Run() error {
 	}
 	s.httpSvr.Start()
 
-	atomic.StoreInt64(&s.isRunning, 1)
-	xlog.Info("server is running")
-
 	s.sendZBufHeartbeat()
 	s.sendExtsHeartbeat()
+
+	s.startBgLoops()
+
+	atomic.StoreInt64(&s.isRunning, 1)
+	xlog.Info("server is running")
 
 	return nil
 }
@@ -130,9 +130,10 @@ func (s *Server) isClosed() bool {
 
 // startBgLoops starts Server background jobs which running in loops.
 func (s *Server) startBgLoops() {
-	s.stopWg.Add(1)
+	s.stopWg.Add(2)
 
 	go s.zBufDisks.DetectLoop()
+	go s.heartbeatLoop()
 }
 
 // stopBgLoops stops Server background jobs, blocking until all exited.
