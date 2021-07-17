@@ -27,7 +27,7 @@ import (
 // Server is the ZBuf server.
 // It's the container which holds all interface for outside using.
 type Server struct {
-	isRunning   int64
+	isServing   int64
 	development bool // If true, means in development mode, could use some configs which are forbidden in production env.
 
 	cfg *config.Config
@@ -108,7 +108,7 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 
 func (s *Server) Run() error {
 
-	if !atomic.CompareAndSwapInt64(&s.isRunning, 0, 1) {
+	if !atomic.CompareAndSwapInt64(&s.isServing, 0, 1) {
 		// server is already closed
 		return nil
 	}
@@ -137,7 +137,7 @@ func (s *Server) Run() error {
 }
 
 func (s *Server) isClosed() bool {
-	return atomic.LoadInt64(&s.isRunning) == 0
+	return atomic.LoadInt64(&s.isServing) == 0
 }
 
 // startBgLoops starts Server background jobs which running in loops.
@@ -156,7 +156,7 @@ func (s *Server) stopBgLoops() {
 
 func (s *Server) Close() {
 
-	if !atomic.CompareAndSwapInt64(&s.isRunning, 1, 0) {
+	if !atomic.CompareAndSwapInt64(&s.isServing, 1, 0) {
 		// server is already closed
 		return
 	}

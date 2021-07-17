@@ -115,6 +115,17 @@ func (s *Server) preCheckReq(reqid, oid uint64, extID uint32) (ext extent.Extent
 		return nil, err
 	}
 
+	diskID := ext.GetMeta().DiskId
+	dState := s.zBufDisks.GetDiskMeta(diskID).GetState()
+	if dState == metapb.DiskState_Disk_Broken {
+		xlog.ErrorID(reqid, orpc.ErrDiskFull.Error())
+		return nil, orpc.ErrDiskFull
+	}
+	if dState == metapb.DiskState_Disk_Tombstone {
+		xlog.ErrorID(reqid, orpc.ErrDiskTombstone.Error())
+		return nil, orpc.ErrDiskTombstone
+	}
+
 	return ext, nil
 }
 
