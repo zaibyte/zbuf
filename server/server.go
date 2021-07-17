@@ -109,7 +109,7 @@ func (s *Server) Run() error {
 	s.zBufDisks.Init(s.fs)
 	s.zBufDisks.StartSched()
 
-	s.listExtents()
+	s.listAndLoadExts()
 
 	err := s.objSvr.Start()
 	if err != nil {

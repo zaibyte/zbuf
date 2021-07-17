@@ -1,7 +1,6 @@
 package server
 
 import (
-	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -52,67 +51,8 @@ func (s *Server) cleanExt(extID uint32) {
 	_ = s.fs.RemoveAll(ext.GetDir())
 }
 
-// createExtent creates new extent.
-func (s *Server) createExtent(version uint16, extID, diskID, state, objCount uint32) (err error) {
-
-	extDir := getExtDir(extID, makeDiskDir(diskID, s.cfg.DataRoot))
-
-	defer func() {
-		if err != nil {
-			_ = s.fs.RemoveAll(extDir)
-		}
-	}()
-
-	if vfs.IsDirExisted(s.fs, extDir) {
-		err = fmt.Errorf("extID: %d already existed", extID)
-		return
-	}
-
-	diskInfo := s.getDiskInfo(diskID)
-	if diskInfo == nil {
-		err = errors.New(fmt.Sprintf("disk not found: %d", diskID))
-		return
-	}
-
-	creator, ok := s.creators[version]
-	if !ok {
-		err = errors.New("could not find creator")
-		return
-	}
-
-	fs := s.fs
-	err = fs.MkdirAll(extDir, 0755)
-	if err != nil {
-		return
-	}
-
-	err = extent.CreateBootSector(fs, extDir, version)
-	if err != nil {
-		return err
-	}
-
-	free := diskInfo.PbDisk.GetSize_() - diskInfo.GetUsed()
-	taken := creator.GetSize()
-	// The reserved capacity is under controlled by Keeper.
-	// If there is a request to create extent, ZBuf will do it until there is no enough sapce.
-	if free < taken {
-		return errors.New("not enough space")
-	}
-
-	ext, err := creator.Create(s.ctx, &s.stopWg, s.fs, s.cfg.App.InstanceID, diskID, extID, extDir, state, objCount)
-	if err != nil {
-		return err
-	}
-
-	s.exts.Store(extID, ext)
-	diskInfo.AddUsed(int64(taken))
-
-	return nil
-}
-
-// listExtents lists all valid extents(existed in Keeper).
-// Invoke it after listDisks.
-func (s *Server) listExtents() {
+// listAndLoadExts lists all valid extents and start them.
+func (s *Server) listAndLoadExts() {
 
 	diskIDs := s.zBufDisks.ListDiskIDs()
 	for _, diskID := range diskIDs {
@@ -125,47 +65,44 @@ func (s *Server) listExtents() {
 
 		diskDir := sdisk.MakeDiskDir(diskID, s.cfg.DataRoot)
 		for _, extID := range extIDs {
-			if s.verifyExtID() {
-				extDir := getExtDir(extID, diskDir)
-				sched, started := s.zBufDisks.GetSched(diskID)
-				if !started {
-					xlog.Warn(fmt.Sprintf("try to load boot_sector but scheduler not started, disk_id: %s, ext_id: %d",
-						diskID, extID))
+			extDir := getExtDir(extID, diskDir)
+			sched, started := s.zBufDisks.GetSched(diskID)
+			if !started {
+				xlog.Warn(fmt.Sprintf("try to load boot_sector but scheduler not started, disk_id: %s, ext_id: %d",
+					diskID, extID))
+				break
+			}
+			ver, err2 := extent.LoadBootSector(s.fs, sched, extDir)
+			if err2 != nil {
+				if s.handleDiskErr(err2, diskID) {
 					break
-				}
-				ver, err2 := extent.LoadBootSector(s.fs, sched, extDir)
-				if err2 != nil {
-					if s.handleDiskErr(err2, diskID) {
-						break
-					} else {
-						continue
-					}
-				}
-				v, ok := s.creators[ver]
-				if !ok {
-					// Just in case when administrator does wrong operation.
-					xlog.Error(fmt.Sprintf("ext creator version: %d not found in this instance", ver))
+				} else {
 					continue
 				}
-				creator := v.(extent.Creator)
-				ext, err3 := creator.Load(s.ctx, extDir, extent.CreateParams{
-					InstanceID: s.instanceID,
-					DiskID:     diskID,
-					ExtID:      extID,
-					DiskMeta:   s.zBufDisks.GetDiskMeta(diskID),
-					CloneJob:   nil,
-				})
-				if err3 != nil {
-					if s.handleDiskErr(err3, diskID) {
-						break
-					} else {
-						continue
-					}
-				}
-				s.exts.Store(extID, ext)
 			}
+			v, ok := s.creators[ver]
+			if !ok {
+				// Just in case when administrator does wrong operation.
+				xlog.Error(fmt.Sprintf("ext creator version: %d not found in this instance", ver))
+				continue
+			}
+			creator := v.(extent.Creator)
+			ext, err3 := creator.Load(s.ctx, extDir, extent.CreateParams{
+				InstanceID: s.instanceID,
+				DiskID:     diskID,
+				ExtID:      extID,
+				DiskMeta:   s.zBufDisks.GetDiskMeta(diskID),
+				CloneJob:   nil,
+			})
+			if err3 != nil {
+				if s.handleDiskErr(err3, diskID) {
+					break
+				} else {
+					continue
+				}
+			}
+			s.exts.Store(extID, ext)
 		}
-
 	}
 }
 
@@ -196,14 +133,6 @@ func listExtIDs(diskID string, root string, fs vfs.FS) (ids []uint32, err error)
 		return nil, nil
 	}
 	return ids[:cnt], nil
-}
-
-// TODO check disk instance match or not
-// TODO should block until verify finishing
-// verifyExtID verifies ext_ids listed are existed in Keeper,
-// if not, clean up local ext.
-func (s *Server) verifyExtID() bool {
-	return true
 }
 
 // getExtenter gets Extenter by extID.
