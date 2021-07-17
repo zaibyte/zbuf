@@ -5,13 +5,13 @@ import (
 	"sync"
 	"sync/atomic"
 
+	zai "g.tesamc.com/IT/zai/client"
+
 	"g.tesamc.com/IT/zaipkg/config/settings"
-
-	"g.tesamc.com/IT/zaipkg/xio"
-
 	"g.tesamc.com/IT/zaipkg/orpc/otcp"
 	"g.tesamc.com/IT/zaipkg/vdisk"
 	"g.tesamc.com/IT/zaipkg/vfs"
+	"g.tesamc.com/IT/zaipkg/xio"
 	"g.tesamc.com/IT/zaipkg/xlog"
 	"g.tesamc.com/IT/zaipkg/xnet/xhttp"
 	"g.tesamc.com/IT/zbuf/extent"
@@ -27,21 +27,22 @@ type Server struct {
 
 	cfg *config.Config
 
-	objSvr *otcp.Server  // Object server.
-	opSvr  *xhttp.Server // Operator server.
-	// TODO keeper client for heartbeat
+	objSvr  *otcp.Server  // Object server.
+	httpSvr *xhttp.Server // Operator server using HTTP protocol.
+
+	zc zai.ObjClient
 
 	fs    vfs.FS
 	vdisk vdisk.Disk
 
 	availExtentVersion []uint16
 
-	diskInfos sync.Map  // Disks info
+	diskInfos sync.Map  // diskID : metapb.Disk
 	scheds    *sync.Map // Each disk has its own scheduler.
 
 	// creators is the collector that this server supports extent versions.
 	creators map[uint16]extent.Creator
-	exts     sync.Map
+	exts     sync.Map // extID: extent.Extenter
 
 	ctx    context.Context
 	cancel func()
@@ -61,12 +62,12 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 
 	s.objSvr = otcp.NewServer(cfg.ObjSrvAddr, s)
 
-	s.opSvr = xhttp.NewServer(&xhttp.ServerConfig{
+	s.httpSvr = xhttp.NewServer(&xhttp.ServerConfig{
 		Address: cfg.App.HTTPServerAddr,
 	})
 	s.addOpHandlers()
 
-	s.availExtentVersion = settings.ExtAvailVersion
+	s.availExtentVersion = []uint16{settings.ExtV1}
 
 	s.listDisks()
 
@@ -86,7 +87,7 @@ func (s *Server) Run() error {
 	if err != nil {
 		return err
 	}
-	s.opSvr.Start()
+	s.httpSvr.Start()
 
 	atomic.StoreInt64(&s.isRunning, 1)
 	xlog.Info("server is running")
@@ -119,7 +120,7 @@ func (s *Server) Close() {
 	xlog.Info("closing server")
 
 	s.objSvr.Stop()
-	s.opSvr.Close()
+	s.httpSvr.Close()
 
 	s.stopBgLoops()
 

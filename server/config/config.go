@@ -19,15 +19,12 @@ package config
 import (
 	"runtime"
 
-	"g.tesamc.com/IT/zaipkg/xio/sched"
-
-	"g.tesamc.com/IT/zaipkg/typeutil"
-
-	v1 "g.tesamc.com/IT/zbuf/extent/v1"
-
-	"g.tesamc.com/IT/zaipkg/config"
-
+	zai "g.tesamc.com/IT/zai/client"
 	"g.tesamc.com/IT/zaipkg/app"
+	"g.tesamc.com/IT/zaipkg/config"
+	"g.tesamc.com/IT/zaipkg/typeutil"
+	"g.tesamc.com/IT/zaipkg/xio/sched"
+	v1 "g.tesamc.com/IT/zbuf/extent/v1"
 )
 
 // Config is the ZBuf server configuration.
@@ -51,6 +48,8 @@ type Config struct {
 	// GCDuration is the duration between two GCs,
 	// each disk will have a goroutine to do the GC job.
 	GCDuration typeutil.Duration `toml:"gc_duration"`
+
+	ZaiConfig zai.Config `toml:"zai_config"`
 
 	// Development mode, for testing.
 	Development bool `toml:"development"`

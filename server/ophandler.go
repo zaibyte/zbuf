@@ -19,10 +19,10 @@ import (
 )
 
 func (s *Server) addOpHandlers() {
-	s.opSvr.AddHandler(http.MethodPut, "/v1/extent/create/:version/:disk_id/:ext_id/:state/:obj_cnt", s.createExtentHandler)
+	s.httpSvr.AddHandler(http.MethodPut, "/v1/extent/create/:version/:disk_id/:ext_id/:state/:obj_cnt", s.createExtentHandler)
 
 	// Add prometheus metrics handler.
-	s.opSvr.AddHandler(http.MethodGet, "/v1/metrics", func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
+	s.httpSvr.AddHandler(http.MethodGet, "/v1/metrics", func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		metrics.WritePrometheus(w, false)
 	})
 }
