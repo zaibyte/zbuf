@@ -64,7 +64,7 @@ func TestCreator_Create(t *testing.T) {
 		InstanceID: 1,
 		DiskID:     1,
 		ExtID:      1,
-		DiskInfo:   nil,
+		DiskMeta:   nil,
 		CloneJob:   nil,
 	})
 	if err != nil {
@@ -76,7 +76,7 @@ func TestCreator_Create(t *testing.T) {
 		InstanceID: 1,
 		DiskID:     1,
 		ExtID:      1,
-		DiskInfo:   nil,
+		DiskMeta:   nil,
 		CloneJob:   nil,
 	})
 	if err != nil {
@@ -101,7 +101,7 @@ func TestCreator_CreateLoad(t *testing.T) {
 		InstanceID: 1,
 		DiskID:     1,
 		ExtID:      1,
-		DiskInfo:   nil,
+		DiskMeta:   nil,
 		CloneJob:   nil,
 	})
 	if err != nil {
@@ -146,7 +146,7 @@ func TestCreator_CreateLoad(t *testing.T) {
 		InstanceID: 1,
 		DiskID:     1,
 		ExtID:      1,
-		DiskInfo:   nil,
+		DiskMeta:   nil,
 		CloneJob:   nil,
 	})
 	if err != nil {

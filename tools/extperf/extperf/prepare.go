@@ -49,7 +49,7 @@ func (r *Runner) createExtents() (err error) {
 				InstanceID: 1,
 				DiskID:     diskID,
 				ExtID:      uid.MakeExtID(1, uint16(i)),
-				DiskInfo:   r.disks.GetInfo(diskID),
+				DiskMeta:   r.disks.GetInfo(diskID),
 				CloneJob:   nil,
 			}, fs, r.cfg.DataRoot)
 			if err2 != nil {

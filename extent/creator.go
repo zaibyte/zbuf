@@ -28,10 +28,10 @@ const (
 
 // CreateParams are the params for creating an extent.
 type CreateParams struct {
-	InstanceID uint32
-	DiskID     uint32
+	InstanceID string
+	DiskID     string
 	ExtID      uint32
-	DiskInfo   *vdisk.Info
+	DiskMeta   *vdisk.SyncMeta
 	CloneJob   *metapb.CloneJob
 }
 

@@ -366,7 +366,7 @@ func TestExtenter_traverseWritableSegNoSnap(t *testing.T) {
 		InstanceID: 1,
 		DiskID:     1,
 		ExtID:      uid.MakeExtID(1, 0),
-		DiskInfo:   nil,
+		DiskMeta:   nil,
 		CloneJob:   nil,
 	})
 	if err != nil {
@@ -450,7 +450,7 @@ func TestExtenter_traverseWritableSegPartSnap(t *testing.T) {
 		InstanceID: 1,
 		DiskID:     1,
 		ExtID:      uid.MakeExtID(1, 0),
-		DiskInfo:   nil,
+		DiskMeta:   nil,
 		CloneJob:   nil,
 	})
 	if err != nil {
@@ -533,7 +533,7 @@ func TestExtenter_traverseWritableSegIllegalHeaderPass(t *testing.T) {
 		InstanceID: 1,
 		DiskID:     1,
 		ExtID:      uid.MakeExtID(1, 0),
-		DiskInfo:   nil,
+		DiskMeta:   nil,
 		CloneJob:   nil,
 	})
 	if err != nil {
@@ -614,7 +614,7 @@ func TestExtenter_traverseWritableSegIllegalHeaderFail(t *testing.T) {
 		InstanceID: 1,
 		DiskID:     1,
 		ExtID:      uid.MakeExtID(1, 0),
-		DiskInfo:   nil,
+		DiskMeta:   nil,
 		CloneJob:   nil,
 	})
 	if !errors.Is(err, syscall.EIO) {
@@ -632,7 +632,7 @@ func createTestExtByCreator(cfg *Config, c extent.Creator, cloneJob *metapb.Clon
 		InstanceID: 1,
 		DiskID:     1,
 		ExtID:      uid.MakeExtID(1, 0),
-		DiskInfo:   nil,
+		DiskMeta:   nil,
 		CloneJob:   cloneJob,
 	})
 	if err != nil {
@@ -659,7 +659,7 @@ func createTestExtenterWithDir(cfg *Config, extDir string) (ext *Extenter, err e
 		InstanceID: 1,
 		DiskID:     1,
 		ExtID:      1,
-		DiskInfo:   nil,
+		DiskMeta:   nil,
 		CloneJob:   nil,
 	})
 	if err != nil {

@@ -86,8 +86,8 @@ func (c *Creator) create(ctx context.Context, extDir string, params extent.Creat
 	}
 
 	taken := c.GetSize()
-	if params.DiskInfo != nil { // In testing, it's nil.
-		if taken > params.DiskInfo.PbDisk.Size_-params.DiskInfo.PbDisk.Used {
+	if params.DiskMeta != nil { // In testing, it's nil.
+		if taken > params.DiskMeta.PbDisk.Size_-params.DiskMeta.PbDisk.Used {
 			return nil, xerrors.WithMessage(orpc.ErrInternalServer, fmt.Sprintf("disk: %d has no enough space: %d"+
 				" for creating ext: %d", taken, params.DiskID, params.ExtID))
 		}
@@ -146,7 +146,7 @@ func (c *Creator) create(ctx context.Context, extDir string, params extent.Creat
 			DiskId:     params.DiskID,
 			InstanceId: params.InstanceID,
 		}},
-		diskInfo: params.DiskInfo,
+		diskInfo: params.DiskMeta,
 		ioSched:  sched,
 		segsFile: segFile,
 
@@ -176,8 +176,8 @@ func (c *Creator) create(ctx context.Context, extDir string, params extent.Creat
 		return nil, err
 	}
 
-	if params.DiskInfo != nil {
-		params.DiskInfo.AddUsed(int64(taken))
+	if params.DiskMeta != nil {
+		params.DiskMeta.AddUsed(int64(taken))
 	}
 
 	ext.info.AddAvail(-int64(c.cfg.SegmentSize))                            // At the beginning, we have one writable segment.
@@ -256,7 +256,7 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 			DiskId:     params.DiskID,
 			InstanceId: params.InstanceID,
 		}},
-		diskInfo: params.DiskInfo,
+		diskInfo: params.DiskMeta,
 		ioSched:  sched,
 		segsFile: segFile,
 

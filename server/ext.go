@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"g.tesamc.com/IT/zaipkg/xlog"
+	sdisk "g.tesamc.com/IT/zaipkg/vdisk/svr"
 
-	"g.tesamc.com/IT/zaipkg/vdisk"
+	"g.tesamc.com/IT/zaipkg/xlog"
 
 	"g.tesamc.com/IT/zbuf/extent"
 
@@ -113,50 +113,68 @@ func (s *Server) createExtent(version uint16, extID, diskID, state, objCount uin
 // listExtents lists all valid extents(existed in Keeper).
 // Invoke it after listDisks.
 func (s *Server) listExtents() {
-	s.diskInfos.Range(func(key, value interface{}) bool {
-		disk := value.(*vdisk.Info)
-		diskID := disk.PbDisk.Id
+
+	diskIDs := s.zBufDisks.ListDiskIDs()
+	for _, diskID := range diskIDs {
+
 		extIDs, err := listExtIDs(diskID, s.cfg.DataRoot, s.fs)
 		if err != nil {
-			s.handleIOError(err, 0, diskID)
-			return true
+			s.handleDiskErr(err, diskID)
+			continue
 		}
 
-		diskDir := makeDiskDir(diskID, s.cfg.DataRoot)
+		diskDir := sdisk.MakeDiskDir(diskID, s.cfg.DataRoot)
 		for _, extID := range extIDs {
 			if s.verifyExtID() {
 				extDir := getExtDir(extID, diskDir)
-				ver, err2 := extent.LoadBootSector(s.fs, extDir)
+				sched, started := s.zBufDisks.GetSched(diskID)
+				if !started {
+					xlog.Warn(fmt.Sprintf("try to load boot_sector but scheduler not started, disk_id: %s, ext_id: %d",
+						diskID, extID))
+					break
+				}
+				ver, err2 := extent.LoadBootSector(s.fs, sched, extDir)
 				if err2 != nil {
-					s.handleIOError(err2, extID, diskID)
-					continue
+					if s.handleDiskErr(err2, diskID) {
+						break
+					} else {
+						continue
+					}
 				}
 				v, ok := s.creators[ver]
 				if !ok {
 					// Just in case when administrator does wrong operation.
-					xlog.Error(fmt.Sprintf("ext version: %d not found in this instance", ver))
+					xlog.Error(fmt.Sprintf("ext creator version: %d not found in this instance", ver))
 					continue
 				}
 				creator := v.(extent.Creator)
-				ext, err3 := creator.Load(s.ctx, &s.stopWg, s.fs, s.cfg.App.InstanceID, diskID, extID, extDir)
+				ext, err3 := creator.Load(s.ctx, extDir, extent.CreateParams{
+					InstanceID: s.instanceID,
+					DiskID:     diskID,
+					ExtID:      extID,
+					DiskMeta:   s.zBufDisks.GetDiskMeta(diskID),
+					CloneJob:   nil,
+				})
 				if err3 != nil {
-					s.handleIOError(err3, extID, diskID)
-					continue
+					if s.handleDiskErr(err3, diskID) {
+						break
+					} else {
+						continue
+					}
 				}
 				s.exts.Store(extID, ext)
 			}
 		}
 
-		return true
-	})
+	}
 }
 
 // listExtIDs lists all extent IDs in this Disk    .
 //
 // After listDisks we need to invoke listExtIDs.
-func listExtIDs(diskID uint32, root string, fs vfs.FS) (ids []uint32, err error) {
+func listExtIDs(diskID string, root string, fs vfs.FS) (ids []uint32, err error) {
 
-	dp := makeDiskDir(diskID, root)
+	dp := sdisk.MakeDiskDir(diskID, root)
 	ep := filepath.Join(dp, extDirName)
 
 	extFns, err := fs.List(ep)

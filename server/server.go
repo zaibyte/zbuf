@@ -30,6 +30,8 @@ type Server struct {
 
 	cfg *config.Config
 
+	instanceID string
+
 	availExtentVersion []uint16
 
 	fs    vfs.FS
@@ -58,6 +60,7 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 	cfg.Adjust()
 
 	s := &Server{fs: vfs.GetFS(), vdisk: vdisk.GetDisk()} // Set default FS & Disk at the beginning.
+	s.instanceID = cfg.App.InstanceID
 	s.cfg = cfg
 	s.ctx, s.cancel = context.WithCancel(ctx)
 
@@ -103,6 +106,7 @@ func (s *Server) Run() error {
 		return nil
 	}
 
+	s.zBufDisks.Init(s.fs)
 	s.zBufDisks.StartSched()
 
 	s.listExtents()
