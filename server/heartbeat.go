@@ -2,17 +2,73 @@ package server
 
 import (
 	"context"
+	"sync/atomic"
+	"time"
+
+	"g.tesamc.com/IT/zaipkg/zbufutil"
 
 	"g.tesamc.com/IT/zaipkg/config/settings"
+	"g.tesamc.com/IT/zaipkg/xlog"
 	"g.tesamc.com/IT/zaipkg/xtime"
+	"g.tesamc.com/IT/zproto/pkg/keeperpb"
+	"g.tesamc.com/IT/zproto/pkg/metapb"
+
+	"github.com/templexxx/tsc"
 )
+
+const defaultHeartbeatTimeout = 3 * time.Second
 
 func (s *Server) sendZBufHeartbeat() {
 
+	kc := s.zc.GetKeeperClient()
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultHeartbeatTimeout)
+	defer cancel()
+
+	resp, err := kc.ZBufHeartbeat(ctx, &keeperpb.ZBufHeartbeatRequest{
+		Header: s.keeperRequestHeader(),
+		Zbuf:   s.zBufHeartbeatPreCheck(),
+	})
+	if err != nil {
+		xlog.Warnf("failed to zBuf heartbeat: %s", err.Error())
+	}
+
+	states := resp.States
+	zbufutil.SetState()
+	// extent state will be updates in keeper side, don't worry about that.
+}
+
+func (s *Server) zBufHeartbeatPreCheck() *metapb.ZBuf {
+
+	// TODO should check if there is "news"
+	// TODO > 3 * heartbeat interval, send heartbeat no matter there is new states or not.
+	return s.collectMeta()
+}
+
+// collectMeta collects metapb.ZBuf for heartbeat.
+func (s *Server) collectMeta() *metapb.ZBuf {
+
+	now := tsc.UnixNano()
+	atomic.StoreInt64(&s.lastHeartbeat, now)
+	return &metapb.ZBuf{
+		State:             metapb.ZBufState(atomic.LoadInt32((*int32)(&s.state))),
+		Id:                s.instanceID,
+		Address:           []string{s.cfg.ObjSrvAddr},
+		Disks:             s.zBufDisks.CloneAllDiskMeta(),
+		SupportedVersions: s.availExtentVersion,
+		LastHeartbeat:     atomic.LoadInt64(&s.lastHeartbeat),
+	}
 }
 
 func (s *Server) sendExtsHeartbeat() {
 
+}
+
+func (s *Server) keeperRequestHeader() *keeperpb.RequestHeader {
+	return &keeperpb.RequestHeader{
+		BoxId:    uint64(s.cfg.App.BoxID),
+		SenderId: s.instanceID,
+	}
 }
 
 func (s *Server) heartbeatLoop() {
