@@ -128,7 +128,6 @@ func (s *Server) Run() error {
 
 	s.startBgLoops()
 
-	atomic.StoreInt64(&s.isRunning, 1)
 	xlog.Info("server is running")
 
 	s.sendZBufHeartbeat()
