@@ -2,8 +2,12 @@ package server
 
 import (
 	"context"
+	"net/http"
 	"sync"
 	"sync/atomic"
+
+	"github.com/VictoriaMetrics/metrics"
+	"github.com/julienschmidt/httprouter"
 
 	zai "g.tesamc.com/IT/zai/client"
 
@@ -63,8 +67,13 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 	s.objSvr = otcp.NewServer(cfg.ObjSrvAddr, s)
 
 	s.httpSvr = xhttp.NewServer(&xhttp.ServerConfig{
-		Address: cfg.App.HTTPServerAddr,
+		Address: cfg.App.ServerAddr,
 	})
+	// Add prometheus metrics handler.
+	s.httpSvr.AddHandler(http.MethodGet, "/v1/metrics", func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
+		metrics.WritePrometheus(w, false)
+	})
+
 	s.addOpHandlers()
 
 	s.availExtentVersion = []uint16{settings.ExtV1}
