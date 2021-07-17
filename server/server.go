@@ -74,8 +74,6 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 		metrics.WritePrometheus(w, false)
 	})
 
-	s.addOpHandlers()
-
 	s.availExtentVersion = []uint16{settings.ExtV1}
 
 	s.listDisks()
