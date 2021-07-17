@@ -58,7 +58,7 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 	s.cfg = cfg
 	s.ctx, s.cancel = context.WithCancel(ctx)
 
-	s.development = s.cfg.Develop.Development
+	s.development = s.cfg.Development
 
 	s.objSvr = otcp.NewServer(cfg.ObjSrvAddr, s)
 

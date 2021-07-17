@@ -36,11 +36,6 @@ type Config struct {
 	// ZBuf data root path.
 	DataRoot string `toml:"data_root"`
 
-	Develop DevConfig `toml:"develop"`
-
-	// DiskWeights: disk_id: weight.
-	DiskWeights map[uint32]float64 `toml:"weights"`
-
 	Scheduler sched.Config `toml:"scheduler"`
 
 	ExtV1Config v1.Config `toml:"ext_v_1_config"`
@@ -80,7 +75,7 @@ const (
 
 func (c *Config) Adjust() {
 
-	config.Adjust(&c.App.HTTPServerAddr, DefaultOpSrvAddr)
+	config.Adjust(&c.App.ServerAddr, DefaultOpSrvAddr)
 	config.Adjust(&c.ObjSrvAddr, DefaultObjSrvAddr)
 
 	config.Adjust(&c.DataRoot, DefaultDataRoot)
