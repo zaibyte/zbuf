@@ -5,8 +5,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"g.tesamc.com/IT/zaipkg/zbufutil"
-
 	"g.tesamc.com/IT/zaipkg/config/settings"
 	"g.tesamc.com/IT/zaipkg/xlog"
 	"g.tesamc.com/IT/zaipkg/xtime"
@@ -34,8 +32,8 @@ func (s *Server) sendZBufHeartbeat() {
 	}
 
 	states := resp.States
-	zbufutil.SetState()
-	// extent state will be updates in keeper side, don't worry about that.
+	s.setState(states.State)
+	s.zBufDisks.UpdateDiskStates(states.DiskStates)
 }
 
 func (s *Server) zBufHeartbeatPreCheck() *metapb.ZBuf {

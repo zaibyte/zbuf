@@ -182,3 +182,7 @@ func (s *Server) Close() {
 func (s *Server) getState() metapb.ZBufState {
 	return metapb.ZBufState(atomic.LoadInt32((*int32)(&s.state)))
 }
+
+func (s *Server) setState(state metapb.ZBufState) {
+	atomic.StoreInt32((*int32)(&s.state), int32(state))
+}
