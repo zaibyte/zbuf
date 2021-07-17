@@ -6,6 +6,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"g.tesamc.com/IT/zproto/pkg/metapb"
+
 	zai "g.tesamc.com/IT/zai/client"
 	"g.tesamc.com/IT/zaipkg/config/settings"
 	"g.tesamc.com/IT/zaipkg/orpc/otcp"
@@ -32,7 +34,9 @@ type Server struct {
 
 	instanceID string
 
-	availExtentVersion []uint16
+	state metapb.ZBufState
+
+	availExtentVersion []uint32
 
 	fs    vfs.FS
 	vdisk vdisk.Disk
@@ -48,6 +52,9 @@ type Server struct {
 	creators map[uint16]extent.Creator
 
 	exts sync.Map // extID: extent.Extenter
+
+	lastHeartbeat    int64
+	lastExtHeartbeat int64
 
 	ctx    context.Context
 	cancel func()
@@ -85,7 +92,7 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 	s.fs = vfs.GetFS()
 	s.vdisk = vdisk.GetDisk()
 
-	s.availExtentVersion = []uint16{settings.ExtV1}
+	s.availExtentVersion = []uint32{uint32(settings.ExtV1)}
 
 	s.stopWg = new(sync.WaitGroup)
 
@@ -117,13 +124,15 @@ func (s *Server) Run() error {
 	}
 	s.httpSvr.Start()
 
-	s.sendZBufHeartbeat()
-	s.sendExtsHeartbeat()
+	s.state = metapb.ZBufState_ZBuf_Up // set up before heartbeat. heartbeat may change state.
 
 	s.startBgLoops()
 
 	atomic.StoreInt64(&s.isRunning, 1)
 	xlog.Info("server is running")
+
+	s.sendZBufHeartbeat()
+	s.sendExtsHeartbeat()
 
 	return nil
 }
@@ -169,4 +178,8 @@ func (s *Server) Close() {
 	s.zBufDisks.CloseSched()
 
 	xlog.Info("server is closed")
+}
+
+func (s *Server) getState() metapb.ZBufState {
+	return metapb.ZBufState(atomic.LoadInt32((*int32)(&s.state)))
 }

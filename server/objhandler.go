@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	"g.tesamc.com/IT/zproto/pkg/metapb"
+
 	"g.tesamc.com/IT/zbuf/extent"
 
 	"g.tesamc.com/IT/zaipkg/xlog"
@@ -79,6 +81,14 @@ func (s *Server) DeleteBatch(reqid uint64, extID uint32, oids []byte) error {
 
 // preCheckReq checks basic params and return extent.Extenter if has.
 func (s *Server) preCheckReq(reqid, oid uint64, extID uint32) (ext extent.Extenter, err error) {
+
+	if s.isClosed() {
+		return nil, orpc.ErrServiceClosed
+	}
+
+	if s.getState() == metapb.ZBufState_ZBuf_Tombstone {
+		return nil, orpc.ErrInstanceTombstone
+	}
 
 	var groupID uint32
 	if oid != 0 {
