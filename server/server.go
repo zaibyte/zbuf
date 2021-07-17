@@ -6,23 +6,20 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"g.tesamc.com/IT/zaipkg/vdisk/svr"
-
-	"github.com/VictoriaMetrics/metrics"
-	"github.com/julienschmidt/httprouter"
-
 	zai "g.tesamc.com/IT/zai/client"
-
 	"g.tesamc.com/IT/zaipkg/config/settings"
 	"g.tesamc.com/IT/zaipkg/orpc/otcp"
 	"g.tesamc.com/IT/zaipkg/vdisk"
+	sdisk "g.tesamc.com/IT/zaipkg/vdisk/svr"
 	"g.tesamc.com/IT/zaipkg/vfs"
-	"g.tesamc.com/IT/zaipkg/xio"
 	"g.tesamc.com/IT/zaipkg/xlog"
 	"g.tesamc.com/IT/zaipkg/xnet/xhttp"
 	"g.tesamc.com/IT/zbuf/extent"
 	v1 "g.tesamc.com/IT/zbuf/extent/v1"
 	"g.tesamc.com/IT/zbuf/server/config"
+
+	"github.com/VictoriaMetrics/metrics"
+	"github.com/julienschmidt/httprouter"
 )
 
 // Server is the ZBuf server.
@@ -43,7 +40,7 @@ type Server struct {
 
 	zc zai.ObjClient
 
-	zBufDisks *svr.ZBufDisks
+	zBufDisks *sdisk.ZBufDisks
 
 	// creators is the collector that this server supports extent versions.
 	creators map[uint16]extent.Creator
@@ -88,9 +85,8 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 	s.availExtentVersion = []uint16{settings.ExtV1}
 
 	s.stopWg = new(sync.WaitGroup)
-	s.stopWg.Add(1)
 
-	s.zBufDisks = svr.NewZBufDisks(ctx, s.stopWg, s.vdisk, s.cfg.App.InstanceID,
+	s.zBufDisks = sdisk.NewZBufDisks(ctx, s.stopWg, s.vdisk, s.cfg.App.InstanceID,
 		s.cfg.DataRoot, &s.cfg.Scheduler)
 
 	s.creators = map[uint16]extent.Creator{
@@ -101,6 +97,15 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 }
 
 func (s *Server) Run() error {
+
+	if !atomic.CompareAndSwapInt64(&s.isRunning, 0, 1) {
+		// server is already closed
+		return nil
+	}
+
+	s.zBufDisks.StartSched()
+
+	s.startBgLoops()
 
 	s.listExtents()
 
@@ -122,7 +127,9 @@ func (s *Server) isClosed() bool {
 
 // startBgLoops starts Server background jobs which running in loops.
 func (s *Server) startBgLoops() {
+	s.stopWg.Add(1)
 
+	go s.zBufDisks.DetectLoop()
 }
 
 // stopBgLoops stops Server background jobs, blocking until all exited.
@@ -151,12 +158,7 @@ func (s *Server) Close() {
 		return true
 	})
 
-	s.scheds.Range(func(key, value interface{}) bool {
-		sch := value.(xio.Scheduler)
-		sch.Close()
-		return true
-	})
+	s.zBufDisks.CloseSched()
 
-	// TODO after stop make snapshot
 	xlog.Info("server is closed")
 }
