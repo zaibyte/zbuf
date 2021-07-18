@@ -39,9 +39,10 @@ type CreateParams struct {
 type Creator interface {
 	// Create creates Extenter which not existed.
 	// dir is extent dir.
-	// If there is any error, the caller has the responsibility to remove the entire extDir.
+	// If there is any error, it will return BrokenExtenter & error.
 	Create(ctx context.Context, extDir string, params CreateParams) (Extenter, error)
 	// Load loads an existed Extenter.
+	// If there is any error, it will return BrokenExtenter & error.
 	Load(ctx context.Context, extDir string, params CreateParams) (Extenter, error)
 	// GetSize gets the space size will be taken by the extent which will be created.
 	GetSize() uint64

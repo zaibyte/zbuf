@@ -10,7 +10,8 @@ import (
 
 // Extenter is the collection of extent methods.
 type Extenter interface {
-	Start() error
+	// Start start Extenter container, it won't any I/O error.
+	Start()
 
 	GetMeta() *metapb.Extent
 

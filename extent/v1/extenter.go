@@ -102,19 +102,19 @@ func (e *Extenter) GetDir() string {
 	return e.extDir
 }
 
-func (e *Extenter) Start() error {
+func (e *Extenter) Start() {
 	if e.failedToCreate {
-		return nil
+		return
 	}
 	if !atomic.CompareAndSwapInt64(&e.isRunning, 0, 1) {
-		return errors.New("already started")
+		return // already started
 	}
 
 	e.startBackgroundLoops()
 
-	xlog.Info(fmt.Sprintf("ext: %d has started", e.meta.PbExt.Id))
+	xlog.Info(fmt.Sprintf("ext: %d has started", e.meta.Id))
 
-	return nil
+	return
 }
 
 func (e *Extenter) GetMeta() *metapb.Extent {

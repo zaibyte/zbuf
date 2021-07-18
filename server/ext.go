@@ -112,14 +112,7 @@ func (s *Server) listAndLoadExts() {
 				}
 			}
 
-			err = ext.Start()
-			if err != nil {
-				if s.handleDiskErr(err3, diskID) {
-					break
-				} else {
-					continue
-				}
-			}
+			ext.Start()
 
 			s.exts.Store(extID, ext)
 			// Set created to 1, ensure start with a created extent but the created flag unset extent could work as
@@ -184,27 +177,18 @@ func (s *Server) updateAllExt(exts []*metapb.Extent) {
 				})
 				if err != nil {
 					xlog.Error(fmt.Sprintf("failed to create ext: %d: %s", ext.Id, err.Error()))
-					ext.State = metapb.ExtentState_Extent_Broken
-					e = extent.NewBrokenExtenter(ext, extDir)
 					s.handleDiskErr(err, ext.DiskId)
 				} else {
 					ext.Created = 1
 				}
-				err = e.Start()
-				if err != nil {
-					xlog.Error(fmt.Sprintf("failed to start ext: %d: %s", ext.Id, err.Error()))
-					ext.State = metapb.ExtentState_Extent_Broken
-					e = extent.NewBrokenExtenter(ext, extDir)
-					s.handleDiskErr(err, ext.DiskId)
-					ext.Created = 0
-				}
+				e.Start()
 				s.exts.Store(ext.Id, e)
 			} else { // Local doesn't have, but created flag is true in keeper. Set it broken.
 				ext.State = metapb.ExtentState_Extent_Broken
 				e := extent.NewBrokenExtenter(ext, extDir)
 				s.exts.Store(ext.Id, e)
 			}
-		} else {
+		} else { // Local has.
 			if ext.State == metapb.ExtentState_Extent_Broken {
 				s.closeAndCleanExt(ext.Id)
 				e := extent.NewBrokenExtenter(ext, extDir)
