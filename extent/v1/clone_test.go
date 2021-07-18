@@ -10,7 +10,6 @@ import (
 	"g.tesamc.com/IT/zaipkg/uid"
 	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zaipkg/xdigest"
-	"g.tesamc.com/IT/zbuf/extent"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 
 	"github.com/templexxx/tsc"
@@ -94,7 +93,7 @@ func TestExtenter_Clone(t *testing.T) {
 
 	for {
 
-		if extent.GetCloneJobState(ext2.header.nvh.CloneJob) == metapb.CloneJobState_CloneJob_Done {
+		if ext2.meta.GetCloneJobState() == metapb.CloneJobState_CloneJob_Done {
 			break
 		}
 		time.Sleep(1 * time.Second) // Enough for clone finishing.
@@ -177,7 +176,7 @@ func TestExtenter_CloneBig(t *testing.T) {
 	defer ext2.Close()
 
 	for {
-		if extent.GetCloneJobState(ext2.header.nvh.CloneJob) == metapb.CloneJobState_CloneJob_Done {
+		if ext2.meta.GetCloneJobState() == metapb.CloneJobState_CloneJob_Done {
 			break
 		}
 		time.Sleep(1 * time.Second) // Enough for clone finishing.

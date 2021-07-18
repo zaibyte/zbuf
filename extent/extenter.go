@@ -1,8 +1,6 @@
 package extent
 
 import (
-	"sync/atomic"
-
 	"g.tesamc.com/IT/zaipkg/config/settings"
 
 	"g.tesamc.com/IT/zaipkg/xio"
@@ -44,7 +42,7 @@ type Cloner interface {
 }
 
 const (
-	Version1 uint16 = settings.ExtV1
+	Version1 = settings.ExtV1
 )
 
 // GCer are methods collector of GC.
@@ -52,35 +50,4 @@ type GCer interface {
 	// DoGC tries to trigger GC with a certain ratio,
 	// it's non-block, and you could call it anytime.
 	DoGC(ratio float64)
-}
-
-// SetCloneJobState sets clone job a new state.
-func SetCloneJobState(cj *metapb.CloneJob, state metapb.CloneJobState) bool {
-	oldSate := metapb.CloneJobState(atomic.LoadInt32((*int32)(&cj.State)))
-
-	if oldSate == state {
-		return true
-	}
-
-	if oldSate == metapb.CloneJobState_CloneJob_Doing && state == metapb.CloneJobState_CloneJob_Init {
-		return false
-	}
-
-	switch oldSate {
-	case metapb.CloneJobState_CloneJob_Failed:
-		return false
-	case metapb.CloneJobState_CloneJob_Collapse:
-		return false
-	case metapb.CloneJobState_CloneJob_Done:
-		return false
-	default:
-
-	}
-
-	return atomic.CompareAndSwapInt32((*int32)(&cj.State), int32(oldSate), int32(state))
-}
-
-// GetCloneJobState gets clone job state.
-func GetCloneJobState(cj *metapb.CloneJob) metapb.CloneJobState {
-	return metapb.CloneJobState(atomic.LoadInt32((*int32)(&cj.State)))
 }

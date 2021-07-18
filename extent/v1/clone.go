@@ -14,7 +14,6 @@ import (
 	"g.tesamc.com/IT/zaipkg/uid"
 	"g.tesamc.com/IT/zaipkg/xerrors"
 	"g.tesamc.com/IT/zaipkg/xlog"
-	"g.tesamc.com/IT/zbuf/extent"
 	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 )
@@ -115,9 +114,9 @@ func (e *Extenter) tryClone() {
 	}
 
 	// If it's unhealthy, we could find it.
-	if !extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Doing) {
+	if !e.meta.SetCloneJobState(metapb.CloneJobState_CloneJob_Doing) {
 		xlog.Warnf("ext: %d, clone_job: %d, cannot start to clone, because state cannot be changed to doing",
-			e.meta.PbExt.Id, job.Id)
+			e.meta.Id, job.Id)
 		return
 	}
 
@@ -150,7 +149,7 @@ func (e *Extenter) tryClone() {
 				if errors.Is(err, orpc.ErrReplicasCollapse) {
 					xlog.Error(xerrors.WithMessage(err, fmt.Sprintf("ext: %d, clone_job: %d, failed to clone: get clone job oids_oid: %d",
 						e.meta.PbExt.Id, job.Id, oidsOID)).Error())
-					extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Collapse)
+					e.meta.SetCloneJobState(metapb.CloneJobState_CloneJob_Done)
 					return
 				}
 				xlog.Warn(xerrors.WithMessage(err, fmt.Sprintf("ext: %d, clone_job: %d, failed to clone : get clone job oids_oid: %d, try again later",
@@ -201,7 +200,7 @@ func (e *Extenter) tryClone() {
 					if errors.Is(err, orpc.ErrReplicasCollapse) {
 						xlog.Error(xerrors.WithMessage(err, fmt.Sprintf("ext: %d, clone_job: %d, failed to clone: get object from remote: %d",
 							e.meta.PbExt.Id, job.Id, oid)).Error())
-						extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Collapse)
+						e.meta.SetCloneJobState(metapb.CloneJobState_CloneJob_Done)
 						return
 					}
 
@@ -230,7 +229,7 @@ func (e *Extenter) tryClone() {
 						// If unhealthy, put will fail.
 						xlog.Error(xerrors.WithMessage(err, fmt.Sprintf("ext: %d, clone_job: %d, failed to clone: put object: %d when clone",
 							e.meta.PbExt.Id, job.Id, oid)).Error())
-						extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Failed)
+						e.meta.SetCloneJobState(metapb.CloneJobState_CloneJob_Done)
 						return
 					}
 				} else {
@@ -254,8 +253,8 @@ func (e *Extenter) tryClone() {
 	err := e.header.Store(metapb.ExtentState_Extent_Clone)
 	e.rwMutex.Unlock()
 
-	extent.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Done)
-	e.meta.SetState(metapb.ExtentState_Extent_ReadWrite, false)
+	e.meta.SetCloneJobState(metapb.CloneJobState_CloneJob_Done)
+	e.meta.SetState(metapb.ExtentState_Extent_ReadWrite)
 	xlog.Infof("ext: %d, have done clone job: %d",
 		e.meta.PbExt.Id, job.Id)
 }
