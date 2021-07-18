@@ -67,7 +67,7 @@ type Extenter struct {
 	header   *Header
 	fs       vfs.FS
 	extDir   string
-	info     *extutil.Info
+	meta     *extutil.SyncExt
 	diskInfo *vdisk.Info
 	ioSched  xio.Scheduler
 	segsFile vfs.File
@@ -112,7 +112,7 @@ func (e *Extenter) Start() error {
 
 	e.startBackgroundLoops()
 
-	xlog.Info(fmt.Sprintf("ext: %d has started", e.info.PbExt.Id))
+	xlog.Info(fmt.Sprintf("ext: %d has started", e.meta.PbExt.Id))
 
 	return nil
 }
@@ -120,7 +120,7 @@ func (e *Extenter) Start() error {
 func (e *Extenter) GetMeta() *metapb.Extent {
 
 	e.rwMutex.RLock()
-	ext := e.info.Clone()
+	ext := e.meta.Clone()
 	if e.header.nvh.CloneJob != nil {
 		ext.Clone = proto.Clone(e.header.nvh.CloneJob).(*metapb.CloneJob)
 	}
@@ -151,7 +151,7 @@ func (e *Extenter) Close() {
 
 	e.closeFiles()
 
-	xlog.Info(fmt.Sprintf("ext: %d is closed", e.info.PbExt.Id))
+	xlog.Info(fmt.Sprintf("ext: %d is closed", e.meta.PbExt.Id))
 }
 
 // closeFiles closes all files opened by Extenter.
@@ -255,7 +255,7 @@ func (e *Extenter) GetMainFile() xio.File {
 
 func (e *Extenter) preprocGetReq() error {
 
-	state := e.info.GetState()
+	state := e.meta.GetState()
 
 	switch state {
 	case metapb.ExtentState_Extent_Broken:
@@ -550,7 +550,7 @@ func (e *Extenter) setState(err error) {
 		return
 	}
 
-	old := e.info.GetState()
+	old := e.meta.GetState()
 	var state metapb.ExtentState
 	if diskutil.IsBroken(err) {
 		xlog.Error(fmt.Sprintf("disk: %d is broken: %s", e.diskInfo.PbDisk.Id, err.Error()))
@@ -571,7 +571,7 @@ func (e *Extenter) setState(err error) {
 		return
 	}
 
-	if e.info.SetState(state, false) {
-		xlog.Error(fmt.Sprintf("extent: %d is %s: %s", e.info.PbExt.Id, state.String(), err.Error()))
+	if e.meta.SetState(state, false) {
+		xlog.Error(fmt.Sprintf("extent: %d is %s: %s", e.meta.PbExt.Id, state.String(), err.Error()))
 	}
 }

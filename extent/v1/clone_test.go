@@ -87,7 +87,7 @@ func TestExtenter_Clone(t *testing.T) {
 	}
 	defer vfs.GetTestFS().RemoveAll(ext2.GetDir())
 
-	ext2.info.PbExt.Id = uid.MakeExtID(1, 1)
+	ext2.meta.PbExt.Id = uid.MakeExtID(1, 1)
 
 	ext2.Start()
 	defer ext2.Close()
@@ -171,7 +171,7 @@ func TestExtenter_CloneBig(t *testing.T) {
 	}
 	defer vfs.GetTestFS().RemoveAll(ext2.GetDir())
 
-	ext2.info.PbExt.Id = uid.MakeExtID(1, 1)
+	ext2.meta.PbExt.Id = uid.MakeExtID(1, 1)
 
 	ext2.Start()
 	defer ext2.Close()

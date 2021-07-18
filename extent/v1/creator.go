@@ -137,7 +137,7 @@ func (c *Creator) create(ctx context.Context, extDir string, params extent.Creat
 		rwMutex: new(sync.RWMutex),
 		fs:      fs,
 		extDir:  extDir,
-		info: &extutil.Info{PbExt: &metapb.Extent{
+		meta: &extutil.Info{PbExt: &metapb.Extent{
 			State:      metapb.ExtentState(h.nvh.State),
 			Id:         params.ExtID,
 			Size_:      uint64(c.cfg.SegmentSize) * uint64(segmentCnt),
@@ -180,8 +180,8 @@ func (c *Creator) create(ctx context.Context, extDir string, params extent.Creat
 		params.DiskMeta.AddUsed(int64(taken))
 	}
 
-	ext.info.AddAvail(-int64(c.cfg.SegmentSize))                            // At the beginning, we have one writable segment.
-	ext.info.AddAvail(-int64(c.cfg.SegmentSize) * int64(c.cfg.ReservedSeg)) // Reserved is not avail either.
+	ext.meta.AddAvail(-int64(c.cfg.SegmentSize))                            // At the beginning, we have one writable segment.
+	ext.meta.AddAvail(-int64(c.cfg.SegmentSize) * int64(c.cfg.ReservedSeg)) // Reserved is not avail either.
 
 	return ext, nil
 }
@@ -200,7 +200,7 @@ func (c *Creator) Load(ctx context.Context, extDir string, params extent.CreateP
 func createBrokenExt(extDir string) extent.Extenter {
 	return &Extenter{
 		failedToCreate: true,
-		info: &extutil.Info{PbExt: &metapb.Extent{
+		meta: &extutil.Info{PbExt: &metapb.Extent{
 			State:   metapb.ExtentState_Extent_Broken,
 			Version: uint32(extent.Version1),
 		}},
@@ -247,7 +247,7 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 		rwMutex: new(sync.RWMutex),
 		fs:      fs,
 		extDir:  extDir,
-		info: &extutil.Info{PbExt: &metapb.Extent{
+		meta: &extutil.Info{PbExt: &metapb.Extent{
 			State:      metapb.ExtentState(h.nvh.State),
 			Id:         params.ExtID,
 			Size_:      uint64(c.cfg.SegmentSize) * uint64(segmentCnt),

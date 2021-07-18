@@ -193,7 +193,7 @@ func (e *Extenter) isSnapCatchGC() bool {
 // preprocGC preprocesses GC operation.
 // Return error if cannot execute GC.
 func (e *Extenter) preprocGC() error {
-	state := e.info.GetState()
+	state := e.meta.GetState()
 
 	switch state {
 	case metapb.ExtentState_Extent_Broken:
@@ -217,7 +217,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 		return gcDeadInterval, false
 	}
 
-	state := e.info.GetState()
+	state := e.meta.GetState()
 	if state == metapb.ExtentState_Extent_Clone { // It's not too late GC after clone done.
 		return e.cfg.GCScanInterval.Duration, false
 	}
@@ -232,7 +232,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 	gcObjBuf := directio.AlignedBlock(uid.MaxGrains * uid.GrainSize)
 	objHeaderBuf := directio.AlignedBlock(objHeaderSize)
 
-	extID := e.info.PbExt.Id
+	extID := e.meta.PbExt.Id
 
 	for i := 0; i < len(cs); i++ { // Deal with candidates one by one.
 
@@ -429,15 +429,15 @@ func (e *Extenter) gcSrcDone() {
 	e.header.nvh.SegCycles[e.gcSrcSeg] += 1
 	srcNewState := segReserved
 	if e.isReservedEnough() {
-		e.info.AddAvail(int64(e.cfg.SegmentSize))
+		e.meta.AddAvail(int64(e.cfg.SegmentSize))
 		srcNewState = segReady
 	}
 	e.header.nvh.SegStates[e.gcSrcSeg] = srcNewState
-	if e.info.GetState() == metapb.ExtentState_Extent_Full && srcNewState == segReady {
-		e.info.SetState(metapb.ExtentState_Extent_ReadWrite, false)
+	if e.meta.GetState() == metapb.ExtentState_Extent_Full && srcNewState == segReady {
+		e.meta.SetState(metapb.ExtentState_Extent_ReadWrite, false)
 	}
 
-	xlog.Info(fmt.Sprintf("done GC in ext:%d, seg:%d", e.info.PbExt.Id, e.gcSrcSeg))
+	xlog.Info(fmt.Sprintf("done GC in ext:%d, seg:%d", e.meta.PbExt.Id, e.gcSrcSeg))
 }
 
 func (e *Extenter) isReservedEnough() bool {
@@ -469,7 +469,7 @@ func (e *Extenter) findGCDst(segNow int64) int64 {
 			return int64(i)
 		}
 	}
-	err := xerrors.WithMessage(orpc.ErrExtentBroken, fmt.Sprintf("could not find a reserved segment for GC dst, ext_id: %d", e.info.PbExt.Id))
+	err := xerrors.WithMessage(orpc.ErrExtentBroken, fmt.Sprintf("could not find a reserved segment for GC dst, ext_id: %d", e.meta.PbExt.Id))
 	e.setState(err) // Set extent broken if there is no reserved segment.
 	xlog.Panic(err.Error())
 	return -1

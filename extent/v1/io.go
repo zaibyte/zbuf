@@ -54,7 +54,7 @@ func (e *Extenter) updatesLoop() {
 			return
 		}
 
-		state := e.info.GetState()
+		state := e.meta.GetState()
 
 		if state != metapb.ExtentState_Extent_Broken && state != metapb.ExtentState_Extent_Ghost {
 			if atomic.LoadInt64(&e.dirtyUpdates) > e.cfg.MaxDirtyCount {
@@ -113,7 +113,7 @@ func (e *Extenter) updatesLoop() {
 				}
 				e.writableSeg = nextSeg
 				e.writableCursor = 0
-				e.info.AddAvail(-segSize)
+				e.meta.AddAvail(-segSize)
 			}
 			wseg := e.writableSeg
 			cursor := e.writableCursor
@@ -169,9 +169,9 @@ func (e *Extenter) updatesLoop() {
 				if lastSnap.hlcTS >= dirtyDel.lastMod {
 					err := dirtyDel.reset()
 					if err != nil {
-						err = fmt.Errorf("ext: %d broken: failed to reset dirty_delete_wal", e.info.PbExt.Id)
+						err = fmt.Errorf("ext: %d broken: failed to reset dirty_delete_wal", e.meta.PbExt.Id)
 						xlog.Error(err.Error())
-						e.info.SetState(metapb.ExtentState_Extent_Broken, false)
+						e.meta.SetState(metapb.ExtentState_Extent_Broken, false)
 						ur.done <- err
 						continue
 					} else {
@@ -218,9 +218,9 @@ func (e *Extenter) updatesLoop() {
 				if lastSnap.hlcTS >= dirtyDel.lastMod {
 					err := dirtyDel.reset()
 					if err != nil {
-						err = fmt.Errorf("ext: %d broken: failed to reset dirty_delete_wal", e.info.PbExt.Id)
+						err = fmt.Errorf("ext: %d broken: failed to reset dirty_delete_wal", e.meta.PbExt.Id)
 						xlog.Error(err.Error())
-						e.info.SetState(metapb.ExtentState_Extent_Broken, false)
+						e.meta.SetState(metapb.ExtentState_Extent_Broken, false)
 						ur.done <- err
 						continue
 					} else {
@@ -282,7 +282,7 @@ func (e *Extenter) preprocWriteReq(reqType uint64) error {
 		return xerrors.WithMessage(orpc.ErrInternalServer, "want write request, but got read")
 	}
 
-	state := e.info.GetState()
+	state := e.meta.GetState()
 
 	if reqType == xio.ReqCloneWrite && state != metapb.ExtentState_Extent_Clone {
 		return xerrors.WithMessage(orpc.ErrExtentClone, "clone extent only accept clone write")
@@ -309,7 +309,7 @@ func (e *Extenter) preprocWriteReq(reqType uint64) error {
 // Return error if cannot execute the request.
 func (e *Extenter) preprocModifyRequest() error {
 
-	state := e.info.GetState()
+	state := e.meta.GetState()
 
 	switch state {
 	case metapb.ExtentState_Extent_Broken:
@@ -344,7 +344,7 @@ func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte,
 		oid:    oid,
 		grains: uid.GetGrains(oid),
 		cycle:  cycle,
-		extID:  e.info.PbExt.Id,
+		extID:  e.meta.PbExt.Id,
 		offset: offset,
 	}
 	objH.marshalTo(buf)
@@ -381,10 +381,10 @@ func (e *Extenter) oHeaderReadAt(reqType uint64, offset int64, buf []byte) (oid 
 		return 0, 0, 0, err
 	}
 
-	if objH.extID != e.info.PbExt.Id || objH.offset != offset {
+	if objH.extID != e.meta.PbExt.Id || objH.offset != offset {
 		return 0, 0, 0, xerrors.WithMessage(orpc.ErrMisdirectedWrite,
 			fmt.Sprintf("obj header read: exp: ext_id: %d, offset: %d, but got: ext_id: %d, offset: %d",
-				e.info.PbExt.Id, offset, objH.extID, objH.offset))
+				e.meta.PbExt.Id, offset, objH.extID, objH.offset))
 	}
 
 	return objH.oid, objH.grains, objH.cycle, nil
@@ -532,14 +532,14 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 			nvh.SealedTS[last] = MakeSealedTS(tsc.UnixNano())
 			nvh.WritableHistory[nvh.WritableHistoryNextIdx%wsegHistroyCnt] = byte(next)
 			nvh.WritableHistoryNextIdx++
-			err := e.header.Store(e.info.GetState())
+			err := e.header.Store(e.meta.GetState())
 
 			if err != nil {
 				nvh.WritableHistoryNextIdx-- // Backwards for avoiding inconsistency in logic.
 				err = xerrors.WithMessage(err, "store header failed")
 				return -1, err
 			}
-			xlog.Info(fmt.Sprintf("ext: %d got new writable seg: %d", e.info.PbExt.Id, next))
+			xlog.Info(fmt.Sprintf("ext: %d got new writable seg: %d", e.meta.PbExt.Id, next))
 			return int64(next), nil
 		}
 	}

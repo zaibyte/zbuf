@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"time"
 
+	"g.tesamc.com/IT/zaipkg/extutil"
+
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 )
 
@@ -32,6 +34,7 @@ type NVHeader struct {
 	// every time after GC, it'll be add one.
 	SegCycles []uint32 // 256 * 4B = 1024B
 
+	Meta     *extutil.SyncExt
 	CloneJob *metapb.CloneJob
 }
 
