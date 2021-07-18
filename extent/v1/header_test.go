@@ -31,8 +31,8 @@ func TestCreateLoadHeader(t *testing.T) {
 	c := cv
 
 	h, err := c.CreateHeader(extDir, extent.CreateParams{
-		InstanceID: 1,
-		DiskID:     1,
+		InstanceID: "1",
+		DiskID:     "1",
 		ExtID:      1,
 		DiskMeta:   nil,
 		CloneJob:   nil,
@@ -74,8 +74,8 @@ func TestCreateLoadHeader(t *testing.T) {
 		State:    metapb.CloneJobState_CloneJob_Doing,
 		Id:       11,
 		ParentId: 1,
-		ObjCnt:   11,
-		DoneCnt:  1,
+		Total:    11,
+		Done:     1,
 		OidsOid:  1234,
 	}
 

@@ -7,6 +7,8 @@ import (
 	"sync"
 	"unsafe"
 
+	"github.com/templexxx/tsc"
+
 	"g.tesamc.com/IT/zaipkg/extutil"
 
 	"g.tesamc.com/IT/zaipkg/orpc"
@@ -79,17 +81,17 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 func (c *Creator) create(ctx context.Context, extDir string, params extent.CreateParams) (extent.Extenter, error) {
 	sched, started := c.scheds.GetSched(params.DiskID)
 	if sched == nil {
-		return nil, xerrors.WithMessage(orpc.ErrNotFound, fmt.Sprintf("failed to find disk: %d scheduler", params.DiskID))
+		return nil, xerrors.WithMessage(orpc.ErrNotFound, fmt.Sprintf("failed to find disk: %s scheduler", params.DiskID))
 	}
 	if !started {
-		return nil, xerrors.WithMessage(orpc.ErrInternalServer, fmt.Sprintf("disk: %d scheduler haven't started", params.DiskID))
+		return nil, xerrors.WithMessage(orpc.ErrInternalServer, fmt.Sprintf("disk: %s scheduler haven't started", params.DiskID))
 	}
 
 	taken := c.GetSize()
 	if params.DiskMeta != nil { // In testing, it's nil.
-		if taken > params.DiskMeta.PbDisk.Size_-params.DiskMeta.PbDisk.Used {
-			return nil, xerrors.WithMessage(orpc.ErrInternalServer, fmt.Sprintf("disk: %d has no enough space: %d"+
-				" for creating ext: %d", taken, params.DiskID, params.ExtID))
+		if taken > params.DiskMeta.Size_-params.DiskMeta.GetUsed() {
+			return nil, xerrors.WithMessage(orpc.ErrInternalServer, fmt.Sprintf("disk: %s has no enough space: %d"+
+				" for creating ext: %d", params.DiskID, taken, params.ExtID))
 		}
 	}
 
@@ -126,7 +128,7 @@ func (c *Creator) create(ctx context.Context, extDir string, params extent.Creat
 
 	dmuCap := dmu.MinCap
 	if params.CloneJob != nil {
-		dmuCap = int(params.CloneJob.ObjCnt)
+		dmuCap = int(params.CloneJob.GetTotal())
 	}
 
 	ctx2, cancel := context.WithCancel(ctx)
@@ -137,15 +139,16 @@ func (c *Creator) create(ctx context.Context, extDir string, params extent.Creat
 		rwMutex: new(sync.RWMutex),
 		fs:      fs,
 		extDir:  extDir,
-		meta: &extutil.Info{PbExt: &metapb.Extent{
-			State:      metapb.ExtentState(h.nvh.State),
+		meta: (*extutil.SyncExt)(&metapb.Extent{
 			Id:         params.ExtID,
+			State:      metapb.ExtentState(h.nvh.State),
 			Size_:      uint64(c.cfg.SegmentSize) * uint64(segmentCnt),
 			Avail:      (segmentCnt - uint64(c.cfg.ReservedSeg)) * uint64(c.cfg.SegmentSize),
-			Version:    uint32(extent.Version1),
 			DiskId:     params.DiskID,
 			InstanceId: params.InstanceID,
-		}},
+			LastUpdate: tsc.UnixNano(),
+			CloneJob:   h.nvh.CloneJob,
+		}),
 		diskInfo: params.DiskMeta,
 		ioSched:  sched,
 		segsFile: segFile,

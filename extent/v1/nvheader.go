@@ -4,12 +4,10 @@ import (
 	"encoding/binary"
 	"time"
 
-	"g.tesamc.com/IT/zaipkg/extutil"
-
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 )
 
-// Non-Volatile Header is the part of Header will be synced to non-volatile device.
+// NVHeader Non-Volatile Header is the part of Header will be synced to non-volatile device.
 // <= 4KB-8Bytes.
 type NVHeader struct {
 	State       int32
@@ -34,7 +32,6 @@ type NVHeader struct {
 	// every time after GC, it'll be add one.
 	SegCycles []uint32 // 256 * 4B = 1024B
 
-	Meta     *extutil.SyncExt
 	CloneJob *metapb.CloneJob
 }
 

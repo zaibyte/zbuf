@@ -68,7 +68,7 @@ type Extenter struct {
 	fs       vfs.FS
 	extDir   string
 	meta     *extutil.SyncExt
-	diskInfo *vdisk.Info
+	diskInfo *vdisk.SyncMeta
 	ioSched  xio.Scheduler
 	segsFile vfs.File
 	dmu      *dmu.DMU
@@ -218,7 +218,7 @@ func (e *Extenter) PutObj(_reqid, oid uint64, objData []byte, isClone bool) erro
 	return err
 }
 
-func (e *Extenter) GetObj(_reqid, oid uint64, isClone bool) (objData []byte, err error) {
+func (e *Extenter) GetObj(_reqid, oid uint64, isClone bool, offset, n uint32) (objData []byte, crc uint32, err error) {
 
 	if atomic.LoadInt64(&e.isRunning) != 1 {
 		return nil, orpc.ErrServiceClosed

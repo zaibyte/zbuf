@@ -199,7 +199,7 @@ func (s *Server) updateAllExt(exts []*metapb.Extent) {
 					ext.Created = 0
 				}
 				s.exts.Store(ext.Id, e)
-			} else {
+			} else { // Local doesn't have, but created flag is true in keeper. Set it broken.
 				ext.State = metapb.ExtentState_Extent_Broken
 				e := extent.NewBrokenExtenter(ext, extDir)
 				s.exts.Store(ext.Id, e)
