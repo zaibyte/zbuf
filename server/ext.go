@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/templexxx/tsc"
+
 	"g.tesamc.com/IT/zaipkg/uid"
 
 	"g.tesamc.com/IT/zaipkg/extutil"
@@ -129,6 +131,7 @@ func (s *Server) cloneAllExtMetas() []*metapb.Extent {
 	s.exts.Range(func(key, value interface{}) bool {
 
 		m := (*extutil.SyncExt)(value.(extent.Extenter).GetMeta()).Clone()
+		m.LastUpdate = tsc.UnixNano()
 		ret = append(ret, m)
 		return true
 	})
