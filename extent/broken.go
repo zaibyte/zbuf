@@ -20,8 +20,8 @@ func NewBrokenExtenter(meta *metapb.Extent, extDir string) *BrokenExtenter {
 	}
 }
 
-func (b *BrokenExtenter) Start() error {
-	return nil
+func (b *BrokenExtenter) Start() {
+	return
 }
 
 func (b *BrokenExtenter) GetMeta() *metapb.Extent {

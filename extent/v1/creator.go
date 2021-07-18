@@ -73,7 +73,13 @@ func (c *Creator) GetVersion() uint16 {
 func (c *Creator) Create(ctx context.Context, extDir string, params extent.CreateParams) (extent.Extenter, error) {
 	e, err := c.create(ctx, extDir, params)
 	if err != nil {
-		return createBrokenExt(extDir), err
+		return extent.NewBrokenExtenter(&metapb.Extent{
+			Id:         params.ExtID,
+			State:      metapb.ExtentState_Extent_Broken,
+			DiskId:     params.DiskID,
+			InstanceId: params.InstanceID,
+			Created:    0,
+		}, extDir), err
 	}
 	return e, nil
 }
@@ -193,23 +199,15 @@ func (c *Creator) Load(ctx context.Context, extDir string, params extent.CreateP
 
 	e, err := c.load(ctx, extDir, params)
 	if err != nil {
-		return createBrokenExt(extDir), err
+		return extent.NewBrokenExtenter(&metapb.Extent{
+			Id:         params.ExtID,
+			State:      metapb.ExtentState_Extent_Broken,
+			DiskId:     params.DiskID,
+			InstanceId: params.InstanceID,
+			Created:    0,
+		}, extDir), err
 	}
 	return e, nil
-}
-
-// createBrokenExt creates an Extenter which state is broken,
-// but we still need it for heartbeat or other methods.
-func createBrokenExt(extDir string) extent.Extenter {
-	return &Extenter{
-		failedToCreate: true,
-		meta: &extutil.Info{PbExt: &metapb.Extent{
-			State:   metapb.ExtentState_Extent_Broken,
-			Version: uint32(extent.Version1),
-		}},
-		header: &Header{nvh: &NVHeader{CloneJob: nil}},
-		extDir: extDir,
-	}
 }
 
 func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateParams) (*Extenter, error) {
