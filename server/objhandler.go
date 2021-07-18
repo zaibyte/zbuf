@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	"g.tesamc.com/IT/zaipkg/extutil"
+
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 
 	"g.tesamc.com/IT/zbuf/extent"
@@ -113,6 +115,11 @@ func (s *Server) preCheckReq(reqid, oid uint64, extID uint32) (ext extent.Extent
 			fmt.Sprintf("extID: %d", extID))
 		xlog.ErrorID(reqid, err.Error())
 		return nil, err
+	}
+
+	if (*extutil.SyncExt)(ext.GetMeta()).GetState() == metapb.ExtentState_Extent_Broken {
+		xlog.ErrorID(reqid, orpc.ErrExtentBroken.Error())
+		return nil, orpc.ErrExtentBroken
 	}
 
 	diskID := ext.GetMeta().DiskId
