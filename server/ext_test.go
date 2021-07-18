@@ -7,6 +7,9 @@ import (
 	"sort"
 	"testing"
 
+	sdisk "g.tesamc.com/IT/zaipkg/vdisk/svr"
+	"github.com/google/uuid"
+
 	"g.tesamc.com/IT/zaipkg/vfs"
 
 	"github.com/spf13/cast"
@@ -20,8 +23,8 @@ func TestMakeExtDir(t *testing.T) {
 	}
 	defer os.RemoveAll(root)
 
-	var diskID uint32 = 1
-	diskPath := makeDiskDir(diskID, root)
+	diskID := uuid.NewString()
+	diskPath := sdisk.MakeDiskDir(diskID, root)
 	var extID uint32 = 2
 	extDir := getExtDir(extID, diskPath)
 
@@ -39,8 +42,8 @@ func TestListExtIDs(t *testing.T) {
 	defer os.RemoveAll(root)
 
 	fs := vfs.GetFS()
-	var diskID uint32 = 1
-	diskDir := makeDiskDir(diskID, root)
+	diskID := uuid.NewString()
+	diskDir := sdisk.MakeDiskDir(diskID, root)
 	err = fs.MkdirAll(diskDir, 0777)
 	if err != nil {
 		t.Fatal(err)

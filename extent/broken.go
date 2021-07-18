@@ -13,6 +13,13 @@ type BrokenExtenter struct {
 	extDir string
 }
 
+func NewBrokenExtenter(meta *metapb.Extent, extDir string) *BrokenExtenter {
+	return &BrokenExtenter{
+		meta:   meta,
+		extDir: extDir,
+	}
+}
+
 func (b *BrokenExtenter) Start() error {
 	return nil
 }

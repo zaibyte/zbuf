@@ -1,9 +1,17 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
+
+	"g.tesamc.com/IT/zaipkg/uid"
+
+	"g.tesamc.com/IT/zaipkg/extutil"
+
+	"g.tesamc.com/IT/zproto/pkg/metapb"
 
 	sdisk "g.tesamc.com/IT/zaipkg/vdisk/svr"
 
@@ -39,12 +47,14 @@ func getExtDirParent(extDir string) string {
 	return filepath.Dir(extDir)
 }
 
-func (s *Server) cleanExt(extID uint32) {
+func (s *Server) closeAndCleanExt(extID uint32) {
 
 	ext := s.getExtenter(extID)
 	if ext == nil {
 		return
 	}
+
+	ext.Close()
 
 	s.exts.Delete(extID)
 
@@ -101,8 +111,139 @@ func (s *Server) listAndLoadExts() {
 					continue
 				}
 			}
+
+			err = ext.Start()
+			if err != nil {
+				if s.handleDiskErr(err3, diskID) {
+					break
+				} else {
+					continue
+				}
+			}
+
 			s.exts.Store(extID, ext)
+			// Set created to 1, ensure start with a created extent but the created flag unset extent could work as
+			// we expect.
+			atomic.StoreInt32(&(*extutil.SyncExt)(ext.GetMeta()).Created, 1)
 		}
+	}
+}
+
+// cloneAllExtMetas clones all available extents meta for heartbeat.
+func (s *Server) cloneAllExtMetas() []*metapb.Extent {
+
+	ret := make([]*metapb.Extent, 0, 32)
+	s.exts.Range(func(key, value interface{}) bool {
+
+		m := (*extutil.SyncExt)(value.(extent.Extenter).GetMeta()).Clone()
+		ret = append(ret, m)
+		return true
+	})
+
+	return ret
+}
+
+func (s *Server) getExtState(extID uint32) (metapb.ExtentState, bool) {
+
+	v, ok := s.exts.Load(extID)
+	if !ok {
+		return 0, false
+	}
+
+	ext := v.(extent.Extenter)
+	m := ext.GetMeta()
+
+	return (*extutil.SyncExt)(m).GetState(), true
+}
+
+// updateAllExts udpates all extents by heartbeat response.
+func (s *Server) updateAllExt(exts []*metapb.Extent) {
+
+	for _, ext := range exts {
+		old, ok := s.exts.Load(ext.Id)
+		extDir := extent.MakeExtDir(ext.Id, sdisk.MakeDiskDir(ext.DiskId, s.cfg.DataRoot))
+		if !ok { // Local don't have.
+			if ext.Created == 0 { // Haven't been created, creating it.
+				gid := uint32(uid.GetGroupID(ext.Id))
+				g, err := s.zc.GetFastKeeper().GetGroup(context.Background(), gid)
+				if err != nil {
+					xlog.Warnf("cannot find group when updateAllExt, ext: %d, group: %d", ext.Id, gid)
+					continue
+				}
+				c, ok2 := s.creators[uint16(g.Version)]
+				if !ok2 {
+					xlog.Warnf("cannot find creator for version %d", g.Version)
+					continue
+				}
+				e, err := c.Create(s.ctx, extDir, extent.CreateParams{
+					InstanceID: s.instanceID,
+					DiskID:     ext.DiskId,
+					ExtID:      ext.Id,
+					DiskMeta:   s.zBufDisks.GetDiskMeta(ext.DiskId),
+					CloneJob:   ext.CloneJob,
+				})
+				if err != nil {
+					xlog.Error(fmt.Sprintf("failed to create ext: %d: %s", ext.Id, err.Error()))
+					ext.State = metapb.ExtentState_Extent_Broken
+					e = extent.NewBrokenExtenter(ext, extDir)
+					s.handleDiskErr(err, ext.DiskId)
+				} else {
+					ext.Created = 1
+				}
+				err = e.Start()
+				if err != nil {
+					xlog.Error(fmt.Sprintf("failed to start ext: %d: %s", ext.Id, err.Error()))
+					ext.State = metapb.ExtentState_Extent_Broken
+					e = extent.NewBrokenExtenter(ext, extDir)
+					s.handleDiskErr(err, ext.DiskId)
+					ext.Created = 0
+				}
+				s.exts.Store(ext.Id, e)
+			} else {
+				ext.State = metapb.ExtentState_Extent_Broken
+				e := extent.NewBrokenExtenter(ext, extDir)
+				s.exts.Store(ext.Id, e)
+			}
+		} else {
+			if ext.State == metapb.ExtentState_Extent_Broken {
+				s.closeAndCleanExt(ext.Id)
+				e := extent.NewBrokenExtenter(ext, extDir)
+				s.exts.Store(ext.Id, e)
+			}
+			oldExt := old.(extent.Extenter)
+			oldMeta := (*extutil.SyncExt)(oldExt.GetMeta())
+			isCloneSrc := false
+			if ext.CloneJob != nil && oldMeta.GetCloneJob() == nil {
+
+				if ext.CloneJob.IsSource {
+					isCloneSrc = true
+				}
+			}
+			oldMeta.UpdateBy(ext)
+			if isCloneSrc {
+				oldExt.InitCloneSource()
+			}
+		}
+	}
+
+	// Handle local more than resp.
+	closeAndClean := make([]uint32, 0, 32)
+	s.exts.Range(func(key, value interface{}) bool {
+		has := false
+		for _, ext := range exts {
+			if ext.Id == key.(uint32) {
+				has = true
+				break
+			}
+		}
+		if !has {
+			closeAndClean = append(closeAndClean, key.(uint32))
+		}
+		return true
+	})
+
+	for _, extID := range closeAndClean {
+		s.closeAndCleanExt(extID)
 	}
 }
 

@@ -29,6 +29,7 @@ func (s *Server) sendZBufHeartbeat() {
 	})
 	if err != nil {
 		xlog.Warnf("failed to zBuf heartbeat: %s", err.Error())
+		return
 	}
 
 	states := resp.States
@@ -59,7 +60,24 @@ func (s *Server) collectMeta() *metapb.ZBuf {
 }
 
 func (s *Server) sendExtsHeartbeat() {
+	kc := s.zc.GetKeeperClient()
 
+	ctx, cancel := context.WithTimeout(context.Background(), defaultHeartbeatTimeout)
+	defer cancel()
+
+	origin := s.cloneAllExtMetas()
+	resp, err := kc.ExtentHeartbeat(ctx, &keeperpb.ExtentHeartbeatRequest{
+		Header:  s.keeperRequestHeader(),
+		Extents: origin,
+	})
+	if err != nil {
+		xlog.Warnf("failed to zBuf heartbeat: %s", err.Error())
+		return
+	}
+
+	exts := resp.Extent
+
+	s.updateAllExt(exts)
 }
 
 func (s *Server) keeperRequestHeader() *keeperpb.RequestHeader {
