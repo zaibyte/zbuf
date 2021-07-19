@@ -32,6 +32,9 @@ type NVHeader struct {
 	// every time after GC, it'll be add one.
 	SegCycles []uint32 // 256 * 4B = 1024B
 
+	// We need clone_job here for persisting basic clone job info.
+	// It must be passed from Extenter.
+	// And the done count should be reset by DMU snapshot replay in starting process.
 	CloneJob *metapb.CloneJob
 }
 

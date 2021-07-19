@@ -54,6 +54,9 @@ type dmuSnapHeader struct {
 	GcSrcCursor uint32
 	GcDstCursor uint32
 
+	// It's clone job done count which is recorded by DMU snapshot.
+	// Which means we could recovery clone job from here,
+	// after starting, we will continue to do the clone job from here.
 	CloneJobDoneCnt uint32
 }
 
@@ -270,6 +273,7 @@ func (e *Extenter) writeDMUSnap(done chan<- error, lastFn string) {
 	h.GcDstSeg = e.gcDstSeg
 	h.GcSrcCursor = e.gcSrcCursor
 	h.GcDstCursor = e.gcDstCursor
+	// TODO using meta.clonejob
 	if e.header.nvh.CloneJob != nil {
 		h.CloneJobDoneCnt = uint32(e.header.nvh.CloneJob.DoneCnt)
 	}
