@@ -3,6 +3,7 @@ package v1
 import (
 	"g.tesamc.com/IT/zaipkg/extutil"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
+	"github.com/templexxx/tsc"
 
 	"github.com/gogo/protobuf/proto"
 )
@@ -12,6 +13,7 @@ import (
 // only ext.state & clone job (nil -> new or new -> nil) & clone job's oids_oid could be changed by heartbeat.
 func (e *Extenter) UpdateMeta(m *metapb.Extent) {
 
+	// meta could not be nil, after Extenter starting.
 	e.rwMutex.Lock()
 	if m.State != e.meta.State {
 		extutil.SetState(e.meta, m.State)
@@ -34,10 +36,15 @@ func (e *Extenter) UpdateMeta(m *metapb.Extent) {
 	e.rwMutex.Unlock()
 }
 
+// GetMeta returns Extenter's meta, clone it avoiding race.
+// For heartbeat request.
 func (e *Extenter) GetMeta() *metapb.Extent {
 
 	e.rwMutex.RLock()
 	ext := proto.Clone(e.meta).(*metapb.Extent)
 	e.rwMutex.RUnlock()
+	// Set lastUpdate when get, we don't need accurate lastUpdate.
+	// It would be annoyed if we modify it in every changes.
+	ext.LastUpdate = tsc.UnixNano()
 	return ext
 }

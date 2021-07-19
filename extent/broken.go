@@ -4,6 +4,8 @@ import (
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/xio"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
+	"github.com/gogo/protobuf/proto"
+	"github.com/templexxx/tsc"
 )
 
 // BrokenExtenter is an nop Extenter created
@@ -12,6 +14,8 @@ type BrokenExtenter struct {
 	meta   *metapb.Extent
 	extDir string
 }
+
+var _brokenExt Extenter = new(BrokenExtenter)
 
 func NewBrokenExtenter(meta *metapb.Extent, extDir string) *BrokenExtenter {
 	return &BrokenExtenter{
@@ -25,7 +29,12 @@ func (b *BrokenExtenter) Start() {
 }
 
 func (b *BrokenExtenter) GetMeta() *metapb.Extent {
-	return b.meta
+	ret := proto.Clone(b.meta).(*metapb.Extent)
+	ret.LastUpdate = tsc.UnixNano()
+	return ret
+}
+func (b *BrokenExtenter) UpdateMeta(m *metapb.Extent) {
+	return
 }
 
 func (b *BrokenExtenter) PutObj(reqid, oid uint64, objData []byte, isClone bool) error {
@@ -63,5 +72,3 @@ func (b *BrokenExtenter) GetMainFile() xio.File {
 func (b *BrokenExtenter) Close() {
 	return
 }
-
-var _brokenExt Extenter = new(BrokenExtenter)
