@@ -7,6 +7,8 @@ import (
 	"sync"
 	"unsafe"
 
+	"github.com/gogo/protobuf/proto"
+
 	"github.com/templexxx/tsc"
 
 	"g.tesamc.com/IT/zaipkg/extutil"
@@ -103,10 +105,26 @@ func (c *Creator) create(ctx context.Context, extDir string, params extent.Creat
 	}
 
 	fs := c.fs
+
+	meta := (*extutil.SyncExt)(&metapb.Extent{
+		Id:         params.ExtID,
+		State:      metapb.ExtentState_Extent_ReadWrite,
+		Size_:      uint64(c.cfg.SegmentSize) * uint64(segmentCnt),
+		Avail:      (segmentCnt - uint64(c.cfg.ReservedSeg)) * uint64(c.cfg.SegmentSize),
+		DiskId:     params.DiskID,
+		InstanceId: params.InstanceID,
+		LastUpdate: tsc.UnixNano(),
+		CloneJob:   proto.Clone(params.CloneJob).(*metapb.CloneJob),
+	})
+
+	params.CloneJob = meta.CloneJob // Using clone in meta for next header persistence.
+
 	h, err := c.CreateHeader(extDir, params)
 	if err != nil {
 		return nil, err
 	}
+
+	meta.SetState(metapb.ExtentState(h.nvh.State)) // After CreateHeader, it may be changed to clone_state.
 
 	segFile, err := fs.Create(filepath.Join(extDir, SegmentsFileName))
 	if err != nil {
@@ -133,7 +151,7 @@ func (c *Creator) create(ctx context.Context, extDir string, params extent.Creat
 		return nil, xerrors.WithMessage(err, "failed to alloc dirty_delete_wal")
 	}
 
-	dmuCap := dmu.MinCap
+	dmuCap := dmu.MinCap // Start with min.
 	if params.CloneJob != nil {
 		dmuCap = int(params.CloneJob.GetTotal())
 	}
@@ -141,21 +159,12 @@ func (c *Creator) create(ctx context.Context, extDir string, params extent.Creat
 	ctx2, cancel := context.WithCancel(ctx)
 
 	ext := &Extenter{
-		boxID:   c.boxID,
-		cfg:     c.cfg,
-		rwMutex: new(sync.RWMutex),
-		fs:      fs,
-		extDir:  extDir,
-		meta: (*extutil.SyncExt)(&metapb.Extent{
-			Id:         params.ExtID,
-			State:      metapb.ExtentState(h.nvh.State),
-			Size_:      uint64(c.cfg.SegmentSize) * uint64(segmentCnt),
-			Avail:      (segmentCnt - uint64(c.cfg.ReservedSeg)) * uint64(c.cfg.SegmentSize),
-			DiskId:     params.DiskID,
-			InstanceId: params.InstanceID,
-			LastUpdate: tsc.UnixNano(),
-			CloneJob:   h.nvh.CloneJob, // We use clone_job from NVHeader at first.
-		}),
+		boxID:    c.boxID,
+		cfg:      c.cfg,
+		rwMutex:  new(sync.RWMutex),
+		fs:       fs,
+		extDir:   extDir,
+		meta:     meta,
 		diskInfo: params.DiskMeta,
 		ioSched:  sched,
 		segsFile: segFile,
@@ -218,10 +227,10 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 
 	sched, started := c.scheds.GetSched(params.DiskID)
 	if sched == nil {
-		return nil, xerrors.WithMessage(orpc.ErrNotFound, fmt.Sprintf("failed to find disk: %d scheduler", params.DiskID))
+		return nil, xerrors.WithMessage(orpc.ErrNotFound, fmt.Sprintf("failed to find disk: %s scheduler", params.DiskID))
 	}
 	if !started {
-		return nil, xerrors.WithMessage(orpc.ErrInternalServer, fmt.Sprintf("disk: %d scheduler haven't started", params.DiskID))
+		return nil, xerrors.WithMessage(orpc.ErrInternalServer, fmt.Sprintf("disk: %s scheduler haven't started", params.DiskID))
 	}
 
 	h, err := LoadHeader(sched, fs, extDir)
@@ -244,21 +253,24 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 
 	ctx2, cancel := context.WithCancel(ctx)
 
+	meta := (*extutil.SyncExt)(&metapb.Extent{
+		Id:         params.ExtID,
+		State:      metapb.ExtentState(h.nvh.State),
+		Size_:      uint64(c.cfg.SegmentSize) * uint64(segmentCnt),
+		Avail:      uint64(h.getReadySegCnt()) * uint64(c.cfg.SegmentSize),
+		DiskId:     params.DiskID,
+		InstanceId: params.InstanceID,
+		LastUpdate: tsc.UnixNano(),
+		CloneJob:   proto.Clone(h.nvh.CloneJob).(*metapb.CloneJob),
+	})
+
 	ext := &Extenter{
-		boxID:   c.boxID,
-		cfg:     c.cfg,
-		rwMutex: new(sync.RWMutex),
-		fs:      fs,
-		extDir:  extDir,
-		meta: &extutil.Info{PbExt: &metapb.Extent{
-			State:      metapb.ExtentState(h.nvh.State),
-			Id:         params.ExtID,
-			Size_:      uint64(c.cfg.SegmentSize) * uint64(segmentCnt),
-			Avail:      uint64(h.getReadySegCnt()) * uint64(c.cfg.SegmentSize),
-			Version:    uint32(extent.Version1),
-			DiskId:     params.DiskID,
-			InstanceId: params.InstanceID,
-		}},
+		boxID:    c.boxID,
+		cfg:      c.cfg,
+		rwMutex:  new(sync.RWMutex),
+		fs:       fs,
+		extDir:   extDir,
+		meta:     meta,
 		diskInfo: params.DiskMeta,
 		ioSched:  sched,
 		segsFile: segFile,
@@ -289,7 +301,7 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 		return nil, err
 	}
 
-	// TODO load clone job, if cnt == done, set clone job done
+	// Clone job will be check at Start.
 
 	return ext, nil
 }
