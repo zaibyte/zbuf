@@ -273,9 +273,10 @@ func (e *Extenter) writeDMUSnap(done chan<- error, lastFn string) {
 	h.GcDstSeg = e.gcDstSeg
 	h.GcSrcCursor = e.gcSrcCursor
 	h.GcDstCursor = e.gcDstCursor
-	// TODO using meta.clonejob
-	if e.header.nvh.CloneJob != nil {
-		h.CloneJobDoneCnt = uint32(e.header.nvh.CloneJob.DoneCnt)
+	if e.meta.CloneJob != nil {
+		if !e.meta.CloneJob.IsSource {
+			h.CloneJobDoneCnt = uint32(e.meta.CloneJob.Done)
+		}
 	}
 	e.rwMutex.RUnlock()
 
@@ -417,8 +418,10 @@ func (e *Extenter) loadDMUSnap() error {
 	e.gcDstSeg = h.GcDstSeg
 	e.gcSrcCursor = h.GcSrcCursor
 	e.gcDstCursor = h.GcDstCursor
-	if e.header.nvh.CloneJob != nil {
-		e.header.nvh.CloneJob.DoneCnt = uint64(h.CloneJobDoneCnt)
+	if e.meta.CloneJob != nil {
+		if !e.meta.CloneJob.IsSource {
+			e.meta.CloneJob.Done = uint64(h.CloneJobDoneCnt)
+		}
 	}
 
 	atomic.StorePointer(&e.lastDMUSnap, unsafe.Pointer(h))

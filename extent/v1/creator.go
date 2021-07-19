@@ -106,25 +106,30 @@ func (c *Creator) create(ctx context.Context, extDir string, params extent.Creat
 
 	fs := c.fs
 
-	meta := (*extutil.SyncExt)(&metapb.Extent{
+	state := metapb.ExtentState_Extent_ReadWrite
+	if params.CloneJob != nil {
+		if !params.CloneJob.IsSource {
+			state = metapb.ExtentState_Extent_Clone
+		}
+	}
+
+	meta := &metapb.Extent{
 		Id:         params.ExtID,
-		State:      metapb.ExtentState_Extent_ReadWrite,
+		State:      state,
 		Size_:      uint64(c.cfg.SegmentSize) * uint64(segmentCnt),
 		Avail:      (segmentCnt - uint64(c.cfg.ReservedSeg)) * uint64(c.cfg.SegmentSize),
 		DiskId:     params.DiskID,
 		InstanceId: params.InstanceID,
 		LastUpdate: tsc.UnixNano(),
 		CloneJob:   proto.Clone(params.CloneJob).(*metapb.CloneJob),
-	})
+	}
 
 	params.CloneJob = meta.CloneJob // Using clone in meta for next header persistence.
 
-	h, err := c.CreateHeader(extDir, params)
+	h, err := c.CreateHeader(extDir, meta.State, params)
 	if err != nil {
 		return nil, err
 	}
-
-	meta.SetState(metapb.ExtentState(h.nvh.State)) // After CreateHeader, it may be changed to clone_state.
 
 	segFile, err := fs.Create(filepath.Join(extDir, SegmentsFileName))
 	if err != nil {
@@ -195,27 +200,28 @@ func (c *Creator) create(ctx context.Context, extDir string, params extent.Creat
 		return nil, err
 	}
 
-	if params.DiskMeta != nil {
+	if params.DiskMeta != nil { // In test, may nil.
 		params.DiskMeta.AddUsed(int64(taken))
 	}
 
-	ext.meta.AddAvail(-int64(c.cfg.SegmentSize))                            // At the beginning, we have one writable segment.
-	ext.meta.AddAvail(-int64(c.cfg.SegmentSize) * int64(c.cfg.ReservedSeg)) // Reserved is not avail either.
+	// At the beginning, we have one writable segment.
+	// Reserved is not avail either, but already subtract.
+	ext.meta.Avail -= uint64(c.cfg.SegmentSize)
 
 	return ext, nil
 }
 
 // CreateHeader creates a new Header with a new writable segment(segment[0]),
 // and persist it on local file system.
-func (c *Creator) CreateHeader(extDir string, params extent.CreateParams) (*Header, error) {
+func (c *Creator) CreateHeader(extDir string, state metapb.ExtentState, params extent.CreateParams) (*Header, error) {
 	h := new(Header)
 
 	sched, started := c.scheds.GetSched(params.DiskID)
 	if sched == nil {
-		return nil, xerrors.WithMessage(orpc.ErrNotFound, fmt.Sprintf("failed to find disk: %d scheduler", params.DiskID))
+		return nil, xerrors.WithMessage(orpc.ErrNotFound, fmt.Sprintf("failed to find disk: %s scheduler", params.DiskID))
 	}
 	if !started {
-		return nil, xerrors.WithMessage(orpc.ErrInternalServer, fmt.Sprintf("disk: %d scheduler haven't started", params.DiskID))
+		return nil, xerrors.WithMessage(orpc.ErrInternalServer, fmt.Sprintf("disk: %s scheduler haven't started", params.DiskID))
 	}
 
 	h.iosched = sched
@@ -232,10 +238,6 @@ func (c *Creator) CreateHeader(extDir string, params extent.CreateParams) (*Head
 	h.f = f
 
 	h.nvh = new(NVHeader)
-	state := metapb.ExtentState_Extent_ReadWrite
-	if params.CloneJob != nil {
-		state = metapb.ExtentState_Extent_Clone // Only two states the Create will have.
-	}
 	h.nvh.State = int32(state)
 	h.nvh.SegSize = uint32(c.cfg.SegmentSize)
 	reservedSeg := c.cfg.ReservedSeg
@@ -259,7 +261,7 @@ func (c *Creator) CreateHeader(extDir string, params extent.CreateParams) (*Head
 
 	h.nvh.CloneJob = params.CloneJob
 
-	err = h.Store(state)
+	err = h.Store(state, params.CloneJob)
 	if err != nil {
 		_ = h.f.Close() // Avoiding leak.
 		return nil, err
