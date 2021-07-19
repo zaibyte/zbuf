@@ -75,6 +75,7 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 	if err != nil {
 		return extent.NewBrokenExtenter(&metapb.Extent{
 			Id:         params.ExtID,
+			Size_:      uint64(c.cfg.SegmentSize) * uint64(segmentCnt),
 			State:      metapb.ExtentState_Extent_Broken,
 			DiskId:     params.DiskID,
 			InstanceId: params.InstanceID,
@@ -153,7 +154,7 @@ func (c *Creator) create(ctx context.Context, extDir string, params extent.Creat
 			DiskId:     params.DiskID,
 			InstanceId: params.InstanceID,
 			LastUpdate: tsc.UnixNano(),
-			CloneJob:   h.nvh.CloneJob,
+			CloneJob:   h.nvh.CloneJob, // We use clone_job from NVHeader at first.
 		}),
 		diskInfo: params.DiskMeta,
 		ioSched:  sched,
@@ -201,6 +202,7 @@ func (c *Creator) Load(ctx context.Context, extDir string, params extent.CreateP
 	if err != nil {
 		return extent.NewBrokenExtenter(&metapb.Extent{
 			Id:         params.ExtID,
+			Size_:      uint64(c.cfg.SegmentSize) * uint64(segmentCnt),
 			State:      metapb.ExtentState_Extent_Broken,
 			DiskId:     params.DiskID,
 			InstanceId: params.InstanceID,
