@@ -26,11 +26,12 @@ import (
 	"time"
 	"unsafe"
 
+	"g.tesamc.com/IT/zbuf/extent"
+
 	zai "g.tesamc.com/IT/zai/client"
 	"g.tesamc.com/IT/zaipkg/config/settings"
 	"g.tesamc.com/IT/zaipkg/directio"
 	"g.tesamc.com/IT/zaipkg/diskutil"
-	"g.tesamc.com/IT/zaipkg/extutil"
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/uid"
 	"g.tesamc.com/IT/zaipkg/vdisk"
@@ -41,8 +42,6 @@ import (
 	"g.tesamc.com/IT/zaipkg/xlog"
 	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
-
-	"github.com/gogo/protobuf/proto"
 )
 
 type Extenter struct {
@@ -67,7 +66,7 @@ type Extenter struct {
 	header   *Header
 	fs       vfs.FS
 	extDir   string
-	meta     *extutil.SyncExt
+	meta     *metapb.Extent
 	diskInfo *vdisk.SyncMeta
 	ioSched  xio.Scheduler
 	segsFile vfs.File
@@ -98,6 +97,8 @@ type Extenter struct {
 	stopWg *sync.WaitGroup
 }
 
+var _ext extent.Extenter = new(Extenter)
+
 func (e *Extenter) GetDir() string {
 	return e.extDir
 }
@@ -115,17 +116,6 @@ func (e *Extenter) Start() {
 	xlog.Info(fmt.Sprintf("ext: %d has started", e.meta.Id))
 
 	return
-}
-
-func (e *Extenter) GetMeta() *metapb.Extent {
-
-	e.rwMutex.RLock()
-	ext := e.meta.Clone()
-	if e.header.nvh.CloneJob != nil {
-		ext.Clone = proto.Clone(e.header.nvh.CloneJob).(*metapb.CloneJob)
-	}
-	e.rwMutex.RUnlock()
-	return ext
 }
 
 func (e *Extenter) Close() {

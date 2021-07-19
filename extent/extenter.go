@@ -13,7 +13,11 @@ type Extenter interface {
 	// Start start Extenter container, it won't any I/O error.
 	Start()
 
+	// GetMeta gets a clone of Extenter's meta.
 	GetMeta() *metapb.Extent
+	// UpdateMeta updates meta in Extenter by outside.
+	// For handling heartbeat response.
+	UpdateMeta(m *metapb.Extent)
 
 	Objecter
 
@@ -24,6 +28,7 @@ type Extenter interface {
 	GetDir() string
 
 	// GetMainFile gets the File which stores the objects data.
+	// For testing.
 	GetMainFile() xio.File
 
 	Close()
@@ -31,7 +36,7 @@ type Extenter interface {
 
 type Objecter interface {
 	PutObj(reqid, oid uint64, objData []byte, isClone bool) error
-	GetObj(reqid, oid uint64, isClone bool, offset, n uint32) (objData []byte, crc32 uint32, err error)
+	GetObj(reqid, oid uint64, isClone bool, offset, n uint32) (objData []byte, crc uint32, err error)
 	DeleteObj(reqid, oid uint64) error
 	DeleteBatch(reqid uint64, oids []uint64) error
 }
