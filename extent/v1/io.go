@@ -80,7 +80,7 @@ func (e *Extenter) updatesLoop() {
 		reqType := ur.reqType
 		if reqType == xio.ReqObjWrite || reqType == xio.ReqCloneWrite {
 
-			if err := e.preprocWriteReq(ur.reqType); err != nil {
+			if err := e.preprocWriteReq(reqType); err != nil {
 				ur.done <- err
 				continue
 			}
@@ -278,10 +278,6 @@ func (e *Extenter) updatesLoop() {
 // Return error if cannot execute the request.
 func (e *Extenter) preprocWriteReq(reqType uint64) error {
 
-	if xio.IsReqRead(reqType) {
-		return xerrors.WithMessage(orpc.ErrInternalServer, "want write request, but got read")
-	}
-
 	state := (*extutil.SyncExt)(e.meta).GetState()
 
 	if reqType == xio.ReqCloneWrite && state != metapb.ExtentState_Extent_Clone {
@@ -293,12 +289,6 @@ func (e *Extenter) preprocWriteReq(reqType uint64) error {
 		return orpc.ErrExtentBroken
 	case metapb.ExtentState_Extent_Full:
 		return orpc.ErrExtentFull
-	case metapb.ExtentState_Extent_Ghost:
-		return orpc.ErrExtentGhost
-	case metapb.ExtentState_Extent_Clone:
-		if reqType != xio.ReqCloneWrite { // Else, it'll be a clone write.
-			return xerrors.WithMessage(orpc.ErrExtentClone, "clone extent only accept clone write")
-		}
 	case metapb.ExtentState_Extent_Sealed:
 		return orpc.ErrExtentSealed
 	}
