@@ -26,14 +26,11 @@ import (
 	"time"
 	"unsafe"
 
-	"g.tesamc.com/IT/zaipkg/extutil"
-	"github.com/gogo/protobuf/proto"
-	"github.com/templexxx/tsc"
-
 	zai "g.tesamc.com/IT/zai/client"
 	"g.tesamc.com/IT/zaipkg/config/settings"
 	"g.tesamc.com/IT/zaipkg/directio"
 	"g.tesamc.com/IT/zaipkg/diskutil"
+	"g.tesamc.com/IT/zaipkg/extutil"
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/uid"
 	"g.tesamc.com/IT/zaipkg/vdisk"
@@ -45,6 +42,9 @@ import (
 	"g.tesamc.com/IT/zbuf/extent"
 	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
+
+	"github.com/gogo/protobuf/proto"
+	"github.com/templexxx/tsc"
 )
 
 type Extenter struct {
@@ -118,41 +118,6 @@ func (e *Extenter) Start() {
 	return
 }
 
-func (e *Extenter) Close() {
-
-	if !atomic.CompareAndSwapInt64(&e.isRunning, 1, 0) {
-		return // Already closed.
-	}
-
-	e.dmu.Close()
-	// Far away from enough for DMU finishing all operation.
-	// Enough DMU is stable.
-	time.Sleep(time.Second)
-
-	e.cancel()
-	e.stopWg.Wait()
-
-	e.rwMutex.RLock()
-	_ = e.header.Store(metapb.ExtentState(e.header.nvh.State), e.meta.CloneJob)
-	e.rwMutex.RUnlock()
-	_ = e.makeDMUSnapSync(true)
-
-	e.closeFiles()
-
-	xlog.Info(fmt.Sprintf("ext: %d is closed", e.meta.PbExt.Id))
-}
-
-// closeFiles closes all files opened by Extenter.
-func (e *Extenter) closeFiles() {
-	if e.segsFile != nil {
-		_ = e.segsFile.Close()
-	}
-	if e.dirtyDeleteWAL != nil {
-		_ = e.dirtyDeleteWAL.Close()
-	}
-	e.header.Close()
-}
-
 func (e *Extenter) startBackgroundLoops() {
 
 	e.stopWg.Add(1)
@@ -167,9 +132,56 @@ func (e *Extenter) startBackgroundLoops() {
 	go e.tryClone()
 }
 
+// GetMeta returns Extenter's meta, clone it avoiding race.
+// For heartbeat request.
+//
+// Even closed, still return the meta, because there is no side-effect.
+func (e *Extenter) GetMeta() *metapb.Extent {
+
+	e.rwMutex.RLock()
+	ext := proto.Clone(e.meta).(*metapb.Extent)
+	e.rwMutex.RUnlock()
+	// Set lastUpdate when get, we don't need accurate lastUpdate.
+	// It would be annoyed if we modify it in every changes.
+	ext.LastUpdate = tsc.UnixNano()
+	return ext
+}
+
+// UpdateMeta updates meta in Extenter.
+// It's used for handling heartbeat response,
+// only ext.state & clone job (nil -> new or new -> nil) & clone job's oids_oid could be changed by heartbeat.
+func (e *Extenter) UpdateMeta(m *metapb.Extent) {
+
+	if e.isClosed() {
+		return
+	}
+
+	// meta could not be nil, after Extenter starting.
+	e.rwMutex.Lock()
+	if m.State != e.meta.State {
+		extutil.SetState(e.meta, m.State)
+	}
+
+	if m.CloneJob == nil {
+		if e.meta.CloneJob != nil { // Must be done.
+			e.meta.CloneJob = nil
+		}
+	}
+
+	if m.CloneJob != nil && e.meta.CloneJob == nil {
+		e.meta.CloneJob = proto.Clone(m.CloneJob).(*metapb.CloneJob)
+	}
+	if e.meta.CloneJob != nil && m.CloneJob != nil {
+		if m.CloneJob.OidsOid != 0 && e.meta.CloneJob.OidsOid == 0 {
+			e.meta.CloneJob.OidsOid = m.CloneJob.OidsOid
+		}
+	}
+	e.rwMutex.Unlock()
+}
+
 func (e *Extenter) PutObj(_reqid, oid uint64, objData []byte, isClone bool) error {
 
-	if atomic.LoadInt64(&e.isRunning) != 1 {
+	if e.isClosed() {
 		return orpc.ErrServiceClosed
 	}
 
@@ -206,35 +218,47 @@ func (e *Extenter) PutObj(_reqid, oid uint64, objData []byte, isClone bool) erro
 	return err
 }
 
-func (e *Extenter) GetObj(_reqid, oid uint64, isClone bool, offset, n uint32) (objData []byte, crc uint32, err error) {
+func (e *Extenter) GetObj(_reqid, oid uint64, isClone bool, objOff, n uint32) (objData []byte, crc uint32, err error) {
 
-	if atomic.LoadInt64(&e.isRunning) != 1 {
-		return nil, orpc.ErrServiceClosed
+	if e.isClosed() {
+		return nil, 0, orpc.ErrServiceClosed
 	}
 
 	err = e.preprocGetReq()
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	has, digest, offset, size := getObjOffsetSize(e.dmu, oid)
 	if !has {
 		err = xerrors.WithMessage(orpc.ErrNotFound, fmt.Sprintf("oid: %d", oid))
-		return nil, err
+		return nil, 0, err
 	}
 
-	objData = xbytes.GetAlignedBytes(size)
-	reqType := xio.ReqObjRead
-	if isClone {
-		reqType = xio.ReqCloneRead
+	if n == uint32(size) {
+		objData = xbytes.GetAlignedBytes(size)
+		reqType := xio.ReqObjRead
+		if isClone {
+			reqType = xio.ReqCloneRead
+		}
+		err = e.objReadAt(uint64(reqType), digest, offset, objData)
+		if err != nil {
+			e.setState(err)
+			xbytes.PutAlignedBytes(objData)
+			return nil, 0, err
+		}
+		return objData, digest, nil
+	} else { // Read at offset.
+
+		objData = xbytes.GetAlignedBytes(int(n)) // n must be aligned.
+		crc, err = e.objReadAtOffset(offset, objData, objOff, n)
+		if err != nil {
+			e.setState(err)
+			xbytes.PutAlignedBytes(objData)
+			return nil, 0, err
+		}
+		return
 	}
-	err = e.objReadAt(uint64(reqType), digest, offset, objData)
-	if err != nil {
-		e.setState(err)
-		xbytes.PutAlignedBytes(objData)
-		return nil, err
-	}
-	return objData, nil
 }
 
 func (e *Extenter) GetMainFile() xio.File {
@@ -564,43 +588,41 @@ func (e *Extenter) setState(err error) {
 	}
 }
 
-// UpdateMeta updates meta in Extenter.
-// It's used for handling heartbeat response,
-// only ext.state & clone job (nil -> new or new -> nil) & clone job's oids_oid could be changed by heartbeat.
-func (e *Extenter) UpdateMeta(m *metapb.Extent) {
+func (e *Extenter) Close() {
 
-	// meta could not be nil, after Extenter starting.
-	e.rwMutex.Lock()
-	if m.State != e.meta.State {
-		extutil.SetState(e.meta, m.State)
+	if !atomic.CompareAndSwapInt64(&e.isRunning, 1, 0) {
+		return // Already closed.
 	}
 
-	if m.CloneJob == nil {
-		if e.meta.CloneJob != nil { // Must be done.
-			e.meta.CloneJob = nil
-		}
-	}
+	e.dmu.Close()
+	// Far away from enough for DMU finishing all operation.
+	// Enough DMU is stable.
+	time.Sleep(time.Second)
 
-	if m.CloneJob != nil && e.meta.CloneJob == nil {
-		e.meta.CloneJob = proto.Clone(m.CloneJob).(*metapb.CloneJob)
-	}
-	if e.meta.CloneJob != nil && m.CloneJob != nil {
-		if m.CloneJob.OidsOid != 0 && e.meta.CloneJob.OidsOid == 0 {
-			e.meta.CloneJob.OidsOid = m.CloneJob.OidsOid
-		}
-	}
-	e.rwMutex.Unlock()
-}
-
-// GetMeta returns Extenter's meta, clone it avoiding race.
-// For heartbeat request.
-func (e *Extenter) GetMeta() *metapb.Extent {
+	e.cancel()
+	e.stopWg.Wait()
 
 	e.rwMutex.RLock()
-	ext := proto.Clone(e.meta).(*metapb.Extent)
+	_ = e.header.Store(metapb.ExtentState(e.header.nvh.State), e.meta.CloneJob)
 	e.rwMutex.RUnlock()
-	// Set lastUpdate when get, we don't need accurate lastUpdate.
-	// It would be annoyed if we modify it in every changes.
-	ext.LastUpdate = tsc.UnixNano()
-	return ext
+	_ = e.makeDMUSnapSync(true)
+
+	e.closeFiles()
+
+	xlog.Info(fmt.Sprintf("ext: %d is closed", e.meta.PbExt.Id))
+}
+
+func (e *Extenter) isClosed() bool {
+	return atomic.LoadInt64(&e.isRunning) == 0
+}
+
+// closeFiles closes all files opened by Extenter.
+func (e *Extenter) closeFiles() {
+	if e.segsFile != nil {
+		_ = e.segsFile.Close()
+	}
+	if e.dirtyDeleteWAL != nil {
+		_ = e.dirtyDeleteWAL.Close()
+	}
+	e.header.Close()
 }

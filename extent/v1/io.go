@@ -344,7 +344,7 @@ func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte,
 		oid:    oid,
 		grains: uid.GetGrains(oid),
 		cycle:  cycle,
-		extID:  e.meta.PbExt.Id,
+		extID:  e.meta.Id,
 		offset: offset,
 	}
 	objH.marshalTo(buf)
@@ -415,13 +415,57 @@ func (e *Extenter) objCheckAt(offset int64, buf []byte) (oid uint64, grains uint
 	return
 }
 
-func (e *Extenter) objCheckReadAt(reqType uint64, digest, grains uint32, offset int64, p []byte, isCheck bool) error {
+// objReadAtOffset reads object_data from a certain offset of it.
+// It's only for accessing non-entire object.
+// We won't check the checksum, ext.v1 lacks of the mechanism to verify pieces of data.
+// But return the checksum of this piece.
+//
+// Because all big files will be cut into pieces(objects, at most 4MB), it's rare that only access
+// part of object everytime. And for small files, we will access the entire files more often.
+//
+// For enterprise-class NVMe devices, we have E2E checksum, we could rely on it.
+// For enterprise-class SATA(non T10 sector), we may need scrubbing periodically. But as reasons mentioned above,
+// we still have chance to check the entire object.
+func (e *Extenter) objReadAtOffset(offset int64, p []byte, objOff, objN uint32) (uint32, error) {
+
+	offset += objHeaderSize
+	offset += int64(objOff)
+
+	sizePerRead := int64(e.cfg.SizePerRead)
+	n := int64(objN)
+	var read int64 = 0
+
+	d := xdigest.Acquire()
+	defer xdigest.Release(d)
+
+	for read != n {
+		nn := sizePerRead
+		if n-read < nn {
+			nn = n - read
+		}
+		buf := p[read : read+nn]
+
+		err := e.ioSched.DoSync(xio.ReqObjRead, e.segsFile, offset, buf)
+		if err != nil {
+			return 0, err
+		}
+		_, _ = d.Write(buf)
+		read += nn
+		offset += nn
+	}
+
+	di := d.Sum32()
+	return di, nil
+}
+
+// onlyCheck means the p won't get object_data. We just want to check the integrity of object.
+func (e *Extenter) objCheckReadAt(reqType uint64, digest, grains uint32, offset int64, p []byte, onlyCheck bool) error {
 
 	offset += objHeaderSize
 
 	sizePerRead := int64(e.cfg.SizePerRead)
 	n := int64(grains) * uid.GrainSize
-	if !isCheck {
+	if !onlyCheck {
 		n = int64(len(p))
 	}
 	var read int64 = 0
@@ -433,7 +477,7 @@ func (e *Extenter) objCheckReadAt(reqType uint64, digest, grains uint32, offset 
 			nn = n - read
 		}
 		buf := p[read : read+nn]
-		if isCheck {
+		if onlyCheck {
 			buf = p[:nn]
 		}
 		err := e.ioSched.DoSync(reqType, e.segsFile, offset, buf)
