@@ -11,8 +11,6 @@ import (
 
 	"github.com/templexxx/tsc"
 
-	"g.tesamc.com/IT/zaipkg/extutil"
-
 	"g.tesamc.com/IT/zaipkg/orpc"
 
 	zai "g.tesamc.com/IT/zai/client"
@@ -96,6 +94,8 @@ func (c *Creator) create(ctx context.Context, extDir string, params extent.Creat
 		return nil, xerrors.WithMessage(orpc.ErrInternalServer, fmt.Sprintf("disk: %s scheduler haven't started", params.DiskID))
 	}
 
+	// We assume there is no other application is using the disk.
+	// What we only need to care about is the extent allocation.
 	taken := c.GetSize()
 	if params.DiskMeta != nil { // In testing, it's nil.
 		if taken > params.DiskMeta.Size_-params.DiskMeta.GetUsed() {
@@ -318,7 +318,7 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 
 	ctx2, cancel := context.WithCancel(ctx)
 
-	meta := (*extutil.SyncExt)(&metapb.Extent{
+	meta := &metapb.Extent{
 		Id:         params.ExtID,
 		State:      metapb.ExtentState(h.nvh.State),
 		Size_:      uint64(c.cfg.SegmentSize) * uint64(segmentCnt),
@@ -327,7 +327,7 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 		InstanceId: params.InstanceID,
 		LastUpdate: tsc.UnixNano(),
 		CloneJob:   proto.Clone(h.nvh.CloneJob).(*metapb.CloneJob),
-	})
+	}
 
 	ext := &Extenter{
 		boxID:    c.boxID,

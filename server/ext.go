@@ -161,6 +161,10 @@ func (s *Server) updateAllExt(exts []*metapb.Extent) {
 		if !ok { // Local don't have.
 			if ext.Created == 0 { // Haven't been created, creating it.
 				gid := uint32(uid.GetGroupID(ext.Id))
+				// Check to keeper, keeper must have this group.
+				// I've made a mistake here that removing version in metapb.Extent,
+				// and the cost of adding back is heavy (Extent is everywhere),
+				// sorry for leaving this issue.
 				g, err := s.zc.GetFastKeeper().GetGroup(context.Background(), gid)
 				if err != nil {
 					xlog.Warnf("cannot find group when updateAllExt, ext: %d, group: %d", ext.Id, gid)
