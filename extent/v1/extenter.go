@@ -272,8 +272,6 @@ func (e *Extenter) preprocGetReq() error {
 	switch state {
 	case metapb.ExtentState_Extent_Broken:
 		return orpc.ErrExtentBroken
-	case metapb.ExtentState_Extent_Ghost:
-		return orpc.ErrExtentGhost
 	case metapb.ExtentState_Extent_Clone:
 		return orpc.ErrExtentClone
 	}
@@ -609,7 +607,7 @@ func (e *Extenter) Close() {
 
 	e.closeFiles()
 
-	xlog.Info(fmt.Sprintf("ext: %d is closed", e.meta.PbExt.Id))
+	xlog.Info(fmt.Sprintf("ext: %d is closed", e.meta.Id))
 }
 
 func (e *Extenter) isClosed() bool {
