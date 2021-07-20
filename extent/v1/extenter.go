@@ -136,7 +136,9 @@ func (e *Extenter) Close() {
 	e.cancel()
 	e.stopWg.Wait()
 
-	_ = e.header.Store(metapb.ExtentState(e.header.nvh.State))
+	e.rwMutex.RLock()
+	_ = e.header.Store(metapb.ExtentState(e.header.nvh.State), e.meta.CloneJob)
+	e.rwMutex.RUnlock()
 	_ = e.makeDMUSnapSync(true)
 
 	e.closeFiles()

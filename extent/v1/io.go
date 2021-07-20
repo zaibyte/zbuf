@@ -532,7 +532,7 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 			nvh.SealedTS[last] = MakeSealedTS(tsc.UnixNano())
 			nvh.WritableHistory[nvh.WritableHistoryNextIdx%wsegHistroyCnt] = byte(next)
 			nvh.WritableHistoryNextIdx++
-			err := e.header.Store(e.meta.GetState())
+			err := e.header.Store(e.meta.GetState(), e.meta.CloneJob)
 
 			if err != nil {
 				nvh.WritableHistoryNextIdx-- // Backwards for avoiding inconsistency in logic.
