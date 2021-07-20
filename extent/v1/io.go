@@ -56,9 +56,7 @@ func (e *Extenter) updatesLoop() {
 			return
 		}
 
-		state := (*extutil.SyncExt)(e.meta).GetState()
-
-		if state != metapb.ExtentState_Extent_Broken && state != metapb.ExtentState_Extent_Ghost {
+		if (*extutil.SyncExt)(e.meta).GetState() != metapb.ExtentState_Extent_Broken {
 			if atomic.LoadInt64(&e.dirtyUpdates) > e.cfg.MaxDirtyCount {
 				e.makeDMUSnapAsync(false)
 			}
@@ -115,7 +113,7 @@ func (e *Extenter) updatesLoop() {
 				}
 				e.writableSeg = nextSeg
 				e.writableCursor = 0
-				e.meta.AddAvail(-segSize)
+				(*extutil.SyncExt)(e.meta).AddAvail(-segSize)
 			}
 			wseg := e.writableSeg
 			cursor := e.writableCursor
@@ -171,9 +169,9 @@ func (e *Extenter) updatesLoop() {
 				if lastSnap.hlcTS >= dirtyDel.lastMod {
 					err := dirtyDel.reset()
 					if err != nil {
-						err = fmt.Errorf("ext: %d broken: failed to reset dirty_delete_wal", e.meta.PbExt.Id)
+						e.setState(err)
+						err = xerrors.WithMessage(err, fmt.Sprintf("ext: %d broken: failed to reset dirty_delete_wal", e.meta.Id))
 						xlog.Error(err.Error())
-						e.meta.SetState(metapb.ExtentState_Extent_Broken, false)
 						ur.done <- err
 						continue
 					} else {
@@ -220,9 +218,9 @@ func (e *Extenter) updatesLoop() {
 				if lastSnap.hlcTS >= dirtyDel.lastMod {
 					err := dirtyDel.reset()
 					if err != nil {
-						err = fmt.Errorf("ext: %d broken: failed to reset dirty_delete_wal", e.meta.PbExt.Id)
+						e.setState(err)
+						err = xerrors.WithMessage(err, fmt.Sprintf("ext: %d broken: failed to reset dirty_delete_wal", e.meta.Id))
 						xlog.Error(err.Error())
-						e.meta.SetState(metapb.ExtentState_Extent_Broken, false)
 						ur.done <- err
 						continue
 					} else {
