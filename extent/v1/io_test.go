@@ -45,7 +45,7 @@ func TestExtenter_PutSameDigest(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	getRet, err2 := ext.GetObj(1, oid, false)
+	getRet, _, err2 := ext.GetObj(1, oid, false, 0, 4*4096)
 	if err2 != nil {
 		t.Fatal(err2)
 	}
@@ -104,7 +104,7 @@ func TestExtenter_PutGetObj(t *testing.T) {
 
 		written += uint64(grains) * uid.GrainSize
 
-		getRet, err2 := ext.GetObj(1, oid, false)
+		getRet, _, err2 := ext.GetObj(1, oid, false, 0, uint32(grains*uid.GrainSize))
 		if err2 != nil {
 			t.Fatal(err2)
 		}
@@ -120,7 +120,7 @@ func TestExtenter_PutGetObj(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for oid := range oids {
-				getRet, err2 := ext.GetObj(1, oid, false)
+				getRet, _, err2 := ext.GetObj(1, oid, false, 0, 0)
 				if err2 != nil {
 					t.Fatal(err2)
 				}
