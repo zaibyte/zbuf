@@ -6,8 +6,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"g.tesamc.com/IT/zproto/pkg/metapb"
-
 	zai "g.tesamc.com/IT/zai/client"
 	"g.tesamc.com/IT/zaipkg/config/settings"
 	"g.tesamc.com/IT/zaipkg/orpc/otcp"
@@ -19,6 +17,7 @@ import (
 	"g.tesamc.com/IT/zbuf/extent"
 	v1 "g.tesamc.com/IT/zbuf/extent/v1"
 	"g.tesamc.com/IT/zbuf/server/config"
+	"g.tesamc.com/IT/zproto/pkg/metapb"
 
 	"github.com/VictoriaMetrics/metrics"
 	"github.com/julienschmidt/httprouter"
@@ -96,7 +95,7 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 
 	s.stopWg = new(sync.WaitGroup)
 
-	s.zBufDisks = sdisk.NewZBufDisks(ctx, s.stopWg, s.vdisk, s.cfg.App.InstanceID,
+	s.zBufDisks = sdisk.NewZBufDisks(ctx, s.stopWg, s.fs, s.vdisk, s.cfg.App.InstanceID,
 		s.cfg.DataRoot, &s.cfg.Scheduler)
 
 	s.creators = map[uint16]extent.Creator{
