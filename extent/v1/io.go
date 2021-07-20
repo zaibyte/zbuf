@@ -304,8 +304,6 @@ func (e *Extenter) preprocModifyRequest() error {
 	switch state {
 	case metapb.ExtentState_Extent_Broken:
 		return orpc.ErrExtentBroken
-	case metapb.ExtentState_Extent_Ghost:
-		return orpc.ErrExtentGhost
 	}
 	return nil
 }
