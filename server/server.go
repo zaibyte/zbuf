@@ -164,6 +164,7 @@ func (s *Server) Close() {
 
 	s.objSvr.Stop()
 	s.httpSvr.Close()
+	s.zc.Close(nil)
 
 	s.stopBgLoops()
 
