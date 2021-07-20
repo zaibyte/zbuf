@@ -235,7 +235,7 @@ func (e *Extenter) GetObj(_reqid, oid uint64, isClone bool, objOff, n uint32) (o
 		return nil, 0, err
 	}
 
-	if n == uint32(size) {
+	if n == uint32(size) || n == 0 {
 		objData = xbytes.GetAlignedBytes(size)
 		reqType := xio.ReqObjRead
 		if isClone {
