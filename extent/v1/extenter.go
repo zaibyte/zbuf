@@ -565,16 +565,14 @@ func (e *Extenter) setState(err error) {
 	old := e.meta.GetState()
 	var state metapb.ExtentState
 	if diskutil.IsBroken(err) {
-		xlog.Error(fmt.Sprintf("disk: %d is broken: %s", e.diskInfo.PbDisk.Id, err.Error()))
-		_ = e.diskInfo.SetState(metapb.DiskState_Disk_Broken, false)
-		state = metapb.ExtentState_Extent_Broken
-	} else if errors.Is(err, syscall.EIO) {
+		ok, diskOld := e.diskInfo.SetState(metapb.DiskState_Disk_Broken)
+		if ok {
+			xlog.Error(fmt.Sprintf("disk: %s has new_state: %s from old_state: %s for: %s",
+				e.diskInfo.Id, metapb.DiskState_Disk_Broken.String(), diskOld.String(), err.Error()))
+		}
 		state = metapb.ExtentState_Extent_Broken
 	} else if errors.Is(err, orpc.ErrExtentFull) {
 		state = metapb.ExtentState_Extent_Full
-	} else if errors.Is(err, orpc.ErrChecksumMismatch) || errors.Is(err, orpc.ErrMisdirectedWrite) ||
-		errors.Is(err, orpc.ErrLostWrite) { // Silent corruption.
-		state = metapb.ExtentState_Extent_Broken
 	} else {
 		state = old
 	}
@@ -583,8 +581,10 @@ func (e *Extenter) setState(err error) {
 		return
 	}
 
-	if e.meta.SetState(state, false) {
-		xlog.Error(fmt.Sprintf("extent: %d is %s: %s", e.meta.PbExt.Id, state.String(), err.Error()))
+	ok, _ := (*extutil.SyncExt)(e.meta).SetState(state)
+	if ok {
+		xlog.Error(fmt.Sprintf("extent: %d has new_state: %s from old_state: %s for: %s",
+			e.meta.Id, state.String(), old.String(), err.Error()))
 	}
 }
 
