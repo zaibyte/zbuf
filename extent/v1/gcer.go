@@ -199,8 +199,6 @@ func (e *Extenter) preprocGC() error {
 	switch state {
 	case metapb.ExtentState_Extent_Broken:
 		return orpc.ErrExtentBroken
-	case metapb.ExtentState_Extent_Ghost:
-		return orpc.ErrExtentGhost
 	}
 	return nil
 }
@@ -233,7 +231,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 	gcObjBuf := directio.AlignedBlock(uid.MaxGrains * uid.GrainSize)
 	objHeaderBuf := directio.AlignedBlock(objHeaderSize)
 
-	extID := e.meta.PbExt.Id
+	extID := e.meta.Id
 
 	for i := 0; i < len(cs); i++ { // Deal with candidates one by one.
 
@@ -430,15 +428,15 @@ func (e *Extenter) gcSrcDone() {
 	e.header.nvh.SegCycles[e.gcSrcSeg] += 1
 	srcNewState := segReserved
 	if e.isReservedEnough() {
-		e.meta.AddAvail(int64(e.cfg.SegmentSize))
+		(*extutil.SyncExt)(e.meta).AddAvail(int64(e.cfg.SegmentSize))
 		srcNewState = segReady
 	}
 	e.header.nvh.SegStates[e.gcSrcSeg] = srcNewState
 	if (*extutil.SyncExt)(e.meta).GetState() == metapb.ExtentState_Extent_Full && srcNewState == segReady {
-		e.meta.SetState(metapb.ExtentState_Extent_ReadWrite, false)
+		(*extutil.SyncExt)(e.meta).SetState(metapb.ExtentState_Extent_ReadWrite)
 	}
 
-	xlog.Info(fmt.Sprintf("done GC in ext:%d, seg:%d", e.meta.PbExt.Id, e.gcSrcSeg))
+	xlog.Info(fmt.Sprintf("done GC in ext: %d, seg:%d", e.meta.Id, e.gcSrcSeg))
 }
 
 func (e *Extenter) isReservedEnough() bool {
@@ -470,7 +468,7 @@ func (e *Extenter) findGCDst(segNow int64) int64 {
 			return int64(i)
 		}
 	}
-	err := xerrors.WithMessage(orpc.ErrExtentBroken, fmt.Sprintf("could not find a reserved segment for GC dst, ext_id: %d", e.meta.PbExt.Id))
+	err := xerrors.WithMessage(orpc.ErrExtentBroken, fmt.Sprintf("could not find a reserved segment for GC dst, ext_id: %d", e.meta.Id))
 	e.setState(err) // Set extent broken if there is no reserved segment.
 	xlog.Panic(err.Error())
 	return -1
