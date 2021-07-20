@@ -108,7 +108,7 @@ func TestExtenter_DeleteObj(t *testing.T) {
 			t.Fatal(err2)
 		}
 
-		_, err2 = ext.GetObj(1, oid, false)
+		_, _, err2 = ext.GetObj(1, oid, false, 0, 0)
 		if !errors.Is(err2, orpc.ErrNotFound) {
 			t.Fatal(err2)
 		}
@@ -120,7 +120,7 @@ func TestExtenter_DeleteObj(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for oid := range oids {
-				_, err2 := ext.GetObj(1, oid, false)
+				_, _, err2 := ext.GetObj(1, oid, false, 0, 0)
 				if !errors.Is(err2, orpc.ErrNotFound) {
 					t.Fatal(err2)
 				}
@@ -171,7 +171,7 @@ func TestExtenter_DeleteBatch(t *testing.T) {
 
 		written += uint64(grains) * uid.GrainSize
 
-		getRet, err2 := ext.GetObj(1, oid, false)
+		getRet, _, err2 := ext.GetObj(1, oid, false, 0, 0)
 		if err2 != nil {
 			t.Fatal(err2)
 		}
@@ -198,7 +198,7 @@ func TestExtenter_DeleteBatch(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for oid := range oids {
-				_, err2 := ext.GetObj(1, oid, false)
+				_, _, err2 := ext.GetObj(1, oid, false, 0, 0)
 				if !errors.Is(err2, orpc.ErrNotFound) {
 					t.Fatal(err2)
 				}
@@ -280,10 +280,8 @@ func TestExtenter_MeetFull(t *testing.T) {
 	}
 	defer vfs.GetTestFS().RemoveAll(ext.extDir)
 
-	err = ext.Start()
-	if err != nil {
-		t.Fatal(err)
-	}
+	ext.Start()
+
 	defer ext.Close()
 
 	rand.Seed(tsc.UnixNano())
@@ -321,10 +319,7 @@ func TestExtenter_traverseWritableSegNoSnap(t *testing.T) {
 	}
 	defer vfs.GetTestFS().RemoveAll(ext.extDir)
 
-	err = ext.Start()
-	if err != nil {
-		t.Fatal(err)
-	}
+	ext.Start()
 
 	rand.Seed(tsc.UnixNano())
 
@@ -363,8 +358,8 @@ func TestExtenter_traverseWritableSegNoSnap(t *testing.T) {
 	ext.Close()
 
 	ext2, err := c.Load(context.Background(), ext.extDir, extent.CreateParams{
-		InstanceID: 1,
-		DiskID:     1,
+		InstanceID: "1",
+		DiskID:     "1",
 		ExtID:      uid.MakeExtID(1, 0),
 		DiskMeta:   nil,
 		CloneJob:   nil,
@@ -373,14 +368,12 @@ func TestExtenter_traverseWritableSegNoSnap(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = ext2.Start()
-	if err != nil {
-		t.Fatal(err)
-	}
+	ext2.Start()
+
 	defer ext2.Close()
 
 	for oid := range oids {
-		objData, err2 := ext2.GetObj(1, oid, false)
+		objData, _, err2 := ext2.GetObj(1, oid, false, 0, 0)
 		if err2 != nil {
 			t.Fatal(err2)
 		}
@@ -400,10 +393,7 @@ func TestExtenter_traverseWritableSegPartSnap(t *testing.T) {
 	}
 	defer vfs.GetTestFS().RemoveAll(ext.extDir)
 
-	err = ext.Start()
-	if err != nil {
-		t.Fatal(err)
-	}
+	ext.Start()
 
 	rand.Seed(tsc.UnixNano())
 
@@ -447,8 +437,8 @@ func TestExtenter_traverseWritableSegPartSnap(t *testing.T) {
 	ext.Close()
 
 	ext2, err := c.Load(context.Background(), ext.extDir, extent.CreateParams{
-		InstanceID: 1,
-		DiskID:     1,
+		InstanceID: "1",
+		DiskID:     "1",
 		ExtID:      uid.MakeExtID(1, 0),
 		DiskMeta:   nil,
 		CloneJob:   nil,
@@ -457,14 +447,11 @@ func TestExtenter_traverseWritableSegPartSnap(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = ext2.Start()
-	if err != nil {
-		t.Fatal(err)
-	}
+	ext2.Start()
 	defer ext2.Close()
 
 	for oid := range oids {
-		objData, err2 := ext2.GetObj(1, oid, false)
+		objData, _, err2 := ext2.GetObj(1, oid, false, 0, 0)
 		if err2 != nil {
 			t.Fatal(err2)
 		}
@@ -490,10 +477,7 @@ func TestExtenter_traverseWritableSegIllegalHeaderPass(t *testing.T) {
 
 	ext.cfg.SegmentSize = 8 * 1024 * 1024 // Simulate we have 8MB for each segment.
 
-	err = ext.Start()
-	if err != nil {
-		t.Fatal(err)
-	}
+	ext.Start()
 	defer ext.Close()
 
 	rand.Seed(tsc.UnixNano())
@@ -530,8 +514,8 @@ func TestExtenter_traverseWritableSegIllegalHeaderPass(t *testing.T) {
 	cfg.SegmentSize = 8 * 1024 * 1024
 	c := makeTestCreator(cfg)
 	ext2, err := c.Load(context.Background(), ext.extDir, extent.CreateParams{
-		InstanceID: 1,
-		DiskID:     1,
+		InstanceID: "1",
+		DiskID:     "1",
 		ExtID:      uid.MakeExtID(1, 0),
 		DiskMeta:   nil,
 		CloneJob:   nil,
@@ -540,14 +524,11 @@ func TestExtenter_traverseWritableSegIllegalHeaderPass(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = ext2.Start()
-	if err != nil {
-		t.Fatal(err)
-	}
+	ext2.Start()
 	defer ext2.Close()
 
 	for _, oid := range oids {
-		objData, err2 := ext2.GetObj(1, oid, false)
+		objData, _, err2 := ext2.GetObj(1, oid, false, 0, 0)
 		if err2 != nil {
 			t.Fatal(err2)
 		}
@@ -571,10 +552,7 @@ func TestExtenter_traverseWritableSegIllegalHeaderFail(t *testing.T) {
 
 	ext.cfg.SegmentSize = 8 * 1024 * 1024 // Simulate we have 8MB for each segment.
 
-	err = ext.Start()
-	if err != nil {
-		t.Fatal(err)
-	}
+	ext.Start()
 	defer ext.Close()
 
 	rand.Seed(tsc.UnixNano())
@@ -611,8 +589,8 @@ func TestExtenter_traverseWritableSegIllegalHeaderFail(t *testing.T) {
 	cfg.SegmentSize = 8 * 1024 * 1024
 	c := makeTestCreator(cfg)
 	_, err = c.Load(context.Background(), ext.extDir, extent.CreateParams{
-		InstanceID: 1,
-		DiskID:     1,
+		InstanceID: "1",
+		DiskID:     "1",
 		ExtID:      uid.MakeExtID(1, 0),
 		DiskMeta:   nil,
 		CloneJob:   nil,
@@ -629,8 +607,8 @@ func createTestExtByCreator(cfg *Config, c extent.Creator, cloneJob *metapb.Clon
 	}
 
 	e, err := c.Create(context.Background(), extDir, extent.CreateParams{
-		InstanceID: 1,
-		DiskID:     1,
+		InstanceID: "1",
+		DiskID:     "1",
 		ExtID:      uid.MakeExtID(1, 0),
 		DiskMeta:   nil,
 		CloneJob:   cloneJob,
@@ -656,8 +634,8 @@ func createTestExtenterWithDir(cfg *Config, extDir string) (ext *Extenter, err e
 	c := makeTestCreator(cfg)
 
 	e, err := c.Create(context.Background(), extDir, extent.CreateParams{
-		InstanceID: 1,
-		DiskID:     1,
+		InstanceID: "1",
+		DiskID:     "1",
 		ExtID:      1,
 		DiskMeta:   nil,
 		CloneJob:   nil,
