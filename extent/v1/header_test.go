@@ -30,7 +30,7 @@ func TestCreateLoadHeader(t *testing.T) {
 	cv := makeTestCreator(cfg)
 	c := cv
 
-	h, err := c.CreateHeader(extDir, extent.CreateParams{
+	h, err := c.CreateHeader(extDir, metapb.ExtentState_Extent_ReadWrite, extent.CreateParams{
 		InstanceID: "1",
 		DiskID:     "1",
 		ExtID:      1,
@@ -69,7 +69,7 @@ func TestCreateLoadHeader(t *testing.T) {
 	h.nvh.WritableHistoryNextIdx = 2
 	h.nvh.Removed[255] = 10
 	h.nvh.SegCycles[255] = 3
-	h.nvh.CloneJob = &metapb.CloneJob{
+	cloneJob := &metapb.CloneJob{
 		IsSource: false,
 		State:    metapb.CloneJobState_CloneJob_Doing,
 		Id:       11,
@@ -79,7 +79,7 @@ func TestCreateLoadHeader(t *testing.T) {
 		OidsOid:  1234,
 	}
 
-	err = h.Store(metapb.ExtentState_Extent_Broken)
+	err = h.Store(metapb.ExtentState_Extent_Broken, cloneJob)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,5 +100,5 @@ func TestCreateLoadHeader(t *testing.T) {
 	assert.Equal(t, h.nvh.WritableHistoryNextIdx, lh.nvh.WritableHistoryNextIdx)
 	assert.Equal(t, h.nvh.Removed, lh.nvh.Removed)
 	assert.Equal(t, h.nvh.SegCycles, lh.nvh.SegCycles)
-	assert.Equal(t, h.nvh.CloneJob, lh.nvh.CloneJob)
+	assert.Equal(t, h.nvh.CloneJob, cloneJob)
 }
