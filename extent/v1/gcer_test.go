@@ -109,7 +109,7 @@ func TestTryGC(t *testing.T) {
 	ext.cfg.GCScanInterval = typeutil.Duration{Duration: 99 * time.Microsecond}
 	checkSnapSyncGCInterval = 100 * time.Microsecond
 
-	avail := atomic.LoadUint64(&ext.meta.PbExt.Avail)
+	avail := atomic.LoadUint64(&ext.meta.Avail)
 
 	go testGCLoop(t, ext, done)
 
@@ -148,7 +148,7 @@ func TestTryGC(t *testing.T) {
 	}
 	ext.rwMutex.RUnlock()
 
-	if atomic.LoadUint64(&ext.meta.PbExt.Avail)-avail != uint64(newReadyCnt)*uint64(ext.cfg.SegmentSize) {
+	if atomic.LoadUint64(&ext.meta.Avail)-avail != uint64(newReadyCnt)*uint64(ext.cfg.SegmentSize) {
 		t.Fatal("after GC, we got wrong avail increasing")
 	}
 
@@ -160,7 +160,7 @@ func TestTryGC(t *testing.T) {
 			cbuf := make([]byte, maxGrains*uid.GrainSize)
 			for j, oid := range leftOIDs {
 
-				objData, err2 := ext.GetObj(1, oid, false)
+				objData, _, err2 := ext.GetObj(1, oid, false, 0, 0)
 				if err2 != nil {
 					en := ext.dmu.Search(uid.GetDigest(oid))
 					_, _, _, _, addr := dmu.ParseEntry(en)
