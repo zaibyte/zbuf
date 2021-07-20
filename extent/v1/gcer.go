@@ -12,6 +12,7 @@ import (
 
 	"g.tesamc.com/IT/zaipkg/config/settings"
 	"g.tesamc.com/IT/zaipkg/directio"
+	"g.tesamc.com/IT/zaipkg/extutil"
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/uid"
 	"g.tesamc.com/IT/zaipkg/xbytes"
@@ -193,7 +194,7 @@ func (e *Extenter) isSnapCatchGC() bool {
 // preprocGC preprocesses GC operation.
 // Return error if cannot execute GC.
 func (e *Extenter) preprocGC() error {
-	state := e.meta.GetState()
+	state := (*extutil.SyncExt)(e.meta).GetState()
 
 	switch state {
 	case metapb.ExtentState_Extent_Broken:
@@ -217,7 +218,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 		return gcDeadInterval, false
 	}
 
-	state := e.meta.GetState()
+	state := (*extutil.SyncExt)(e.meta).GetState()
 	if state == metapb.ExtentState_Extent_Clone { // It's not too late GC after clone done.
 		return e.cfg.GCScanInterval.Duration, false
 	}
@@ -433,7 +434,7 @@ func (e *Extenter) gcSrcDone() {
 		srcNewState = segReady
 	}
 	e.header.nvh.SegStates[e.gcSrcSeg] = srcNewState
-	if e.meta.GetState() == metapb.ExtentState_Extent_Full && srcNewState == segReady {
+	if (*extutil.SyncExt)(e.meta).GetState() == metapb.ExtentState_Extent_Full && srcNewState == segReady {
 		e.meta.SetState(metapb.ExtentState_Extent_ReadWrite, false)
 	}
 

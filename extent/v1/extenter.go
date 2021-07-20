@@ -267,7 +267,7 @@ func (e *Extenter) GetMainFile() xio.File {
 
 func (e *Extenter) preprocGetReq() error {
 
-	state := e.meta.GetState()
+	state := (*extutil.SyncExt)(e.meta).GetState()
 
 	switch state {
 	case metapb.ExtentState_Extent_Broken:
@@ -560,7 +560,7 @@ func (e *Extenter) setState(err error) {
 		return
 	}
 
-	old := e.meta.GetState()
+	old := (*extutil.SyncExt)(e.meta).GetState()
 	var state metapb.ExtentState
 	if diskutil.IsBroken(err) {
 		ok, diskOld := e.diskInfo.SetState(metapb.DiskState_Disk_Broken)

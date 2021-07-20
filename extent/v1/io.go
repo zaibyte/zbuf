@@ -8,6 +8,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"g.tesamc.com/IT/zaipkg/extutil"
+
 	"g.tesamc.com/IT/zaipkg/xtime/hlc"
 
 	"g.tesamc.com/IT/zaipkg/xio"
@@ -54,7 +56,7 @@ func (e *Extenter) updatesLoop() {
 			return
 		}
 
-		state := e.meta.GetState()
+		state := (*extutil.SyncExt)(e.meta).GetState()
 
 		if state != metapb.ExtentState_Extent_Broken && state != metapb.ExtentState_Extent_Ghost {
 			if atomic.LoadInt64(&e.dirtyUpdates) > e.cfg.MaxDirtyCount {
@@ -282,7 +284,7 @@ func (e *Extenter) preprocWriteReq(reqType uint64) error {
 		return xerrors.WithMessage(orpc.ErrInternalServer, "want write request, but got read")
 	}
 
-	state := e.meta.GetState()
+	state := (*extutil.SyncExt)(e.meta).GetState()
 
 	if reqType == xio.ReqCloneWrite && state != metapb.ExtentState_Extent_Clone {
 		return xerrors.WithMessage(orpc.ErrExtentClone, "clone extent only accept clone write")
@@ -309,7 +311,7 @@ func (e *Extenter) preprocWriteReq(reqType uint64) error {
 // Return error if cannot execute the request.
 func (e *Extenter) preprocModifyRequest() error {
 
-	state := e.meta.GetState()
+	state := (*extutil.SyncExt)(e.meta).GetState()
 
 	switch state {
 	case metapb.ExtentState_Extent_Broken:
