@@ -26,8 +26,6 @@ import (
 	"time"
 	"unsafe"
 
-	"g.tesamc.com/IT/zbuf/extent"
-
 	zai "g.tesamc.com/IT/zai/client"
 	"g.tesamc.com/IT/zaipkg/config/settings"
 	"g.tesamc.com/IT/zaipkg/directio"
@@ -40,13 +38,13 @@ import (
 	"g.tesamc.com/IT/zaipkg/xerrors"
 	"g.tesamc.com/IT/zaipkg/xio"
 	"g.tesamc.com/IT/zaipkg/xlog"
+	"g.tesamc.com/IT/zbuf/extent"
 	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 )
 
 type Extenter struct {
-	failedToCreate bool // failedToCreate indicates it's a failed to create extent, which won't start any background resource.
-	isRunning      int64
+	isRunning int64
 
 	boxID uint32
 
@@ -90,7 +88,7 @@ type Extenter struct {
 	// lastDMUSnap is the last DMU snapshot.
 	lastDMUSnap unsafe.Pointer
 
-	zai zai.Client
+	zc zai.ObjClient
 
 	ctx    context.Context
 	cancel func()
@@ -104,9 +102,7 @@ func (e *Extenter) GetDir() string {
 }
 
 func (e *Extenter) Start() {
-	if e.failedToCreate {
-		return
-	}
+
 	if !atomic.CompareAndSwapInt64(&e.isRunning, 0, 1) {
 		return // already started
 	}
@@ -119,10 +115,6 @@ func (e *Extenter) Start() {
 }
 
 func (e *Extenter) Close() {
-
-	if e.failedToCreate {
-		return // Nothing to close.
-	}
 
 	if !atomic.CompareAndSwapInt64(&e.isRunning, 1, 0) {
 		return // Already closed.
