@@ -170,10 +170,7 @@ func TestTraverseDirtyDeleteWALNoSnap(t *testing.T) {
 	}
 	defer vfs.GetTestFS().RemoveAll(ext.extDir)
 
-	err = ext.Start()
-	if err != nil {
-		t.Fatal(err)
-	}
+	ext.Start()
 
 	rand.Seed(tsc.UnixNano())
 
@@ -228,8 +225,8 @@ func TestTraverseDirtyDeleteWALNoSnap(t *testing.T) {
 	ext.Close()
 
 	ext2, err := c.Load(context.Background(), ext.extDir, extent.CreateParams{
-		InstanceID: 1,
-		DiskID:     1,
+		InstanceID: "1",
+		DiskID:     "1",
 		ExtID:      uid.MakeExtID(1, 0),
 		DiskMeta:   nil,
 		CloneJob:   nil,
@@ -238,14 +235,11 @@ func TestTraverseDirtyDeleteWALNoSnap(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = ext2.Start()
-	if err != nil {
-		t.Fatal(err)
-	}
+	ext2.Start()
 	defer ext2.Close()
 
 	for oid := range oids {
-		objData, err2 := ext2.GetObj(1, oid, false)
+		objData, _, err2 := ext2.GetObj(1, oid, false, 0, 0)
 		if err2 != nil {
 			if !oids[oid] {
 				if !errors.Is(err2, orpc.ErrNotFound) {
