@@ -25,7 +25,7 @@ func TestExtenter_Clone(t *testing.T) {
 	mz := newMemZai()
 
 	c := makeTestCreator(cfg)
-	c.zai = mz
+	c.zc = mz
 
 	ext1, err := createTestExtByCreator(cfg, c, nil)
 	if err != nil {
@@ -116,7 +116,7 @@ func TestExtenter_CloneBig(t *testing.T) {
 	mz := newMemZai()
 
 	c := makeTestCreator(cfg)
-	c.zai = mz
+	c.zc = mz
 
 	ext1, err := createTestExtByCreator(cfg, c, nil)
 	if err != nil {

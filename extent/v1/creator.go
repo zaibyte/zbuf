@@ -27,7 +27,7 @@ type Creator struct {
 	cfg    *Config
 	scheds CreatorScheduler
 	fs     vfs.FS
-	zai    zai.Client
+	zc     zai.ObjClient
 	boxID  uint32
 }
 
@@ -37,7 +37,7 @@ type CreatorScheduler interface {
 }
 
 // NewCreator creates an ext.v1 Creator.
-func NewCreator(cfg *Config, scheds CreatorScheduler, fs vfs.FS, zai zai.ObjClient, boxID uint32) *Creator {
+func NewCreator(cfg *Config, scheds CreatorScheduler, fs vfs.FS, zc zai.ObjClient, boxID uint32) *Creator {
 
 	cfg.Adjust()
 
@@ -45,7 +45,7 @@ func NewCreator(cfg *Config, scheds CreatorScheduler, fs vfs.FS, zai zai.ObjClie
 		cfg:    cfg,
 		scheds: scheds,
 		fs:     fs,
-		zai:    zai,
+		zc:     zc,
 		boxID:  boxID,
 	}
 }
@@ -189,7 +189,7 @@ func (c *Creator) create(ctx context.Context, extDir string, params extent.Creat
 		dirtyDeleteWAL: dwf,
 
 		lastDMUSnap: unsafe.Pointer(new(dmuSnapHeader)),
-		zai:         c.zai,
+		zc:          c.zc,
 
 		ctx:    ctx2,
 		cancel: cancel,
@@ -353,7 +353,7 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 		forceGC:        make(chan float64, 1),
 		lastDMUSnap:    unsafe.Pointer(new(dmuSnapHeader)),
 
-		zai: c.zai,
+		zc: c.zc,
 
 		ctx:    ctx2,
 		cancel: cancel,

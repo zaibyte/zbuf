@@ -26,7 +26,7 @@ type testCreatorSched struct {
 	sched xio.Scheduler
 }
 
-func (s *testCreatorSched) GetSched(diskID uint32) (xio.Scheduler, bool) {
+func (s *testCreatorSched) GetSched(diskID string) (xio.Scheduler, bool) {
 	return s.sched, true
 }
 
@@ -36,7 +36,7 @@ func makeTestCreator(cfg *Config) *Creator {
 		cfg:    cfg,
 		scheds: &testCreatorSched{sched: new(xio.NopScheduler)},
 		fs:     vfs.GetTestFS(),
-		zai:    new(zai.NopClient),
+		zc:     zai.NopObjClient{},
 		boxID:  1,
 	}
 }
@@ -61,8 +61,8 @@ func TestCreator_Create(t *testing.T) {
 	c := makeTestCreator(cfg)
 
 	ext, err := c.Create(context.Background(), extDir, extent.CreateParams{
-		InstanceID: 1,
-		DiskID:     1,
+		InstanceID: "1",
+		DiskID:     "1",
 		ExtID:      1,
 		DiskMeta:   nil,
 		CloneJob:   nil,
@@ -73,8 +73,8 @@ func TestCreator_Create(t *testing.T) {
 	ext.Close()
 
 	_, err = c.Load(context.Background(), extDir, extent.CreateParams{
-		InstanceID: 1,
-		DiskID:     1,
+		InstanceID: "1",
+		DiskID:     "1",
 		ExtID:      1,
 		DiskMeta:   nil,
 		CloneJob:   nil,
@@ -98,8 +98,8 @@ func TestCreator_CreateLoad(t *testing.T) {
 	c := makeTestCreator(cfg)
 
 	ext, err := c.Create(context.Background(), extDir, extent.CreateParams{
-		InstanceID: 1,
-		DiskID:     1,
+		InstanceID: "1",
+		DiskID:     "1",
 		ExtID:      1,
 		DiskMeta:   nil,
 		CloneJob:   nil,
@@ -107,10 +107,7 @@ func TestCreator_CreateLoad(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = ext.Start()
-	if err != nil {
-		t.Fatal(err)
-	}
+	ext.Start()
 	defer ext.Close()
 
 	rand.Seed(tsc.UnixNano())
@@ -143,8 +140,8 @@ func TestCreator_CreateLoad(t *testing.T) {
 	oids1 = oids1[:cnto1*8]
 
 	e2, err := c.Load(context.Background(), extDir, extent.CreateParams{
-		InstanceID: 1,
-		DiskID:     1,
+		InstanceID: "1",
+		DiskID:     "1",
 		ExtID:      1,
 		DiskMeta:   nil,
 		CloneJob:   nil,
