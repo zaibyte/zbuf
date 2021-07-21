@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"g.tesamc.com/IT/zaipkg/extutil"
+
 	"g.tesamc.com/IT/zaipkg/config/settings"
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/uid"
@@ -31,14 +33,32 @@ var (
 // It won't finish until extent is unhealthy or uploading oid successfully.
 func (e *Extenter) InitCloneSource() {
 
-	if !e.meta.SetState(metapb.ExtentState_Extent_Sealed, true) { // InitCloneSource only will be created by Keeper.
-		return // Unhealthy extent.
+	syncMeta := (*extutil.SyncExt)(e.meta)
+
+	state := syncMeta.GetState()
+	if state != metapb.ExtentState_Extent_Sealed {
+		xlog.Warn(fmt.Sprintf("init clone source wanted ext: %d, being: %s but got: %s",
+			syncMeta.Id, metapb.ExtentState_Extent_Sealed.String(), state.String()))
+		return
+	}
+
+	cj := syncMeta.GetCloneJob()
+	if cj == nil {
+		xlog.Warn(fmt.Sprintf("init clone source need ext: %d has non-nil clone job, but got nil",
+			syncMeta.Id))
+		return
+	}
+
+	if atomic.LoadUint64(&cj.OidsOid) != 0 {
+		xlog.Warn(fmt.Sprintf("init clone source need ext: %d has empty oids_oid, but got: %d",
+			syncMeta.Id, atomic.LoadUint64(&cj.OidsOid)))
+		return
 	}
 
 	d := e.dmu
 	_, usage := d.GetUsage()
 
-	oids := make([]byte, usage*8) // After sealed, the future usage only would get smaller.
+	oids := make([]byte, usage*8) // After sealed, the future usage only would get smaller (there may be deletion).
 	t0 := dmu.GetTbl(d, 0)
 	t1 := dmu.GetTbl(d, 1)
 	cnt := e.getOIDsFromDMUTbl(t0, oids, 0)
@@ -53,7 +73,8 @@ func (e *Extenter) InitCloneSource() {
 		MaxSleep: 15 * time.Second,
 	}
 	for i := 0; ; i++ {
-		oidsOID, _, err := e.zai.PutObj(buf, 0)
+		// TODO until broken, offline, tombstone
+		oidsOID, _, err := e.zc.PutObj(buf, 0)
 		if err != nil {
 			xlog.Warn(xerrors.WithMessage(err, "failed to put oids_oid").Error())
 			time.Sleep(retry.GetSleepDuration(i+1, int64(len(oids))))
@@ -125,6 +146,8 @@ func (e *Extenter) tryClone() {
 
 	oidsOID := job.OidsOid
 
+	// TODO loop until get oidsOID until close or broken
+
 	oidsBody := bytes.NewBuffer(make([]byte, cloneOIDsBufSize))
 
 	totalSize := job.ObjCnt * 8
@@ -144,7 +167,7 @@ func (e *Extenter) tryClone() {
 		var err error
 		for i := 0; ; i++ { // Keeping trying.
 			oidsBody.Reset() // Avoiding dirty read.
-			n, err = e.zai.GetObj(oidsOID, oidsBody, int64(done), cloneOIDsBufSize, true, 3*time.Second)
+			n, err = e.zc.GetObj(oidsOID, oidsBody, int64(done), cloneOIDsBufSize, true, 3*time.Second)
 			if err != nil {
 				if errors.Is(err, orpc.ErrReplicasCollapse) {
 					xlog.Error(xerrors.WithMessage(err, fmt.Sprintf("ext: %d, clone_job: %d, failed to clone: get clone job oids_oid: %d",
@@ -185,7 +208,7 @@ func (e *Extenter) tryClone() {
 			notFound := false
 			for j := 0; ; j++ {
 				objDataBuf.Reset()
-				_, err = e.zai.GetObj(oid, objDataBuf, 0, settings.MaxObjectSize, true, 3*time.Second)
+				_, err = e.zc.GetObj(oid, objDataBuf, 0, settings.MaxObjectSize, true, 3*time.Second)
 				if err != nil {
 					xlog.Warn(xerrors.WithMessage(err, fmt.Sprintf("ext: %d, clone_job: %d, failed to get clone job oid: %d",
 						e.meta.PbExt.Id, job.Id, oid)).Error())
@@ -250,7 +273,7 @@ func (e *Extenter) tryClone() {
 	e.rwMutex.Lock()
 	// TODO should store header before set it done.
 	// Avoiding inconsitence between keeper and zBuf (zBuf may failed but clone_job got done)
-	err := e.header.Store(metapb.ExtentState_Extent_Clone)
+	err := e.header.Store(metapb.ExtentState_Extent_Clone, e.meta.CloneJob)
 	e.rwMutex.Unlock()
 
 	e.meta.SetCloneJobState(metapb.CloneJobState_CloneJob_Done)
