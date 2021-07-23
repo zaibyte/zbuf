@@ -37,105 +37,92 @@ var (
 // It won't finish until extent is unhealthy or uploading oid successfully.
 func (e *Extenter) InitCloneSource() {
 
-	syncMeta := (*extutil.SyncExt)(e.meta)
-
-	state := syncMeta.GetState()
-	if state != metapb.ExtentState_Extent_Sealed {
-		xlog.Warn(fmt.Sprintf("init clone source wanted ext: %d, being: %s but got: %s",
-			syncMeta.Id, metapb.ExtentState_Extent_Sealed.String(), state.String()))
-		return
-	}
-
-	cj := syncMeta.GetCloneJob()
-	if cj == nil {
-		xlog.Warn(fmt.Sprintf("init clone source need ext: %d has non-nil clone job, but got nil",
-			syncMeta.Id))
-		return
-	}
-
-	if atomic.LoadUint64(&cj.OidsOid) != 0 {
-		xlog.Warn(fmt.Sprintf("init clone source need ext: %d has empty oids_oid, but got: %d",
-			syncMeta.Id, atomic.LoadUint64(&cj.OidsOid)))
+	if !e.precheckInitCloneSrc() {
 		return
 	}
 
 	d := e.dmu
 	_, usage := d.GetUsage()
 
+	var oidsoid, total uint64
+	var err error
 	oids := make([]byte, xmath.AlignSize(int64(usage*8), uid.GrainSize)) // After sealed, the future usage only would get smaller (there may be deletion).
-	t0 := dmu.GetTbl(d, 0)
-	t1 := dmu.GetTbl(d, 1)
-	cnt := e.getOIDsFromDMUTbl(t0, oids, 0)
-	cnt = e.getOIDsFromDMUTbl(t1, oids, cnt)                   // It's in sealed, don't worry tables changes.
-	oids = oids[:xmath.AlignSize(int64(cnt*8), uid.GrainSize)] // cnt must be <= usage, because no new objects allowed adding.
+	if len(oids) == 0 {                                                  // No object has been written to this extent.
+		oidsoid = uid.MakeOID(e.boxID, 1, 0, 0, uid.NopObj)
+		total = 0
+	} else {
+		t0 := dmu.GetTbl(d, 0)
+		t1 := dmu.GetTbl(d, 1)
+		cnt := e.getOIDsFromDMUTbl(t0, oids, 0)
+		cnt = e.getOIDsFromDMUTbl(t1, oids, cnt)                   // It's in sealed, don't worry tables changes.
+		oids = oids[:xmath.AlignSize(int64(cnt*8), uid.GrainSize)] // cnt must be <= usage, because no new objects allowed adding.
 
-	buf := bytes.NewReader(oids)
-
-	retry := &orpc.Retryer{
-		MinSleep: 100 * time.Millisecond,
-		MaxTried: 10,
-		MaxSleep: 15 * time.Second,
+		oidsoid, err = e.uploadOIDs(oids)
+		if err != nil {
+			return
+		}
+		total = uint64(cnt)
 	}
+
+	e.initCloneSrcDone(oidsoid, total)
+}
+
+// precheckInitCloneSrc checks extent's meta could do init clone job source or not.
+func (e *Extenter) precheckInitCloneSrc() bool {
+
+	e.rwMutex.RLock()
+	defer e.rwMutex.RUnlock()
+
+	meta := e.meta
+
+	state := meta.State
+	if state != metapb.ExtentState_Extent_Sealed {
+		xlog.Warn(fmt.Sprintf("init clone source wanted ext: %d, being: %s but got: %s",
+			meta.Id, metapb.ExtentState_Extent_Sealed.String(), state.String()))
+		return false
+	}
+
+	cj := meta.CloneJob
+	if cj == nil {
+		xlog.Warn(fmt.Sprintf("init clone source need ext: %d has non-nil clone job, but got nil",
+			meta.Id))
+		return false
+	}
+
+	if !cj.IsSource {
+		xlog.Warn(fmt.Sprintf("init clone source need clone job is_source: %d has non-nil clone job, but not source",
+			meta.Id))
+		return false
+	}
+
+	if cj.OidsOid != 0 {
+		xlog.Warn(fmt.Sprintf("init clone source need ext: %d has empty oids_oid, but got: %d",
+			meta.Id, cj.OidsOid))
+		return false
+	}
+
+	return true
+}
+
+// initCloneSrcDone updates clone job states after init clone source finished.
+func (e *Extenter) initCloneSrcDone(oidsoid uint64, total uint64) {
+	e.rwMutex.Lock()
+	e.header.nvh.CloneJob.OidsOid = oidsoid
+	e.header.nvh.CloneJob.Total = total
+	e.rwMutex.Unlock()
+}
+
+// uploadOIDs uploading extent's oids list (in bytes) to Zai.
+func (e *Extenter) uploadOIDs(oids []byte) (oidsOID uint64, err error) {
+
+	syncMeta := (*extutil.SyncExt)(e.meta)
 
 	pieceCnt := len(oids) / settings.MaxObjectSize
 	if len(oids)-pieceCnt*settings.MaxObjectSize > 0 {
 		pieceCnt += 1
 	}
 
-	oks := make([]uint64, pieceCnt)
-
-	for i := 0; ; i++ {
-
-		if syncMeta.GetState() != metapb.ExtentState_Extent_Sealed {
-			xlog.Warn(fmt.Sprintf("init clone source wanted ext: %d, being: %s but got: %s",
-				syncMeta.Id, metapb.ExtentState_Extent_Sealed.String(), state.String()))
-			return
-		}
-
-		start := 0
-		done := 0
-		okCnt := 0
-		for done < len(oids) {
-			do := settings.MaxObjectSize
-			if done+do > len(oids) {
-				do = len(oids) - done
-			}
-			if oks[okCnt] != 0 {
-				done += do
-				okCnt++
-				continue
-			}
-			poid, err := e.zc.PutObj(oids[start:start+do], xdigest.Sum32(oids[start:start+do]), 3*time.Second)
-			if err != nil {
-				xlog.Warn(xerrors.WithMessage(err, "failed to put oids_oid, try again later").Error())
-				break
-			}
-			oks[okCnt] = poid
-			done += do
-			okCnt++
-		}
-
-		if done != len(oids) {
-			continue
-		}
-
-		// TODO make link_object
-		e.rwMutex.Lock()
-		if e.header.nvh.CloneJob == nil {
-			e.header.nvh.CloneJob = new(metapb.CloneJob)
-		}
-		e.header.nvh.CloneJob.IsSource = true
-		e.header.nvh.CloneJob.OidsOid = oidsOID
-		e.header.nvh.CloneJob.Total = uint64(cnt)
-		e.rwMutex.Unlock()
-		break
-	}
-}
-
-func (e *Extenter) uploadOIDs(oids []byte) error {
-
-	syncMeta := (*extutil.SyncExt)(e.meta)
-
+	oks := make([]uint64, pieceCnt) // Any piece of oids uploaded will put its oid into here.
 	retry := &orpc.Retryer{
 		MinSleep: 100 * time.Millisecond,
 		MaxTried: 10,
@@ -146,25 +133,42 @@ func (e *Extenter) uploadOIDs(oids []byte) error {
 		if syncMeta.GetState() != metapb.ExtentState_Extent_Sealed {
 			xlog.Warn(fmt.Sprintf("init clone source wanted ext: %d, being: %s but got: %s",
 				syncMeta.Id, metapb.ExtentState_Extent_Sealed.String(), syncMeta.GetState().String()))
-			return orpc.ErrInternalServer
+			return 0, orpc.ErrInternalServer
 		}
-		// TODO until broken, offline, tombstone
-		oidsOID, _, err := e.zc.PutObj(buf, 0)
-		if err != nil {
-			xlog.Warn(xerrors.WithMessage(err, "failed to put oids_oid").Error())
-			time.Sleep(retry.GetSleepDuration(i+1, int64(len(oids))))
-			buf.Reset(oids)
+
+		start := 0 // Every time start from 0.
+		done := 0
+		okCnt := 0
+		for done < len(oids) {
+			do := settings.MaxObjectSize
+			if done+do > len(oids) {
+				do = len(oids) - done
+			}
+			if oks[okCnt] != 0 {
+				done += do
+				okCnt++
+				continue // This piece has already uploaded, next one.
+			}
+			poid, err2 := e.zc.PutObj(oids[start:start+do], xdigest.Sum32(oids[start:start+do]), 3*time.Second)
+			if err2 != nil {
+				xlog.Warn(xerrors.WithMessage(err2, "failed to put oids_oid, try again later").Error())
+				break
+			}
+			oks[okCnt] = poid
+			done += do
+			okCnt++
+		}
+
+		if done != len(oids) {
+			time.Sleep(retry.GetSleepDuration(i+1, int64(len(oids)))) // Using total length roughly.
 			continue
 		}
-		e.rwMutex.Lock()
-		if e.header.nvh.CloneJob == nil {
-			e.header.nvh.CloneJob = new(metapb.CloneJob)
+
+		// TODO make link
+		if len(oks) == 1 { // No need to make link_obj.
+			return oks[0], nil
 		}
-		e.header.nvh.CloneJob.IsSource = true
-		e.header.nvh.CloneJob.OidsOid = oidsOID
-		e.header.nvh.CloneJob.Total = uint64(cnt)
-		e.rwMutex.Unlock()
-		break
+
 	}
 }
 
