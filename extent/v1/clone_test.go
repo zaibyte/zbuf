@@ -70,7 +70,7 @@ func TestExtenter_Clone(t *testing.T) {
 	ext1.InitCloneSource()
 
 	ext1.rwMutex.RLock()
-	oidsOID := ext1.header.nvh.CloneJob.OidsOid
+	oidsOID := ext1.meta.CloneJob.OidsOid
 	ext1.rwMutex.RUnlock()
 
 	ext2, err := createTestExtByCreator(cfg, c, &metapb.CloneJob{
@@ -152,7 +152,7 @@ func TestExtenter_CloneBig(t *testing.T) {
 	ext1.InitCloneSource()
 
 	ext1.rwMutex.RLock()
-	oidsOID := ext1.header.nvh.CloneJob.OidsOid
+	oidsOID := ext1.meta.CloneJob.OidsOid
 	ext1.rwMutex.RUnlock()
 
 	cloneOIDsBufSize = 4 * 1024

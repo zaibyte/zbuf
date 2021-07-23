@@ -101,7 +101,7 @@ func TestExtenter_DMUWriteLoad(t *testing.T) {
 	e.gcDstSeg = 5
 	e.gcSrcCursor = 6
 	e.gcDstCursor = 7
-	e.header.nvh.CloneJob = &metapb.CloneJob{
+	e.meta.CloneJob = &metapb.CloneJob{
 		IsSource: false,
 		State:    metapb.CloneJobState_CloneJob_Done,
 		Id:       1,

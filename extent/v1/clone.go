@@ -107,8 +107,8 @@ func (e *Extenter) precheckInitCloneSrc() bool {
 // initCloneSrcDone updates clone job states after init clone source finished.
 func (e *Extenter) initCloneSrcDone(oidsoid uint64, total uint64) {
 	e.rwMutex.Lock()
-	e.header.nvh.CloneJob.OidsOid = oidsoid
-	e.header.nvh.CloneJob.Total = total
+	e.meta.CloneJob.OidsOid = oidsoid
+	e.meta.CloneJob.Total = total
 	e.rwMutex.Unlock()
 }
 
@@ -184,7 +184,7 @@ func (e *Extenter) getOIDsFromDMUTbl(tbl []uint64, oids []byte, offset int) int 
 		return offset
 	}
 
-	groupID, _ := uid.ParseExtID(e.meta.PbExt.Id)
+	groupID, _ := uid.ParseExtID(e.meta.Id)
 
 	for i := range tbl {
 		en := atomic.LoadUint64(&tbl[i])
@@ -212,10 +212,13 @@ func (e *Extenter) tryClone() {
 	defer cancel()
 
 	e.rwMutex.RLock()
-	job := e.header.nvh.CloneJob
+	job := e.meta.CloneJob
 	e.rwMutex.RUnlock()
 
 	if job == nil {
+		return
+	}
+	if job.IsSource {
 		return
 	}
 
@@ -286,7 +289,7 @@ func (e *Extenter) tryClone() {
 			_, _, grains2, digest, _, _ := uid.ParseOID(oid)
 			if e.dmu.Search(digest) != 0 { // Already has.
 				e.rwMutex.Lock()
-				e.header.nvh.CloneJob.DoneCnt += 1
+				e.meta.CloneJob.Done += 1
 				e.rwMutex.Unlock()
 				continue
 			}
@@ -299,7 +302,7 @@ func (e *Extenter) tryClone() {
 						e.meta.PbExt.Id, job.Id, oid)).Error())
 					if errors.Is(err, orpc.ErrNotFound) {
 						e.rwMutex.Lock()
-						e.header.nvh.CloneJob.DoneCnt += 1
+						e.meta.CloneJob.DoneCnt += 1
 						e.rwMutex.Unlock()
 						notFound = true
 						break
@@ -346,7 +349,7 @@ func (e *Extenter) tryClone() {
 			}
 
 			e.rwMutex.Lock()
-			e.header.nvh.CloneJob.DoneCnt += 1
+			e.meta.CloneJob.Done += 1
 			e.rwMutex.Unlock()
 		}
 
