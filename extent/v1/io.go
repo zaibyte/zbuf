@@ -10,8 +10,6 @@ import (
 
 	"g.tesamc.com/IT/zaipkg/extutil"
 
-	"g.tesamc.com/IT/zaipkg/xtime/hlc"
-
 	"g.tesamc.com/IT/zaipkg/xio"
 
 	"g.tesamc.com/IT/zaipkg/directio"
@@ -188,7 +186,7 @@ func (e *Extenter) updatesLoop() {
 				ur.done <- orpc.ErrNotFound
 				continue
 			}
-			lastMod := hlc.Next()
+			lastMod := getTimestamp()
 			n := makeDelWALChunk(digest, lastMod, writeBuf)
 			err := e.ioSched.DoSync(xio.ReqMetaWrite, e.dirtyDeleteWAL, dirtyWALOffset, writeBuf[:n])
 			if err != nil {
@@ -231,7 +229,7 @@ func (e *Extenter) updatesLoop() {
 					continue
 				}
 			}
-			lastMod := hlc.Next()
+			lastMod := getTimestamp()
 			n := makeDelBatchWALChunk(ur.oids, lastMod, writeBuf)
 			err := e.ioSched.DoSync(xio.ReqMetaWrite, e.dirtyDeleteWAL, dirtyWALOffset, writeBuf[:n])
 			if err != nil {

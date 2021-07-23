@@ -9,8 +9,6 @@ import (
 	"time"
 	"unsafe"
 
-	"g.tesamc.com/IT/zaipkg/xtime/hlc"
-
 	"g.tesamc.com/IT/zaipkg/directio"
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/uid"
@@ -250,7 +248,7 @@ func (e *Extenter) writeDMUSnap(done chan<- error, lastFn string) {
 	}()
 
 	createTS := tsc.UnixNano()
-	hlcTS := hlc.Next()
+	hlcTS := getTimestamp()
 
 	fn := makeDMUSnapFp(e.extDir, createTS)
 	f, err2 := e.fs.Create(fn)
