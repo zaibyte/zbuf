@@ -128,7 +128,8 @@ func (e *Extenter) uploadOIDs(oids []byte) (oidsOID uint64, err error) {
 		MaxTried: 10,
 		MaxSleep: 15 * time.Second,
 	}
-	for i := 0; ; i++ {
+
+	for i := 0; ; i++ { // Try it until meet unrecoverable error.
 
 		if syncMeta.GetState() != metapb.ExtentState_Extent_Sealed {
 			xlog.Warn(fmt.Sprintf("init clone source wanted ext: %d, being: %s but got: %s",
@@ -164,11 +165,16 @@ func (e *Extenter) uploadOIDs(oids []byte) (oidsOID uint64, err error) {
 			continue
 		}
 
-		// TODO make link
-		if len(oks) == 1 { // No need to make link_obj.
+		if len(oks) == 1 { // No need to make link_obj. At least has one.
 			return oks[0], nil
 		}
 
+		linkOID, err2 := e.zc.MakeLink(oks, 3*time.Second)
+		if err2 != nil {
+			xlog.Warn(xerrors.WithMessage(err2, "failed to put link of oids_oid, try again later").Error())
+			continue
+		}
+		return linkOID, nil
 	}
 }
 
