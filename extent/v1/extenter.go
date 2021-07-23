@@ -58,6 +58,7 @@ type Extenter struct {
 	// in some situation, it may improve performance, e.g. copy a slice,
 	// if we are using atomic, we have to load it one by one,
 	// using a lock could write done it directly because of the memory barrier brought by lock.
+	//
 	// For an extent, there won't be more than two goroutines are updating it(one write one GC),
 	// so the lock operation is just a lock instruction & an atomic compare in most time, it won't be a slow lock
 	// which has to wait for being waken up.
@@ -170,8 +171,7 @@ func (e *Extenter) UpdateMeta(m *metapb.Extent) {
 
 	if m.CloneJob != nil && e.meta.CloneJob == nil {
 		e.meta.CloneJob = proto.Clone(m.CloneJob).(*metapb.CloneJob)
-	}
-	if e.meta.CloneJob != nil && m.CloneJob != nil {
+	} else if e.meta.CloneJob != nil && m.CloneJob != nil {
 		if m.CloneJob.OidsOid != 0 && e.meta.CloneJob.OidsOid == 0 {
 			e.meta.CloneJob.OidsOid = m.CloneJob.OidsOid
 		}
@@ -243,7 +243,7 @@ func (e *Extenter) GetObj(_reqid, oid uint64, isClone bool, objOff, n uint32) (o
 		}
 		err = e.objReadAt(uint64(reqType), digest, offset, objData)
 		if err != nil {
-			e.setState(err)
+			e.handleError(err)
 			xbytes.PutAlignedBytes(objData)
 			return nil, 0, err
 		}
@@ -253,7 +253,7 @@ func (e *Extenter) GetObj(_reqid, oid uint64, isClone bool, objOff, n uint32) (o
 		objData = xbytes.GetAlignedBytes(int(n)) // n must be aligned.
 		crc, err = e.objReadAtOffset(offset, objData, objOff, n)
 		if err != nil {
-			e.setState(err)
+			e.handleError(err)
 			xbytes.PutAlignedBytes(objData)
 			return nil, 0, err
 		}
@@ -553,8 +553,8 @@ func (e *Extenter) cleanDirtyUpdates() {
 	atomic.StoreInt64(&e.dirtyUpdates, 0)
 }
 
-// setState sets Extenter state by err.
-func (e *Extenter) setState(err error) {
+// handleError sets Extenter state by err.
+func (e *Extenter) handleError(err error) {
 
 	if err == nil {
 		return
@@ -584,6 +584,8 @@ func (e *Extenter) setState(err error) {
 		xlog.Error(fmt.Sprintf("extent: %d has new_state: %s from old_state: %s for: %s",
 			e.meta.Id, state.String(), old.String(), err.Error()))
 	}
+
+	// TODO update clone job state, if broken should be done
 }
 
 func (e *Extenter) Close() {

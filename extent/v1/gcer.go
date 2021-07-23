@@ -321,7 +321,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 					}
 				}
 
-				e.setState(err3)
+				e.handleError(err3)
 				return gcDeadInterval, false
 			}
 			// Meet objects written in last cycle, ignore left.
@@ -336,7 +336,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 			if cycle > srcCycle {
 				err = xerrors.WithMessage(orpc.ErrExtentBroken,
 					fmt.Sprintf("cycle getting bigger in the middle of segment, exp: %d, got: %d", srcCycle, cycle))
-				e.setState(err)
+				e.handleError(err)
 				return gcDeadInterval, false
 			}
 
@@ -362,7 +362,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 			// And it could be a bug or data corruption.
 			if int64(nowAddr)*dmu.AlignSize != readOffset {
 
-				e.setState(xerrors.WithMessage(orpc.ErrExtentBroken,
+				e.handleError(xerrors.WithMessage(orpc.ErrExtentBroken,
 					fmt.Sprintf("gc meet unexpected address in dmu, oid: %d, exp: %d, but got: %d",
 						oid, readOffset/dmu.AlignSize, nowAddr)))
 				return gcDeadInterval, false
@@ -393,7 +393,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 
 			err = e.objReadAt(xio.ReqGCRead, digest, readOffset, gcObjBuf[:objSize])
 			if err != nil {
-				e.setState(err)
+				e.handleError(err)
 				return gcDeadInterval, false
 			}
 
@@ -401,7 +401,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 			_, werr := e.objWriteAt(xio.ReqGCWrite, oid, writeOffset, gcObjBuf[:objSize],
 				gcWriteBuf, e.header.nvh.SegCycles[uint8(e.gcDstSeg)])
 			if werr != nil {
-				e.setState(err)
+				e.handleError(err)
 				return gcDeadInterval, false
 			}
 
@@ -469,7 +469,7 @@ func (e *Extenter) findGCDst(segNow int64) int64 {
 		}
 	}
 	err := xerrors.WithMessage(orpc.ErrExtentBroken, fmt.Sprintf("could not find a reserved segment for GC dst, ext_id: %d", e.meta.Id))
-	e.setState(err) // Set extent broken if there is no reserved segment.
+	e.handleError(err) // Set extent broken if there is no reserved segment.
 	xlog.Panic(err.Error())
 	return -1
 }

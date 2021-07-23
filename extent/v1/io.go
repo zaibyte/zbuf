@@ -108,7 +108,7 @@ func (e *Extenter) updatesLoop() {
 				if err != nil {
 					ur.done <- err
 					e.rwMutex.Unlock()
-					e.setState(err)
+					e.handleError(err)
 					continue
 				}
 				e.writableSeg = nextSeg
@@ -125,7 +125,7 @@ func (e *Extenter) updatesLoop() {
 			written, err := e.objWriteAt(ur.reqType, ur.oid, offset, ur.objData, writeBuf, cycle)
 			if err != nil {
 				ur.done <- err
-				e.setState(err)
+				e.handleError(err)
 				continue
 			}
 
@@ -136,14 +136,14 @@ func (e *Extenter) updatesLoop() {
 					// having the same content or not. Because it may bring new issues when we want to delete one of them,
 					// the GC will get hard to implement in right way.
 					ur.done <- err
-					e.setState(err)
+					e.handleError(err)
 					continue
 				}
 			} else {
 				err = e.dmu.UpdateOrInsert(digest, uint32(otype), grains, offsetToAddr(offset))
 				if err != nil {
 					ur.done <- err
-					e.setState(err)
+					e.handleError(err)
 					continue
 				}
 			}
@@ -169,7 +169,7 @@ func (e *Extenter) updatesLoop() {
 				if lastSnap.hlcTS >= dirtyDel.lastMod {
 					err := dirtyDel.reset()
 					if err != nil {
-						e.setState(err)
+						e.handleError(err)
 						err = xerrors.WithMessage(err, fmt.Sprintf("ext: %d broken: failed to reset dirty_delete_wal", e.meta.Id))
 						xlog.Error(err.Error())
 						ur.done <- err
@@ -193,7 +193,7 @@ func (e *Extenter) updatesLoop() {
 			err := e.ioSched.DoSync(xio.ReqMetaWrite, e.dirtyDeleteWAL, dirtyWALOffset, writeBuf[:n])
 			if err != nil {
 				ur.done <- err
-				e.setState(err)
+				e.handleError(err)
 				continue
 			}
 			_, rAddr := e.dmu.Remove(digest)
@@ -218,7 +218,7 @@ func (e *Extenter) updatesLoop() {
 				if lastSnap.hlcTS >= dirtyDel.lastMod {
 					err := dirtyDel.reset()
 					if err != nil {
-						e.setState(err)
+						e.handleError(err)
 						err = xerrors.WithMessage(err, fmt.Sprintf("ext: %d broken: failed to reset dirty_delete_wal", e.meta.Id))
 						xlog.Error(err.Error())
 						ur.done <- err
@@ -236,7 +236,7 @@ func (e *Extenter) updatesLoop() {
 			err := e.ioSched.DoSync(xio.ReqMetaWrite, e.dirtyDeleteWAL, dirtyWALOffset, writeBuf[:n])
 			if err != nil {
 				ur.done <- err
-				e.setState(err)
+				e.handleError(err)
 				continue
 			}
 

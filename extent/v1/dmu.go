@@ -244,7 +244,7 @@ func (e *Extenter) writeDMUSnap(done chan<- error, lastFn string) {
 			}
 			atomic.AddInt64(&e.dirtyUpdates, -dirty)
 		}
-		e.setState(err)
+		e.handleError(err)
 		done <- err
 		atomic.StoreInt64(&e.isMakingDMUSnap, 0)
 	}()
