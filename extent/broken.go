@@ -1,6 +1,9 @@
 package extent
 
 import (
+	"sync"
+
+	"g.tesamc.com/IT/zaipkg/extutil"
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/xio"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
@@ -11,64 +14,88 @@ import (
 // BrokenExtenter is an nop Extenter created
 // when zBuf could not found extent which is in the heartbeat response.
 type BrokenExtenter struct {
-	meta   *metapb.Extent
-	extDir string
+	rwMutex *sync.RWMutex
+	meta    *metapb.Extent
+	extDir  string
 }
 
 var _brokenExt Extenter = new(BrokenExtenter)
 
 func NewBrokenExtenter(meta *metapb.Extent, extDir string) *BrokenExtenter {
 	return &BrokenExtenter{
-		meta:   meta,
-		extDir: extDir,
+		rwMutex: new(sync.RWMutex),
+		meta:    meta,
+		extDir:  extDir,
 	}
 }
 
-func (b *BrokenExtenter) Start() {
+func (e *BrokenExtenter) Start() {
 	return
 }
 
-func (b *BrokenExtenter) GetMeta() *metapb.Extent {
-	ret := proto.Clone(b.meta).(*metapb.Extent)
+func (e *BrokenExtenter) GetMeta() *metapb.Extent {
+	e.rwMutex.RLock()
+	defer e.rwMutex.RUnlock()
+	ret := proto.Clone(e.meta).(*metapb.Extent)
 	ret.LastUpdate = tsc.UnixNano()
 	return ret
 }
-func (b *BrokenExtenter) UpdateMeta(m *metapb.Extent) {
-	return
+func (e *BrokenExtenter) UpdateMeta(m *metapb.Extent) {
+
+	// meta could not be nil, after Extenter starting.
+	e.rwMutex.Lock()
+	if m.State != e.meta.State {
+		extutil.SetState(e.meta, m.State)
+	}
+
+	if m.CloneJob == nil {
+		if e.meta.CloneJob != nil { // Must be done.
+			e.meta.CloneJob = nil
+		}
+	}
+
+	if m.CloneJob != nil && e.meta.CloneJob == nil {
+		e.meta.CloneJob = proto.Clone(m.CloneJob).(*metapb.CloneJob)
+	} else if e.meta.CloneJob != nil && m.CloneJob != nil {
+		if m.CloneJob.OidsOid != 0 && e.meta.CloneJob.OidsOid == 0 {
+			e.meta.CloneJob.OidsOid = m.CloneJob.OidsOid
+		}
+	}
+	e.rwMutex.Unlock()
 }
 
-func (b *BrokenExtenter) PutObj(reqid, oid uint64, objData []byte, isClone bool) error {
+func (e *BrokenExtenter) PutObj(reqid, oid uint64, objData []byte, isClone bool) error {
 	return orpc.ErrExtentBroken
 }
 
-func (b *BrokenExtenter) GetObj(reqid, oid uint64, isClone bool, offset, n uint32) (objData []byte, crc32 uint32, err error) {
+func (e *BrokenExtenter) GetObj(reqid, oid uint64, isClone bool, offset, n uint32) (objData []byte, crc32 uint32, err error) {
 	return nil, 0, orpc.ErrExtentBroken
 }
 
-func (b *BrokenExtenter) DeleteObj(reqid, oid uint64) error {
+func (e *BrokenExtenter) DeleteObj(reqid, oid uint64) error {
 	return orpc.ErrExtentBroken
 }
 
-func (b *BrokenExtenter) DeleteBatch(reqid uint64, oids []uint64) error {
+func (e *BrokenExtenter) DeleteBatch(reqid uint64, oids []uint64) error {
 	return orpc.ErrExtentBroken
 }
 
-func (b *BrokenExtenter) DoGC(ratio float64) {
+func (e *BrokenExtenter) DoGC(ratio float64) {
 	return
 }
 
-func (b *BrokenExtenter) InitCloneSource() {
+func (e *BrokenExtenter) InitCloneSource() {
 	return
 }
 
-func (b *BrokenExtenter) GetDir() string {
-	return b.extDir
+func (e *BrokenExtenter) GetDir() string {
+	return e.extDir
 }
 
-func (b *BrokenExtenter) GetMainFile() xio.File {
+func (e *BrokenExtenter) GetMainFile() xio.File {
 	return nil
 }
 
-func (b *BrokenExtenter) Close() {
+func (e *BrokenExtenter) Close() {
 	return
 }
