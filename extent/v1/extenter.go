@@ -169,11 +169,23 @@ func (e *Extenter) UpdateMeta(m *metapb.Extent) {
 		}
 	}
 
+	// If already started, won't happen. CloneJob should be reconstructed by loading.
+	// Unless is clone source.
 	if m.CloneJob != nil && e.meta.CloneJob == nil {
-		e.meta.CloneJob = proto.Clone(m.CloneJob).(*metapb.CloneJob)
-	} else if e.meta.CloneJob != nil && m.CloneJob != nil {
-		if m.CloneJob.OidsOid != 0 && e.meta.CloneJob.OidsOid == 0 {
-			e.meta.CloneJob.OidsOid = m.CloneJob.OidsOid
+		if m.CloneJob.IsSource {
+			e.meta.CloneJob = proto.Clone(m.CloneJob).(*metapb.CloneJob)
+		}
+	}
+
+	if e.meta.CloneJob != nil && m.CloneJob != nil {
+
+		extutil.SetCloneJobState(e.meta.CloneJob, m.CloneJob.State)
+
+		if m.CloneJob.IsSource {
+			if m.CloneJob.OidsOid != 0 {
+				e.meta.CloneJob.OidsOid = m.CloneJob.OidsOid // Using oidsoid in keeper always.
+				e.meta.CloneJob.Total = m.CloneJob.Total
+			}
 		}
 	}
 	e.rwMutex.Unlock()
