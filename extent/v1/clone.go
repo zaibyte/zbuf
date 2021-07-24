@@ -460,6 +460,8 @@ func (e *Extenter) doCloneJob(ctx context.Context, oidsoid, total uint64) {
 		}
 	}
 	// Could report it's done now.
+	// It's safe to set clone job done, because we've already had correct done cnt.
+	// After loading extent, it'll set clone job done.
 	e.rwMutex.Lock()
 	extutil.SetCloneJobState(e.meta.CloneJob, metapb.CloneJobState_CloneJob_Done)
 	e.rwMutex.Unlock()

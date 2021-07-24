@@ -74,11 +74,10 @@ func TestExtenter_Clone(t *testing.T) {
 	ext1.rwMutex.RUnlock()
 
 	ext2, err := createTestExtByCreator(cfg, c, &metapb.CloneJob{
-		Version:  1,
 		Id:       1,
 		ParentId: 0,
-		ObjCnt:   uint64(len(oids)),
-		DoneCnt:  0,
+		Total:    uint64(len(oids)),
+		Done:     0,
 		OidsOid:  oidsOID,
 	})
 	if err != nil {
@@ -86,21 +85,21 @@ func TestExtenter_Clone(t *testing.T) {
 	}
 	defer vfs.GetTestFS().RemoveAll(ext2.GetDir())
 
-	ext2.meta.PbExt.Id = uid.MakeExtID(1, 1)
+	ext2.meta.Id = uid.MakeExtID(1, 1)
 
 	ext2.Start()
 	defer ext2.Close()
 
 	for {
 
-		if ext2.meta.GetCloneJobState() == metapb.CloneJobState_CloneJob_Done {
+		if ext2.GetMeta().CloneJob.GetState() == metapb.CloneJobState_CloneJob_Done {
 			break
 		}
 		time.Sleep(1 * time.Second) // Enough for clone finishing.
 	}
 
 	for oid := range oids {
-		getRet, err2 := ext2.GetObj(1, oid, false)
+		getRet, _, err2 := ext2.GetObj(1, oid, false, 0, uint32(uid.GetGrains(oid))*uid.GrainSize)
 		if err2 != nil {
 			t.Fatal(err2)
 		}
@@ -155,14 +154,11 @@ func TestExtenter_CloneBig(t *testing.T) {
 	oidsOID := ext1.meta.CloneJob.OidsOid
 	ext1.rwMutex.RUnlock()
 
-	cloneOIDsBufSize = 4 * 1024
-
 	ext2, err := createTestExtByCreator(cfg, c, &metapb.CloneJob{
-		Version:  1,
 		Id:       1,
 		ParentId: 0,
-		ObjCnt:   uint64(len(oids)),
-		DoneCnt:  0,
+		Total:    uint64(len(oids)),
+		Done:     0,
 		OidsOid:  oidsOID,
 	})
 	if err != nil {
@@ -170,20 +166,20 @@ func TestExtenter_CloneBig(t *testing.T) {
 	}
 	defer vfs.GetTestFS().RemoveAll(ext2.GetDir())
 
-	ext2.meta.PbExt.Id = uid.MakeExtID(1, 1)
+	ext2.meta.Id = uid.MakeExtID(1, 1)
 
 	ext2.Start()
 	defer ext2.Close()
 
 	for {
-		if ext2.meta.GetCloneJobState() == metapb.CloneJobState_CloneJob_Done {
+		if ext2.GetMeta().CloneJob.State == metapb.CloneJobState_CloneJob_Done {
 			break
 		}
 		time.Sleep(1 * time.Second) // Enough for clone finishing.
 	}
 
 	for oid := range oids {
-		getRet, err2 := ext2.GetObj(1, oid, false)
+		getRet, _, err2 := ext2.GetObj(1, oid, false, 0, uint32(uid.GetGrains(oid))*uid.GrainSize)
 		if err2 != nil {
 			t.Fatal(err2)
 		}

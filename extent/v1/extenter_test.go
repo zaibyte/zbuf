@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
-	"io"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -15,6 +14,12 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"g.tesamc.com/IT/zaipkg/linkobj"
+
+	"g.tesamc.com/IT/keeper/client"
+	"g.tesamc.com/IT/zaipkg/xerrors"
+	"g.tesamc.com/IT/zproto/pkg/keeperpb"
 
 	"g.tesamc.com/IT/zaipkg/directio"
 
@@ -26,8 +31,6 @@ import (
 
 	"g.tesamc.com/IT/zaipkg/vfs"
 	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
-
-	"g.tesamc.com/IT/zaipkg/xerrors"
 
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 
@@ -665,45 +668,79 @@ func newMemZai() *memZai {
 	return mz
 }
 
-func (m *memZai) PutObj(objData io.Reader, timeout time.Duration) (oid uint64, read int64, err error) {
-
+func (m *memZai) PutObj(objData []byte, digest uint32, timeout time.Duration) (oid uint64, err error) {
 	m.Lock()
 	defer m.Unlock()
 
-	d, err := ioutil.ReadAll(objData)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	alignData := make([]byte, xbytes.AlignSize(int64(len(d)), uid.GrainSize))
-	copy(alignData, d)
-
-	oid = uid.MakeOID(m.boxID, m.groupID, uint32(len(alignData)/uid.GrainSize), xdigest.Sum32(alignData), uid.NormalObj)
-
-	m.oidData[oid] = alignData
-
-	return oid, int64(len(d)), nil
+	return m.put(objData, digest, uid.NormalObj), nil
 }
 
-func (m *memZai) GetObj(oid uint64, objData io.Writer, offset, n int64, isClone bool, timeout time.Duration) (written int64, err error) {
+func (m *memZai) put(data []byte, digest uint32, otype uint8) uint64 {
+	oid := uid.MakeOID(m.boxID, m.groupID, uint32(len(data)/uid.GrainSize), digest, otype)
+
+	m.oidData[oid] = data
+	return oid
+}
+
+func (m *memZai) MakeLink(oids []uint64, timeout time.Duration) (oid uint64, err error) {
+
+	if len(oids) > linkobj.MaxObjsInLink {
+		return 0, xerrors.WithMessage(orpc.ErrBadRequest, "too many objects for link_obj")
+	}
+
+	data := make([]byte, linkobj.CalcLen(int64(len(oids))))
+
+	linkobj.Make(oids, data)
+
+	d := xdigest.Acquire()
+	defer xdigest.Release(d)
+
+	_, _ = d.Write(data)
+	di := d.Sum32()
+
+	oid = m.put(data, di, uid.LinkObj)
+
+	// For easy implement GetObj, combine all objects as a link.
+	var linkON int
+	for _, id := range oids {
+		linkON += int(uid.GetGrains(id)) * uid.GrainSize
+	}
+	linkO := make([]byte, linkON)
+	start := 0
+	for _, id := range oids {
+		on := int(uid.GetGrains(id)) * uid.GrainSize
+		copy(linkO[start:start+on], m.oidData[id])
+		start += on
+	}
+
+	m.oidData[oid] = linkO
+
+	return
+}
+
+func (m *memZai) GetObj(oid uint64, buf []byte, offset, n uint64, isClone bool, timeout time.Duration) (err error) {
 	m.RLock()
 	defer m.RUnlock()
 
 	d, ok := m.oidData[oid]
 	if !ok {
-		return 0, orpc.ErrNotFound
+		return orpc.ErrNotFound
+	}
+	if n == 0 {
+		n = uint64(len(d))
 	}
 
-	if offset >= int64(len(d)) {
-		return 0, xerrors.WithMessage(orpc.ErrBadRequest, "offset out of object")
-	}
-	if offset+n > int64(len(d)) {
-		n = int64(len(d)) - offset
-	}
+	copy(buf[offset:offset+n], d)
 
-	exp := d[offset : offset+n]
-	w, err := objData.Write(exp)
-	return int64(w), err
+	return nil
+}
+
+func (m *memZai) GetKeeperClient() keeperpb.KEEPERClient {
+	return nil
+}
+
+func (m *memZai) GetFastKeeper() client.FClient {
+	return nil
 }
 
 func (m *memZai) DeleteObj(oid uint64, timeout time.Duration) error {
@@ -714,10 +751,6 @@ func (m *memZai) DeleteObj(oid uint64, timeout time.Duration) error {
 	return nil
 }
 
-func (m *memZai) UpdateObj(oid uint64, offset, newData io.Reader) (newOid uint64, read int64, err error) {
-	return 0, 0, err
-}
-
-func (m *memZai) Close() {
+func (m *memZai) Close(err error) {
 	return
 }
