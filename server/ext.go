@@ -7,8 +7,6 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/templexxx/tsc"
-
 	"g.tesamc.com/IT/zaipkg/uid"
 
 	"g.tesamc.com/IT/zaipkg/extutil"
@@ -128,10 +126,11 @@ func (s *Server) listAndLoadExts() {
 func (s *Server) cloneAllExtMetas() []*metapb.Extent {
 
 	ret := make([]*metapb.Extent, 0, 32)
+
 	s.exts.Range(func(key, value interface{}) bool {
 
-		m := (*extutil.SyncExt)(value.(extent.Extenter).GetMeta()).Clone()
-		m.LastUpdate = tsc.UnixNano()
+		ext := value.(extent.Extenter)
+		m := (*extutil.SyncExt)(ext.GetMeta()).Clone()
 		ret = append(ret, m)
 		return true
 	})
@@ -155,19 +154,19 @@ func (s *Server) getExtState(extID uint32) (metapb.ExtentState, bool) {
 // updateAllExts udpates all extents by heartbeat response.
 func (s *Server) updateAllExt(exts []*metapb.Extent) {
 
-	for _, ext := range exts {
-		old, ok := s.exts.Load(ext.Id)
-		extDir := extent.MakeExtDir(ext.Id, sdisk.MakeDiskDir(ext.DiskId, s.cfg.DataRoot))
+	for _, meta := range exts {
+		old, ok := s.exts.Load(meta.Id)
+		extDir := extent.MakeExtDir(meta.Id, sdisk.MakeDiskDir(meta.DiskId, s.cfg.DataRoot))
 		if !ok { // Local don't have.
-			if ext.Created == 0 { // Haven't been created, creating it.
-				gid := uint32(uid.GetGroupID(ext.Id))
+			if meta.Created == 0 { // Haven't been created, creating it.
+				gid := uint32(uid.GetGroupID(meta.Id))
 				// Check to keeper, keeper must have this group.
 				// I've made a mistake here that removing version in metapb.Extent,
 				// and the cost of adding back is heavy (Extent is everywhere),
 				// sorry for leaving this issue.
 				g, err := s.zc.GetFastKeeper().GetGroup(context.Background(), gid)
 				if err != nil {
-					xlog.Warnf("cannot find group when updateAllExt, ext: %d, group: %d", ext.Id, gid)
+					xlog.Warnf("cannot find group when updateAllExt, ext: %d, group: %d", meta.Id, gid)
 					continue
 				}
 				c, ok2 := s.creators[uint16(g.Version)]
@@ -177,42 +176,52 @@ func (s *Server) updateAllExt(exts []*metapb.Extent) {
 				}
 				e, err := c.Create(s.ctx, extDir, extent.CreateParams{
 					InstanceID: s.instanceID,
-					DiskID:     ext.DiskId,
-					ExtID:      ext.Id,
-					DiskMeta:   s.zBufDisks.GetDiskMeta(ext.DiskId),
-					CloneJob:   ext.CloneJob,
+					DiskID:     meta.DiskId,
+					ExtID:      meta.Id,
+					DiskMeta:   s.zBufDisks.GetDiskMeta(meta.DiskId),
+					CloneJob:   meta.CloneJob,
 				})
 				if err != nil {
-					xlog.Error(fmt.Sprintf("failed to create ext: %d: %s", ext.Id, err.Error()))
-					s.handleDiskErr(err, ext.DiskId)
+					xlog.Error(fmt.Sprintf("failed to create ext: %d: %s", meta.Id, err.Error()))
+					s.handleDiskErr(err, meta.DiskId)
 				} else {
-					ext.Created = 1
+					meta.Created = 1
 				}
-				e.Start()
-				s.exts.Store(ext.Id, e)
+				e.Start() // If create failed, it will be a broken extent.
+				s.exts.Store(meta.Id, e)
 			} else { // Local doesn't have, but created flag is true in keeper. Set it broken.
-				ext.State = metapb.ExtentState_Extent_Broken
-				e := extent.NewBrokenExtenter(ext, extDir)
-				s.exts.Store(ext.Id, e)
+				meta.State = metapb.ExtentState_Extent_Broken
+				if meta.CloneJob != nil {
+					if !meta.CloneJob.IsSource {
+						meta.CloneJob.State = metapb.CloneJobState_CloneJob_Done // Set done if extent broken.
+					}
+				}
+				e := extent.NewBrokenExtenter(meta, extDir)
+				s.exts.Store(meta.Id, e)
 			}
 		} else { // Local has.
-			if ext.State == metapb.ExtentState_Extent_Broken {
-				s.closeAndCleanExt(ext.Id)
-				e := extent.NewBrokenExtenter(ext, extDir)
-				s.exts.Store(ext.Id, e)
+			if meta.State == metapb.ExtentState_Extent_Broken {
+				s.closeAndCleanExt(meta.Id)
+				if meta.CloneJob != nil {
+					if !meta.CloneJob.IsSource {
+						meta.CloneJob.State = metapb.CloneJobState_CloneJob_Done // Set done if extent broken.
+					}
+				}
+				e := extent.NewBrokenExtenter(meta, extDir)
+				s.exts.Store(meta.Id, e)
 			}
-			oldExt := old.(extent.Extenter)
-			oldMeta := (*extutil.SyncExt)(oldExt.GetMeta())
+			ext := old.(extent.Extenter)
+			oldMeta := ext.GetMeta()
 			isCloneSrc := false
-			if ext.CloneJob != nil && oldMeta.GetCloneJob() == nil {
+			if meta.CloneJob != nil && oldMeta.CloneJob == nil {
 
-				if ext.CloneJob.IsSource {
+				if meta.CloneJob.IsSource {
 					isCloneSrc = true
 				}
 			}
-			oldMeta.UpdateBy(ext)
+			ext.UpdateMeta(meta)
 			if isCloneSrc {
-				oldExt.InitCloneSource()
+				ext.InitCloneSource()
 			}
 		}
 	}
