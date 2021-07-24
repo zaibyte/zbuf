@@ -112,7 +112,7 @@ func (s *Server) preCheckReq(reqid, oid uint64, extID uint32) (ext extent.Extent
 	ext = s.getExtenter(extID)
 	if ext == nil {
 		err = xerrors.WithMessage(orpc.ErrNotFound,
-			fmt.Sprintf("extID: %d", extID))
+			fmt.Sprintf("extID: %d in ins: %s", extID, s.instanceID))
 		xlog.ErrorID(reqid, err.Error())
 		return nil, err
 	}
