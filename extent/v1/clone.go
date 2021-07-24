@@ -98,7 +98,7 @@ func (e *Extenter) precheckInitCloneSrc() bool {
 func (e *Extenter) initCloneSrcDone(oidsoid uint64, total uint64) {
 	e.rwMutex.Lock()
 	// clone job won't be nil here.
-	if e.meta.CloneJob.OidsOid != 0 {
+	if e.meta.CloneJob.OidsOid == 0 {
 		e.meta.CloneJob.OidsOid = oidsoid
 		e.meta.CloneJob.Total = total
 	}
@@ -342,11 +342,9 @@ func (e *Extenter) doCloneJob(ctx context.Context, oidsoid, total uint64) {
 			if errors.Is(err, orpc.ErrReplicasCollapse) {
 				xlog.Error(xerrors.WithMessage(err, fmt.Sprintf("ext: %d, clone_job: %d, failed to clone: get clone job oids_oid: %d",
 					e.meta.Id, job.Id, oidsoid)).Error())
-				e.rwMutex.Lock()
 				// We don't set clone job done in zBuf unless done == total in DMU snapshot.
 				// After broken extent set, the clone job state will be updated in keeper sooner or later.
-				extutil.SetState(e.meta, metapb.ExtentState_Extent_Broken)
-				e.rwMutex.Unlock()
+				(*extutil.SyncExt)(e.meta).SetState(metapb.ExtentState_Extent_Broken)
 				return
 			}
 			xlog.Warn(xerrors.WithMessage(err, fmt.Sprintf("ext: %d, clone_job: %d, failed to clone : get clone job oids_oid: %d, try again later",
@@ -401,9 +399,7 @@ func (e *Extenter) doCloneJob(ctx context.Context, oidsoid, total uint64) {
 				if errors.Is(err, orpc.ErrReplicasCollapse) {
 					xlog.Error(xerrors.WithMessage(err, fmt.Sprintf("ext: %d, clone_job: %d, failed to clone: get object from remote: %d",
 						e.meta.Id, job.Id, oid)).Error())
-					e.rwMutex.Lock()
-					extutil.SetState(e.meta, metapb.ExtentState_Extent_Broken)
-					e.rwMutex.Unlock()
+					(*extutil.SyncExt)(e.meta).SetState(metapb.ExtentState_Extent_Broken)
 					return
 				}
 
@@ -432,9 +428,7 @@ func (e *Extenter) doCloneJob(ctx context.Context, oidsoid, total uint64) {
 					// If unhealthy, put will fail.
 					xlog.Error(xerrors.WithMessage(err, fmt.Sprintf("ext: %d, clone_job: %d, failed to clone: put object: %d when clone",
 						e.meta.Id, job.Id, oid)).Error())
-					e.rwMutex.Lock()
-					extutil.SetState(e.meta, metapb.ExtentState_Extent_Broken)
-					e.rwMutex.Unlock()
+					(*extutil.SyncExt)(e.meta).SetState(metapb.ExtentState_Extent_Broken)
 					return
 				}
 			} else {
