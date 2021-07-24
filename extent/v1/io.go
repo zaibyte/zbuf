@@ -21,8 +21,6 @@ import (
 	"g.tesamc.com/IT/zaipkg/xlog"
 	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
-
-	"github.com/templexxx/tsc"
 )
 
 // updatesLoop keeps trying to get new updates request and handle it.
@@ -559,7 +557,7 @@ func (e *Extenter) getNextWritableSeg(last int64) (int64, error) {
 			next := seg
 			nvh.SegStates[next] = segWritable
 			nvh.SegStates[last] = segSealed
-			nvh.SealedTS[last] = MakeSealedTS(tsc.UnixNano())
+			nvh.SealedTS[last] = MakeSealedTS(int64(getTimestamp()))
 			nvh.WritableHistory[nvh.WritableHistoryNextIdx%wsegHistroyCnt] = byte(next)
 			nvh.WritableHistoryNextIdx++
 			err := e.header.Store(e.meta.GetState(), e.meta.CloneJob)
