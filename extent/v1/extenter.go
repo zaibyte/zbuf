@@ -159,6 +159,8 @@ func (e *Extenter) UpdateMeta(m *metapb.Extent) {
 
 	// meta could not be nil, after Extenter starting.
 	e.rwMutex.Lock()
+	defer e.rwMutex.Unlock()
+
 	if m.State != e.meta.State {
 		extutil.SetState(e.meta, m.State)
 	}
@@ -181,14 +183,11 @@ func (e *Extenter) UpdateMeta(m *metapb.Extent) {
 
 		extutil.SetCloneJobState(e.meta.CloneJob, m.CloneJob.State)
 
-		if m.CloneJob.IsSource {
-			if m.CloneJob.OidsOid != 0 {
-				e.meta.CloneJob.OidsOid = m.CloneJob.OidsOid // Using oidsoid in keeper always.
-				e.meta.CloneJob.Total = m.CloneJob.Total
-			}
+		if m.CloneJob.OidsOid != 0 {
+			e.meta.CloneJob.OidsOid = m.CloneJob.OidsOid // Using oidsoid in keeper always.
+			e.meta.CloneJob.Total = m.CloneJob.Total
 		}
 	}
-	e.rwMutex.Unlock()
 }
 
 func (e *Extenter) PutObj(_reqid, oid uint64, objData []byte, isClone bool) error {

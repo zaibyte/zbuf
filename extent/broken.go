@@ -44,6 +44,8 @@ func (e *BrokenExtenter) UpdateMeta(m *metapb.Extent) {
 
 	// meta could not be nil, after Extenter starting.
 	e.rwMutex.Lock()
+	defer e.rwMutex.Unlock()
+
 	if m.State != e.meta.State {
 		extutil.SetState(e.meta, m.State)
 	}
@@ -54,14 +56,23 @@ func (e *BrokenExtenter) UpdateMeta(m *metapb.Extent) {
 		}
 	}
 
+	// If already started, won't happen. CloneJob should be reconstructed by loading.
+	// Unless is clone source.
 	if m.CloneJob != nil && e.meta.CloneJob == nil {
-		e.meta.CloneJob = proto.Clone(m.CloneJob).(*metapb.CloneJob)
-	} else if e.meta.CloneJob != nil && m.CloneJob != nil {
-		if m.CloneJob.OidsOid != 0 && e.meta.CloneJob.OidsOid == 0 {
-			e.meta.CloneJob.OidsOid = m.CloneJob.OidsOid
+		if m.CloneJob.IsSource {
+			e.meta.CloneJob = proto.Clone(m.CloneJob).(*metapb.CloneJob)
 		}
 	}
-	e.rwMutex.Unlock()
+
+	if e.meta.CloneJob != nil && m.CloneJob != nil {
+
+		extutil.SetCloneJobState(e.meta.CloneJob, m.CloneJob.State)
+
+		if m.CloneJob.OidsOid != 0 {
+			e.meta.CloneJob.OidsOid = m.CloneJob.OidsOid // Using oidsoid in keeper always.
+			e.meta.CloneJob.Total = m.CloneJob.Total
+		}
+	}
 }
 
 func (e *BrokenExtenter) PutObj(reqid, oid uint64, objData []byte, isClone bool) error {
