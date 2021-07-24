@@ -227,7 +227,7 @@ func TestTraverseDirtyDeleteWALNoSnap(t *testing.T) {
 	ext2, err := c.Load(context.Background(), ext.extDir, extent.CreateParams{
 		InstanceID: "1",
 		DiskID:     "1",
-		ExtID:      uid.MakeExtID(1, 0),
+		ExtID:      uid.MakeExtID(1, 1),
 		DiskMeta:   nil,
 		CloneJob:   nil,
 	})

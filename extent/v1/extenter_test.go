@@ -15,33 +15,32 @@ import (
 	"testing"
 	"time"
 
-	"g.tesamc.com/IT/zaipkg/linkobj"
+	"g.tesamc.com/IT/zaipkg/xlog/xlogtest"
 
 	"g.tesamc.com/IT/keeper/client"
-	"g.tesamc.com/IT/zaipkg/xerrors"
-	"g.tesamc.com/IT/zproto/pkg/keeperpb"
-
-	"g.tesamc.com/IT/zaipkg/directio"
-
 	"g.tesamc.com/IT/zaipkg/config/settings"
-
-	"g.tesamc.com/IT/zaipkg/xbytes"
-
-	"github.com/templexxx/tsc"
-
-	"g.tesamc.com/IT/zaipkg/vfs"
-	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
-
-	"g.tesamc.com/IT/zproto/pkg/metapb"
-
-	"github.com/stretchr/testify/assert"
-
+	"g.tesamc.com/IT/zaipkg/directio"
+	"g.tesamc.com/IT/zaipkg/linkobj"
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/uid"
+	"g.tesamc.com/IT/zaipkg/vfs"
+	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zaipkg/xdigest"
-	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
+	"g.tesamc.com/IT/zaipkg/xerrors"
+
+	// _ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
 	"g.tesamc.com/IT/zbuf/extent"
+	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
+	"g.tesamc.com/IT/zproto/pkg/keeperpb"
+	"g.tesamc.com/IT/zproto/pkg/metapb"
+	"github.com/stretchr/testify/assert"
+	"github.com/templexxx/tsc"
 )
+
+func init() {
+	xbytes.EnableDefault()
+	xlogtest.New(true)
+}
 
 func TestGetObjOffsetSize(t *testing.T) {
 	d := dmu.New(0)
@@ -363,7 +362,7 @@ func TestExtenter_traverseWritableSegNoSnap(t *testing.T) {
 	ext2, err := c.Load(context.Background(), ext.extDir, extent.CreateParams{
 		InstanceID: "1",
 		DiskID:     "1",
-		ExtID:      uid.MakeExtID(1, 0),
+		ExtID:      uid.MakeExtID(1, 1),
 		DiskMeta:   nil,
 		CloneJob:   nil,
 	})
@@ -442,7 +441,7 @@ func TestExtenter_traverseWritableSegPartSnap(t *testing.T) {
 	ext2, err := c.Load(context.Background(), ext.extDir, extent.CreateParams{
 		InstanceID: "1",
 		DiskID:     "1",
-		ExtID:      uid.MakeExtID(1, 0),
+		ExtID:      uid.MakeExtID(1, 1),
 		DiskMeta:   nil,
 		CloneJob:   nil,
 	})
@@ -519,7 +518,7 @@ func TestExtenter_traverseWritableSegIllegalHeaderPass(t *testing.T) {
 	ext2, err := c.Load(context.Background(), ext.extDir, extent.CreateParams{
 		InstanceID: "1",
 		DiskID:     "1",
-		ExtID:      uid.MakeExtID(1, 0),
+		ExtID:      uid.MakeExtID(1, 1),
 		DiskMeta:   nil,
 		CloneJob:   nil,
 	})
@@ -594,7 +593,7 @@ func TestExtenter_traverseWritableSegIllegalHeaderFail(t *testing.T) {
 	_, err = c.Load(context.Background(), ext.extDir, extent.CreateParams{
 		InstanceID: "1",
 		DiskID:     "1",
-		ExtID:      uid.MakeExtID(1, 0),
+		ExtID:      uid.MakeExtID(1, 1),
 		DiskMeta:   nil,
 		CloneJob:   nil,
 	})
@@ -612,7 +611,7 @@ func createTestExtByCreator(cfg *Config, c extent.Creator, cloneJob *metapb.Clon
 	e, err := c.Create(context.Background(), extDir, extent.CreateParams{
 		InstanceID: "1",
 		DiskID:     "1",
-		ExtID:      uid.MakeExtID(1, 0),
+		ExtID:      uid.MakeExtID(1, 1),
 		DiskMeta:   nil,
 		CloneJob:   cloneJob,
 	})
@@ -639,7 +638,7 @@ func createTestExtenterWithDir(cfg *Config, extDir string) (ext *Extenter, err e
 	e, err := c.Create(context.Background(), extDir, extent.CreateParams{
 		InstanceID: "1",
 		DiskID:     "1",
-		ExtID:      1,
+		ExtID:      uid.MakeExtID(1, 1),
 		DiskMeta:   nil,
 		CloneJob:   nil,
 	})

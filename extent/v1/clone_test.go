@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"g.tesamc.com/IT/zaipkg/vfs"
+	"g.tesamc.com/IT/zaipkg/extutil"
 
 	"g.tesamc.com/IT/zaipkg/uid"
+	"g.tesamc.com/IT/zaipkg/vfs"
 	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zaipkg/xdigest"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
-
 	"github.com/templexxx/tsc"
 )
 
@@ -67,6 +67,11 @@ func TestExtenter_Clone(t *testing.T) {
 		copy(mz.oidData[oid], objData)
 	}
 
+	e1meta := ext1.GetMeta()
+	e1meta.State = metapb.ExtentState_Extent_Sealed
+	e1meta.CloneJob = &metapb.CloneJob{Id: 1, IsSource: true}
+	ext1.UpdateMeta(e1meta)
+
 	ext1.InitCloneSource()
 
 	ext1.rwMutex.RLock()
@@ -85,7 +90,7 @@ func TestExtenter_Clone(t *testing.T) {
 	}
 	defer vfs.GetTestFS().RemoveAll(ext2.GetDir())
 
-	ext2.meta.Id = uid.MakeExtID(1, 1)
+	ext2.meta.Id = uid.MakeExtID(1, 2)
 
 	ext2.Start()
 	defer ext2.Close()
@@ -97,6 +102,8 @@ func TestExtenter_Clone(t *testing.T) {
 		}
 		time.Sleep(1 * time.Second) // Enough for clone finishing.
 	}
+
+	(*extutil.SyncExt)(ext2.meta).SetState(metapb.ExtentState_Extent_ReadWrite)
 
 	for oid := range oids {
 		getRet, _, err2 := ext2.GetObj(1, oid, false, 0, uint32(uid.GetGrains(oid))*uid.GrainSize)
@@ -148,6 +155,11 @@ func TestExtenter_CloneBig(t *testing.T) {
 		copy(mz.oidData[oid], objData)
 	}
 
+	e1meta := ext1.GetMeta()
+	e1meta.State = metapb.ExtentState_Extent_Sealed
+	e1meta.CloneJob = &metapb.CloneJob{Id: 1, IsSource: true}
+	ext1.UpdateMeta(e1meta)
+
 	ext1.InitCloneSource()
 
 	ext1.rwMutex.RLock()
@@ -166,7 +178,7 @@ func TestExtenter_CloneBig(t *testing.T) {
 	}
 	defer vfs.GetTestFS().RemoveAll(ext2.GetDir())
 
-	ext2.meta.Id = uid.MakeExtID(1, 1)
+	ext2.meta.Id = uid.MakeExtID(1, 2)
 
 	ext2.Start()
 	defer ext2.Close()
@@ -177,6 +189,8 @@ func TestExtenter_CloneBig(t *testing.T) {
 		}
 		time.Sleep(1 * time.Second) // Enough for clone finishing.
 	}
+
+	(*extutil.SyncExt)(ext2.meta).SetState(metapb.ExtentState_Extent_ReadWrite)
 
 	for oid := range oids {
 		getRet, _, err2 := ext2.GetObj(1, oid, false, 0, uint32(uid.GetGrains(oid))*uid.GrainSize)
