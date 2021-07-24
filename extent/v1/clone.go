@@ -138,6 +138,14 @@ func (e *Extenter) uploadOIDs(oids []byte) (oidsOID uint64, err error) {
 			return 0, orpc.ErrInternalServer
 		}
 
+		cj := syncMeta.GetCloneJob()
+		if cj != nil {
+			if cj.OidsOid != 0 { // extent heartbeat responses oidsoid.
+				xlog.Info(fmt.Sprintf("init clone source already finished, return an error for exiting init clone source loop"))
+				return 0, orpc.ErrInternalServer
+			}
+		}
+
 		start := 0 // Every time start from 0.
 		done := 0
 		okCnt := 0
@@ -147,6 +155,14 @@ func (e *Extenter) uploadOIDs(oids []byte) (oidsOID uint64, err error) {
 				xlog.Warn(fmt.Sprintf("init clone source wanted ext: %d, being: %s but got: %s",
 					syncMeta.Id, metapb.ExtentState_Extent_Sealed.String(), syncMeta.GetState().String()))
 				return 0, orpc.ErrInternalServer
+			}
+
+			cj = syncMeta.GetCloneJob()
+			if cj != nil {
+				if cj.OidsOid != 0 { // extent heartbeat responses oidsoid.
+					xlog.Info(fmt.Sprintf("init clone source already finished, return an error for exiting init clone source loop"))
+					return 0, orpc.ErrInternalServer
+				}
 			}
 
 			do := settings.MaxObjectSize
@@ -276,10 +292,13 @@ func (e *Extenter) tryClone() {
 		}
 
 		if uid.GetOType(oidsoid) == uid.NopObj {
-			xlog.Info(fmt.Sprintf("ext: %d clone_job: %d done for nop oids_oid: %d",
-				e.meta.Id, job.Id, oidsoid))
 			e.rwMutex.Lock()
-			e.meta.CloneJob.State = metapb.CloneJobState_CloneJob_Done
+			job := e.meta.CloneJob
+			if job != nil {
+				xlog.Info(fmt.Sprintf("ext: %d clone_job: %d done for nop oids_oid: %d",
+					e.meta.Id, job.Id, oidsoid))
+				e.meta.CloneJob.State = metapb.CloneJobState_CloneJob_Done
+			}
 			e.rwMutex.Unlock()
 			return
 		}
@@ -287,7 +306,12 @@ func (e *Extenter) tryClone() {
 	}
 
 	e.rwMutex.Lock()
-	extutil.SetCloneJobState(job, metapb.CloneJobState_CloneJob_Doing)
+	// After extent broken in keeper, t
+	if e.meta.CloneJob == nil {
+		e.rwMutex.Unlock()
+		return
+	}
+	extutil.SetCloneJobState(e.meta.CloneJob, metapb.CloneJobState_CloneJob_Doing)
 	e.rwMutex.Unlock()
 
 	xlog.Infof("ext: %d, start to clone job: %d",
