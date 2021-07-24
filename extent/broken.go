@@ -62,9 +62,7 @@ func (e *BrokenExtenter) UpdateMeta(m *metapb.Extent) {
 		if m.CloneJob.IsSource {
 			e.meta.CloneJob = proto.Clone(m.CloneJob).(*metapb.CloneJob)
 		}
-	}
-
-	if e.meta.CloneJob != nil && m.CloneJob != nil {
+	} else if e.meta.CloneJob != nil && m.CloneJob != nil {
 
 		extutil.SetCloneJobState(e.meta.CloneJob, m.CloneJob.State)
 

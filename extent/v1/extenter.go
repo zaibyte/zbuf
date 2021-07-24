@@ -161,8 +161,8 @@ func (e *Extenter) UpdateMeta(m *metapb.Extent) {
 	e.rwMutex.Lock()
 	defer e.rwMutex.Unlock()
 
-	if m.State != e.meta.State {
-		extutil.SetState(e.meta, m.State)
+	if m.State != (*extutil.SyncExt)(e.meta).GetState() {
+		(*extutil.SyncExt)(e.meta).SetState(m.State)
 	}
 
 	if m.CloneJob == nil {
@@ -177,9 +177,7 @@ func (e *Extenter) UpdateMeta(m *metapb.Extent) {
 		if m.CloneJob.IsSource {
 			e.meta.CloneJob = proto.Clone(m.CloneJob).(*metapb.CloneJob)
 		}
-	}
-
-	if e.meta.CloneJob != nil && m.CloneJob != nil {
+	} else if e.meta.CloneJob != nil && m.CloneJob != nil {
 
 		extutil.SetCloneJobState(e.meta.CloneJob, m.CloneJob.State)
 
