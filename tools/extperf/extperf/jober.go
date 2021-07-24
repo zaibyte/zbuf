@@ -87,7 +87,7 @@ func (j *jober) get(oid uint64) (bool, int64) {
 
 	if !j.isRaw {
 		start := tsc.UnixNano()
-		objData, err := ext.GetObj(1, oid, false)
+		objData, _, err := ext.GetObj(1, oid, false, 0, 0)
 		cost := tsc.UnixNano() - start
 		if err != nil {
 			return false, cost

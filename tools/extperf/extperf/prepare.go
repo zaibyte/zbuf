@@ -39,14 +39,14 @@ func (r *Runner) createExtents() (err error) {
 	}
 
 	cfg.Adjust()
-	c := v1.NewCreator(cfg, r.disks, fs, new(zai.NopClient), 1)
+	c := v1.NewCreator(cfg, r.disks, fs, zai.NopObjClient{}, 1)
 
 	idx := 0
 	for _, diskID := range diskIDs {
 		for i := 0; i < r.cfg.ExtentsPerDisk; i++ {
 
 			ext, err2 := extent.CreateAll(r.ctx, c, extent.CreateParams{
-				InstanceID: 1,
+				InstanceID: "1",
 				DiskID:     diskID,
 				ExtID:      uid.MakeExtID(1, uint16(i)),
 				DiskMeta:   r.disks.GetInfo(diskID),
@@ -55,10 +55,7 @@ func (r *Runner) createExtents() (err error) {
 			if err2 != nil {
 				return err2
 			}
-			err = ext.Start()
-			if err != nil {
-				return err
-			}
+			ext.Start()
 
 			r.extenters[idx] = ext
 			idx++

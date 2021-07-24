@@ -64,7 +64,8 @@ func Create(ctx context.Context, cfg *Config) (*Runner, error) {
 	if r.cfg.Nop {
 		schedCfg = nil
 	}
-	r.disks = sdisk.NewZBufDisks(r.ctx, vdisk.GetDisk(), cfg.DataRoot, schedCfg)
+	r.disks = sdisk.NewZBufDisks(r.ctx, r.stopWg, vfs.GetFS(), vdisk.GetDisk(), "1",
+		cfg.DataRoot, schedCfg)
 
 	if cfg.BlockSize == 0 {
 		cfg.BlockSize = 12
