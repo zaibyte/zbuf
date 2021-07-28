@@ -27,3 +27,4 @@ _testmain.go
 .idea/
 /extent/v1/cover.out
 tools/extperf/main
+bin/zbuf

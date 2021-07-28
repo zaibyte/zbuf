@@ -1,10 +1,10 @@
 title = "zbuf-ext-perf"
 
 version = 1
-extents_per_disk = 1   # P4510 8TB will have 29 extents(256GB) at most.
+extents_per_disk = 16   # P4510 8TB will have 29 extents(256GB) at most.
 data_root = "/home/xxx/zbuf"
 
-block_size = 16
+block_size = 4  # For comparing 4K read result in device production manual
 job_type = "read"
 job_time = 100
 skip_time = 1
@@ -12,9 +12,9 @@ skip_time = 1
 mb_per_put_thread = 1024
 mb_per_get_thread = 1024
 put_threads = 16
-get_threads = 16
+get_threads = 64
 
-segment_size = 1024
+segment_size = 1024 # 1GiB
 put_pending = 0
 size_per_write = 4194304
 size_per_read = 0

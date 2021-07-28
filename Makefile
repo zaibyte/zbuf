@@ -18,7 +18,7 @@ all: test build
 
 build:
 	go build -ldflags '$(LDFLAGS)' -o bin/zbuf cmd/zbuf-server/main.go
-
+	go build -o bin/extperf tools/extperf/main.go
 test:
     # testing...
 	go test -race -cover $(TEST_PKGS)
