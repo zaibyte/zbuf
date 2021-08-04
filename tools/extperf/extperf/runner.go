@@ -139,7 +139,7 @@ func (r *Runner) Run() (err error) {
 		prepareStart := tsc.UnixNano()
 		r.prepareRead()
 		prepareCost := tsc.UnixNano() - prepareStart
-		log.Printf("prepare read done, cost: %.2f\n", float64(prepareCost)/float64(time.Second))
+		log.Printf("prepare read done, cost: %.2fs\n", float64(prepareCost)/float64(time.Second))
 
 		atomic.AddInt64(&r.stopTS, prepareCost)
 
