@@ -48,7 +48,7 @@ func (r *Runner) createExtents() (err error) {
 			ext, err2 := extent.CreateAll(r.ctx, c, extent.CreateParams{
 				InstanceID: "1",
 				DiskID:     diskID,
-				ExtID:      uid.MakeExtID(1, uint16(i)),
+				ExtID:      uid.MakeExtID(1, uint16(i+1)),
 				DiskMeta:   r.disks.GetInfo(diskID),
 				CloneJob:   nil,
 			}, fs, r.cfg.DataRoot)

@@ -6,6 +6,8 @@ import (
 	"os"
 	"runtime"
 
+	"g.tesamc.com/IT/zaipkg/xbytes"
+
 	"g.tesamc.com/IT/zaipkg/config"
 	"g.tesamc.com/IT/zaipkg/xerrors"
 	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest" // Using xlogtest here because we don't really need the log.
@@ -19,6 +21,8 @@ func main() {
 	runtime.GOMAXPROCS(256)
 
 	config.Init(_appName)
+
+	xbytes.EnableMax()
 
 	var cfg extperf.Config
 	config.Load(&cfg)

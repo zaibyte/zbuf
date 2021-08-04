@@ -2,6 +2,7 @@ package extperf
 
 import (
 	"context"
+	"log"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -130,6 +131,7 @@ func (r *Runner) Run() (err error) {
 	if jobTypes[r.cfg.JobType]&2 == Get {
 
 		r.prepareRead()
+		log.Println("prepare read done")
 
 		readWg := new(sync.WaitGroup)
 		readWg.Add(r.cfg.GetThreads)
