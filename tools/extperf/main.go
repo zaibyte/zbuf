@@ -6,9 +6,8 @@ import (
 	"os"
 	"runtime"
 
-	"g.tesamc.com/IT/zaipkg/xbytes"
-
 	"g.tesamc.com/IT/zaipkg/config"
+	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zaipkg/xerrors"
 	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest" // Using xlogtest here because we don't really need the log.
 	"g.tesamc.com/IT/zbuf/tools/extperf/extperf"
@@ -18,7 +17,8 @@ const _appName = "zbuf-ext-perf"
 
 func main() {
 
-	runtime.GOMAXPROCS(256)
+	// extperf is mainly built for testing one disk performance. 128 is enough.
+	runtime.GOMAXPROCS(128)
 
 	config.Init(_appName)
 

@@ -2,6 +2,7 @@ package extperf
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"sync"
 	"sync/atomic"
@@ -69,7 +70,7 @@ func Create(ctx context.Context, cfg *Config) (*Runner, error) {
 		cfg.DataRoot, schedCfg)
 
 	if cfg.BlockSize == 0 {
-		cfg.BlockSize = 12
+		cfg.BlockSize = 12 // 12KB.
 	}
 
 	r.cfg.SkipTime = r.cfg.SkipTime * int64(time.Second)
@@ -85,7 +86,11 @@ func Create(ctx context.Context, cfg *Config) (*Runner, error) {
 func (r *Runner) Run() (err error) {
 
 	r.disks.Init(vfs.GetFS())
+
+	log.Println(fmt.Sprintf("run on %d disks", len(r.disks.ListDiskIDs())))
+
 	r.disks.StartSched()
+
 	err = r.createExtents()
 	if err != nil {
 		return err
@@ -130,8 +135,13 @@ func (r *Runner) Run() (err error) {
 
 	if jobTypes[r.cfg.JobType]&2 == Get {
 
+		log.Println("start to prepare read")
+		prepareStart := tsc.UnixNano()
 		r.prepareRead()
-		log.Println("prepare read done")
+		prepareCost := tsc.UnixNano() - prepareStart
+		log.Printf("prepare read done, cost: %.2f\n", float64(prepareCost)/float64(time.Second))
+
+		atomic.AddInt64(&r.stopTS, prepareCost)
 
 		readWg := new(sync.WaitGroup)
 		readWg.Add(r.cfg.GetThreads)
