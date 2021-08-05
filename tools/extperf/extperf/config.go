@@ -32,6 +32,9 @@ type Config struct {
 	// It's used for measuring the extperf works as expect.
 	// TODO it only works when JobType is read.
 	IsDoNothing bool `toml:"is_do_nothing"`
+
+	// PrintLog prints log to stdout or not.
+	PrintLog bool `toml:"print_log"`
 }
 
 var jobTypes = map[string]int{

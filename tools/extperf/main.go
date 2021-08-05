@@ -9,7 +9,7 @@ import (
 	"g.tesamc.com/IT/zaipkg/config"
 	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zaipkg/xerrors"
-	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest" // Using xlogtest here because we don't really need the log.
+	"g.tesamc.com/IT/zaipkg/xlog/xlogtest"
 	"g.tesamc.com/IT/zbuf/tools/extperf/extperf"
 )
 
@@ -26,6 +26,8 @@ func main() {
 
 	var cfg extperf.Config
 	config.Load(&cfg)
+
+	xlogtest.New(cfg.PrintLog)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

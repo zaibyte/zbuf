@@ -24,3 +24,5 @@ io_threads = 32
 
 is_raw = false
 is_do_nothing = false
+
+print_log = false
