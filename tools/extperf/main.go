@@ -27,7 +27,7 @@ func main() {
 	var cfg extperf.Config
 	config.Load(&cfg)
 
-	xlogtest.New(cfg.PrintLog)
+	xlogtest.New(!cfg.PrintLog)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
