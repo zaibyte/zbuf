@@ -39,9 +39,11 @@ type dmuSnapHeader struct {
 	// Snapshot's blocks count, indicating the I/O cost of snapshot.
 	blocksCnt uint32
 
-	WritableHistoryIdx int64
-	WritableSeg        int64
+	WritableHistoryIdx int64 // For getting writable segment in NVHeader.
 	WritableCursor     int64
+
+	// Deprecated.
+	WritableSeg int64
 
 	// GC & clone job's updates will be write to memory every time, but not to disk every time.
 	// Which means after instance restart from collapse, it may need time to reconstruct.
