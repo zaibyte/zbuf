@@ -3,7 +3,6 @@ module g.tesamc.com/IT/zbuf
 go 1.16
 
 require (
-	g.tesamc.com/IT/keeper v0.0.0
 	g.tesamc.com/IT/zai v0.0.0
 	g.tesamc.com/IT/zaipkg v0.0.0
 	g.tesamc.com/IT/zproto v0.0.0
