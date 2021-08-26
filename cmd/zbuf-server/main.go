@@ -31,8 +31,6 @@ import (
 	"g.tesamc.com/IT/zaipkg/xlog"
 	"g.tesamc.com/IT/zaipkg/xtime/hlc"
 	"g.tesamc.com/IT/zaipkg/xtime/hlc/mhlc"
-	"g.tesamc.com/IT/zaipkg/xtime/systimemon"
-	"g.tesamc.com/IT/zbuf/metric"
 	"g.tesamc.com/IT/zbuf/server"
 	scfg "g.tesamc.com/IT/zbuf/server/config"
 	"github.com/templexxx/tsc"
@@ -87,11 +85,6 @@ func main() {
 	tsc.ResetEnabled(true) // There is no sequence events in ZBuf server rely on clock.
 
 	rand.Seed(tsc.UnixNano())
-
-	go systimemon.StartMonitor(ctx, tsc.UnixNano, func() {
-		xlog.Error("system time jumps backward")
-		metric.TimeJumpBackCounter.Inc()
-	})
 
 	go app.TimeCalibrateLoop(ctx, cfg.App.TimeCalibrateInterval.Duration)
 
