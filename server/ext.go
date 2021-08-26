@@ -85,7 +85,7 @@ func (s *Server) listAndLoadExts() {
 			ver, err2 := extent.LoadBootSector(s.fs, sched, extDir)
 			if err2 != nil {
 				if s.handleDiskErr(err2, diskID) {
-					break
+					break // Next extent.
 				} else {
 					continue
 				}
@@ -123,6 +123,7 @@ func (s *Server) listAndLoadExts() {
 }
 
 // cloneAllExtMetas clones all available extents meta for heartbeat.
+// Disk state will be updated in keeper state-machine later.
 func (s *Server) cloneAllExtMetas() []*metapb.Extent {
 
 	ret := make([]*metapb.Extent, 0, 32)

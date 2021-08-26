@@ -217,9 +217,10 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 	}
 
 	state := (*extutil.SyncExt)(e.meta).GetState()
-	if state == metapb.ExtentState_Extent_Clone { // It's not too late GC after clone done.
+	if state == metapb.ExtentState_Extent_Clone { // It's not too late to do GC after clone done.
 		return e.cfg.GCScanInterval.Duration, false
 	}
+
 	cs := e.getGCSrcCandidates(ratio)
 	if len(cs) == 0 {
 		return e.cfg.GCScanInterval.Duration, false
@@ -253,7 +254,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 
 			if e.gcSrcSeg == -1 || e.gcSrcCursor == 0 {
 				e.gcSrcSeg = c.seg
-			} else if e.gcSrcCursor >= segSize { // In logic, the branch cannot be reached actually.
+			} else if e.gcSrcCursor >= segSize { // In logic, the branch cannot be reached, actually.
 				e.gcSrcDone()
 				e.gcSrcSeg = c.seg
 				e.gcSrcCursor = 0
@@ -308,7 +309,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 					continue
 				}
 
-				if errors.Is(err3, ErrIllegalObjHeader) {
+				if errors.Is(err3, ErrIllegalObjHeader) { // May reach dirty data, continue the next segment.
 					if e.gcSrcCursor+objHeaderSize+settings.MaxObjectSize > segSize {
 						err3 = nil
 						e.rwMutex.Lock()
