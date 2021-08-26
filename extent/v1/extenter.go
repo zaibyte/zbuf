@@ -350,47 +350,47 @@ func (e *Extenter) callModify(reqType uint64, oid uint64, oids []uint64, newAddr
 	return err
 }
 
-// traverseWritableSeg start at the write_cursor, if meet checksum mismatched, stopping but not regard as broken,
-// because it may caused by power off, and because of we wouldn't return ok in this situation, the consistence won't be broken.
+// traverseWritableSeg traverse writable segments to reconstruct DMU, it starts at writable cursor.
+//
+// Design & Details see: https://g.tesamc.com/IT/zbuf/issues/296
 func (e *Extenter) traverseWritableSeg() error {
 
 	lastSnap := e.getLastDMUSnap() // Must not be nil.
-
-	swhi := lastSnap.WritableHistoryIdx
-	hwhi := e.header.nvh.WritableHistoryNextIdx
-
-	wcursor := e.writableCursor
-
+	wcursor := lastSnap.WritableCursor
 	segSize := int64(e.cfg.SegmentSize)
-
 	buf := directio.AlignedBlock(int(e.cfg.SizePerRead))
 
-	for i := swhi; i < hwhi; i++ {
+	snapIdx := lastSnap.WritableHistoryIdx
+	nextIdx := e.header.nvh.WritableHistoryNextIdx
+	// nextIdx must be ahead of snapIdx,
+	// start from snapIdx until reach nextIdx.
 
-		if i == -1 {
+	var segInTraverse int64
+	for i := snapIdx; i < nextIdx; i++ {
+
+		if i == -1 { // Snap catches nothing, jump over -1.
 			continue
 		}
 
 		wseg := e.getWsegByHistoryIdx(i)
-		e.writableSeg = int64(wseg)
-		e.writableCursor = wcursor
+		segInTraverse = int64(wseg)
 
 		segCycle := e.header.nvh.SegCycles[wseg]
 
-		xlog.Infof("begin to traverse seg: %d", wseg)
+		xlog.Infof("ext: %d begin to traverse seg: %d", e.meta.Id, wseg)
 
 		offset := segCursorToOffset(int64(wseg), wcursor, segSize)
-
 		end := segCursorToOffset(int64(wseg), segSize, segSize)
+
 		for offset <= end {
-			if offset == end {
+			if offset >= end { // Reach segment end, traverse the next segment.
 				wcursor = 0
 				break
 			}
 			oid, _, cycle, err := e.objCheckAt(offset, buf)
 			if err != nil {
 				if errors.Is(err, ErrUnwrittenSeg) {
-					wcursor = 0 // Meet end, should start with 0 in next writable seg if has.
+					wcursor = 0 // Meet end, should start with 0 in next writable seg if there is one.
 					break
 				}
 
@@ -400,49 +400,49 @@ func (e *Extenter) traverseWritableSeg() error {
 					err = xerrors.WithMessage(syscall.EIO, err.Error())
 				}
 
-				var isHere bool // isHere means addr is DMU is the offset we're reading.
-				// DMU may have it, because it makes snapshot async.
+				var isInDMU bool // isInDMU means addr in DMU is the offset we're reading.
+				// DMU may have it (ahead of dmu snapshot header), because DMU makes snapshot async.
 				en := e.dmu.Search(uid.GetDigest(oid))
-				if en == 0 {
-					isHere = false
+				if en == 0 { // Not found.
+					isInDMU = false
 				} else {
 					_, _, _, _, addr := dmu.ParseEntry(en)
 					if offset != int64(addr)*dmu.AlignSize {
-						isHere = false
+						isInDMU = false
 					} else {
-						isHere = true
+						isInDMU = true
 					}
 				}
 
-				if i != hwhi-1 {
-					// Ignore last probable chunk, the chance is deprecated incomplete chunk
+				if i != nextIdx-1 { // Not last segment which may have un-synced index.
+					// We could ignore error in last probable chunk, the chance of deprecated incomplete chunk
 					// is much bigger than error I/O.
 					// https://g.tesamc.com/IT/zbuf/issues/220
-					if isIllegalHeader && end-offset < objHeaderSize+settings.MaxObjectSize {
-						if isHere {
-							return err
+					if isIllegalHeader && end-offset < objHeaderSize+settings.MaxObjectSize { // Is the last probable chunk.
+						if isInDMU {
+							return err // DMU has it, we must return error.
 						} else {
 							wcursor = 0
-							break
+							break // Try next segment.
 						}
 					}
 					return err
 				}
 
-				// Last writable segment meet checksum mismatch may by caused by short write.
-				// If DMU doesn't have this oid we regard it's short write.
+				// Last writable segment meet checksum mismatch may be caused by short write.
+				// If DMU doesn't have this oid we regard it's short write, if not return error.
 				// See: https://g.tesamc.com/IT/zbuf/issues/169 for details.
 				if errors.Is(err, orpc.ErrChecksumMismatch) ||
-					isIllegalHeader { // Meet dirty, means may haven't been written from the offset in this cycle.
-					if isHere {
+					isIllegalHeader { // Meet dirty, means may haven't been written from this offset in this cycle.
+					if isInDMU {
 						return err
 					} else {
-						return nil
+						wcursor = 0
+						break // It will reach the traverse end, and states will be updated after traverse loop, we need it.
 					}
 				}
 				return err
 			}
-
 			// Write is sequential in each segment.
 			// When reach the cycle means reach the segment end or the left space wasn't enough for the object.
 			if cycle < segCycle { //	Meet garbage, try next segment.
@@ -452,7 +452,6 @@ func (e *Extenter) traverseWritableSeg() error {
 				return xerrors.WithMessage(orpc.ErrExtentBroken,
 					fmt.Sprintf("cycle getting bigger in the middle of segment, exp: %d, got: %d", segCycle, cycle))
 			}
-
 			_, _, grains, digest, otype, _ := uid.ParseOID(oid)
 			err = e.dmu.Insert(digest, uint32(otype), grains, uint32(offset/dmu.AlignSize))
 			if errors.Is(err, orpc.ErrObjDigestExisted) { // Has synced in DMU.
@@ -462,10 +461,15 @@ func (e *Extenter) traverseWritableSeg() error {
 				return err
 			}
 			mov := xbytes.AlignSize(int64(uid.GrainsToBytes(grains)+objHeaderSize), dmu.AlignSize)
-			e.writableCursor += mov
+			wcursor += mov
 			offset += mov
 		}
+
 	}
+
+	// Update extent writable segment & cursor.
+	e.writableSeg = segInTraverse
+	e.writableCursor = wcursor
 
 	return nil
 }
