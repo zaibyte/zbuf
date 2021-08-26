@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	zai "g.tesamc.com/IT/zai/client"
+
 	"g.tesamc.com/IT/zaipkg/extutil"
 
 	"g.tesamc.com/IT/zaipkg/uid"
@@ -22,7 +24,7 @@ func TestExtenter_Clone(t *testing.T) {
 	cfg := GetDefaultConfig()
 	cfg.SegmentSize = 256 * 1024
 
-	mz := newMemZai()
+	mz := zai.NewMemZai()
 
 	c := makeTestCreator(cfg)
 	c.zc = mz
@@ -63,8 +65,8 @@ func TestExtenter_Clone(t *testing.T) {
 
 		written += uint64(grains) * uid.GrainSize
 
-		mz.oidData[oid] = make([]byte, len(objData))
-		copy(mz.oidData[oid], objData)
+		mz.OidData[oid] = make([]byte, len(objData))
+		copy(mz.OidData[oid], objData)
 	}
 
 	e1meta := ext1.GetMeta()
@@ -119,7 +121,7 @@ func TestExtenter_CloneBig(t *testing.T) {
 	cfg := GetDefaultConfig()
 	cfg.SegmentSize = 256 * 1024
 
-	mz := newMemZai()
+	mz := zai.NewMemZai()
 
 	c := makeTestCreator(cfg)
 	c.zc = mz
@@ -151,8 +153,8 @@ func TestExtenter_CloneBig(t *testing.T) {
 		}
 		oids[oid] = true
 
-		mz.oidData[oid] = make([]byte, len(objData))
-		copy(mz.oidData[oid], objData)
+		mz.OidData[oid] = make([]byte, len(objData))
+		copy(mz.OidData[oid], objData)
 	}
 
 	e1meta := ext1.GetMeta()
