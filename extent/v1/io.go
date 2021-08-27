@@ -355,12 +355,12 @@ func (e *Extenter) objWriteAt(reqType, oid uint64, offset int64, objData []byte,
 // oHeaderReadAt reads object header from disk at offset.
 func (e *Extenter) oHeaderReadAt(reqType uint64, offset int64, buf []byte) (oid uint64, grains uint32, cycle uint32, err error) {
 
-	if err = e.ioSched.DoSync(reqType, e.segsFile, offset, buf); err != nil {
+	if err = e.ioSched.DoSync(reqType, e.segsFile, offset, buf[:objHeaderSize]); err != nil {
 		return 0, 0, 0, err
 	}
 
 	objH := new(objHeader)
-	err = objH.unmarshal(buf)
+	err = objH.unmarshal(buf[:objHeaderSize])
 	if err != nil {
 		return 0, 0, 0, err
 	}
