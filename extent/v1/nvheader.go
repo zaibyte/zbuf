@@ -29,7 +29,7 @@ type NVHeader struct {
 	Removed []uint32 // 256 * 4B = 1024B
 
 	// SegCycles counts segments life cycles,
-	// every time after GC, it'll be add one.
+	// every time after GC, it'll be added one.
 	SegCycles []uint32 // 256 * 4B = 1024B
 
 	// We need clone_job here for persisting basic clone job info.
