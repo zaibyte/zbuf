@@ -373,8 +373,14 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 
 // loadDMU loads DMU from disk,
 // after invoking, we'll have consistent DMU for this Extenter.
+//
+// Loading steps:
+// 1. Loading DMU, if there is no snapshot, creating a new empty DMU.
+// 2. Traversing GC, ensuring DMU is consistent with GC.
+// 3. Traversing new adding objects for updating DMU if needed by traversing writable segments.
+// 4. Replay delete WAL.
 func (e *Extenter) loadDMU() error {
-	// 1. Loading DMU, if there is no snapshot, creating a new empty DMU.
+
 	err := e.loadDMUSnap()
 	if err != nil {
 		return xerrors.WithMessage(err, "failed to load DMU snapshot")
@@ -382,7 +388,6 @@ func (e *Extenter) loadDMU() error {
 
 	e.traverseGC()
 
-	// After invoking, we won't miss any written objects.
 	err = e.traverseWritableSeg()
 	if err != nil {
 		return xerrors.WithMessage(err, "failed to traverse writable segments")
