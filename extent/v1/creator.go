@@ -7,6 +7,8 @@ import (
 	"sync"
 	"unsafe"
 
+	"g.tesamc.com/IT/zaipkg/xlog"
+
 	"github.com/gogo/protobuf/proto"
 
 	"github.com/templexxx/tsc"
@@ -274,6 +276,7 @@ func (c *Creator) Load(ctx context.Context, extDir string, params extent.CreateP
 
 	e, err := c.load(ctx, extDir, params)
 	if err != nil {
+		xlog.Errorf("load ext: %d failed: %s", err.Error())
 		return extent.NewBrokenExtenter(&metapb.Extent{
 			Id:         params.ExtID,
 			Size_:      uint64(c.cfg.SegmentSize) * uint64(segmentCnt),
@@ -366,7 +369,7 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 		return nil, err
 	}
 
-	// Clone job will be check at Start.
+	// Clone job will be checked at Start.
 
 	return ext, nil
 }
