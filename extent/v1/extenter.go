@@ -351,6 +351,7 @@ func (e *Extenter) callModify(reqType uint64, oid uint64, oids []uint64, newAddr
 }
 
 // traverseWritableSeg traverse writable segments to reconstruct DMU, it starts at writable cursor.
+// It will check un-synced objects integrity at the same time.
 //
 // Design & Details see: https://g.tesamc.com/IT/zbuf/issues/296
 func (e *Extenter) traverseWritableSeg() error {
@@ -362,11 +363,11 @@ func (e *Extenter) traverseWritableSeg() error {
 
 	snapIdx := lastSnap.WritableHistoryIdx
 	nextIdx := e.header.nvh.WritableHistoryNextIdx
+
 	// nextIdx must be ahead of snapIdx,
 	// start from snapIdx until reach nextIdx.
-
 	var segInTraverse int64
-	for i := snapIdx; i < nextIdx; i++ {
+	for i := snapIdx; i < nextIdx; i++ { // TODO set cursor to 0 when there is next writable segment.
 
 		if i == -1 { // Snap catches nothing, jump over -1.
 			continue
@@ -377,10 +378,20 @@ func (e *Extenter) traverseWritableSeg() error {
 
 		segCycle := e.header.nvh.SegCycles[wseg]
 
-		xlog.Infof("ext: %d begin to traverse seg: %d", e.meta.Id, wseg)
+		xlog.Infof("ext: %d begin to traverse seg: %d with cycle: %d", e.meta.Id, wseg, segCycle)
 
 		offset := segCursorToOffset(int64(wseg), wcursor, segSize)
 		end := segCursorToOffset(int64(wseg), segSize, segSize)
+
+		err := e.traverseWritableSegOne(offset, end, buf, segCycle, i == nextIdx-1)
+		if err != nil {
+			if errors.Is(err, ErrMayLostWrite) {
+				if i+1 != nextIdx-1 { // Next one is not the last.
+					return xerrors.WithMessage(orpc.ErrExtentBroken, err.Error())
+				}
+				e.traverseFirstObjInSeg()
+			}
+		}
 
 		for offset <= end {
 			if offset >= end { // Reach segment end, traverse the next segment.
@@ -474,6 +485,124 @@ func (e *Extenter) traverseWritableSeg() error {
 	return nil
 }
 
+// ErrMayLostWrite occurs when found ErrUnwrittenSeg in not the last writable segment,
+// we need to do more checking:
+// 1. If the count of left un-traverse writable segments >= 2, return orpc.ErrLostWrite
+// 2. If the first object in the last writable segments is fit into this segment left space, return orpc.ErrLostWrite
+var ErrMayLostWrite = errors.New("may lost write, need more checking")
+
+// traverseWritableSegOne traverses one writable segment.
+// set isLast true if it's the last writable segment.
+// offset & end are positions in the segments file.
+//
+// Return writable cursor after traverse.
+// If there is an error, any return values could be ignored.
+func (e *Extenter) traverseWritableSegOne(offset, end int64, buf []byte, segCycle uint32, isLast bool) (err error) {
+
+	var cursor int64
+	defer func() {
+		if err == nil {
+			e.writableCursor = cursor
+		}
+	}()
+
+	for offset < end {
+
+		oid, _, cycle, err2 := e.objCheckAt(offset, buf) // Using check read in loading.
+		if err2 != nil {
+			if errors.Is(err2, ErrBrokenHeader) {
+				if isLast {
+					// Actually we may meet silent data corruption(SDC) here,
+					// but we have to build a new different system to avoid this type of SDC (will degrade perf hugely),
+					// in ext.v1, we have to accept this truth.
+					break
+				}
+
+				// It's not the last writable segment,
+				// but left space is enough for writing any object, we must not have the next writable segment.
+				if end-offset > objHeaderSize+settings.MaxObjectSize {
+					err = xerrors.WithMessage(orpc.ErrLostWrite, "unexpected unwritten segment, must have been written")
+					return
+				}
+
+				err = ErrMayLostWrite // Need to check the next segment.
+				return
+			}
+
+			return err2
+		}
+		// Write is sequential in each segment.
+		// If true means reach the segment end in its newest cycle or the left space wasn't enough for the next object.
+		if cycle < segCycle {
+			break
+		} else if cycle > segCycle {
+			return xerrors.WithMessage(orpc.ErrExtentBroken,
+				fmt.Sprintf("cycle getting bigger in the middle of segment, exp: %d, got: %d", segCycle, cycle))
+		}
+		_, _, grains, digest, otype, _ := uid.ParseOID(oid)
+		err2 = e.dmu.Insert(digest, uint32(otype), grains, uint32(offset/dmu.AlignSize))
+		if errors.Is(err2, orpc.ErrObjDigestExisted) { // Has synced in DMU.
+			err2 = nil
+		}
+		if err2 != nil {
+			return err2
+		}
+		mov := xbytes.AlignSize(int64(uid.GrainsToBytes(grains)+objHeaderSize), dmu.AlignSize)
+		cursor += mov
+		offset += mov
+	}
+
+	return nil
+}
+
+func (e *Extenter) traverseFirstObjInSeg(seg int, buf []byte) (size uint32, err error) {
+
+	cycle := e.header.nvh.SegCycles[seg]
+	segSize := int64(e.cfg.SegmentSize)
+	offset := segCursorToOffset(int64(seg), 0, segSize)
+
+	oid, _, cycle, err2 := e.objCheckAt(offset, buf) // Using check read in loading.
+	if err2 != nil {
+
+	}
+
+}
+
+func (e *Extenter) checkObjInTraverse(offset, end int64, segCycle uint32, buf []byte, isLast bool) (uint64, error) {
+
+	oid, _, cycle, err2 := e.objCheckAt(offset, buf) // Using check read in loading.
+	if err2 != nil {
+		if errors.Is(err2, ErrBrokenHeader) {
+			if isLast {
+				// Actually we may meet silent data corruption(SDC) here,
+				// but we have to build a new different system to avoid this type of SDC (will degrade perf hugely),
+				// in ext.v1, we have to accept this truth.
+				return 0, nil
+			}
+
+			// It's not the last writable segment,
+			// but left space is enough for writing any object, we must not have the next writable segment.
+			if end-offset > objHeaderSize+settings.MaxObjectSize {
+				err := xerrors.WithMessage(orpc.ErrLostWrite, "unexpected unwritten segment, must have been written")
+				return 0, err
+			}
+			return 0, ErrMayLostWrite // Need to check the next segment.
+		}
+
+		return 0, err2
+	}
+	// Write is sequential in each segment.
+	// If true means reach the segment end in its newest cycle or the left space wasn't enough for the next object.
+	if cycle < segCycle {
+		return 0, nil
+	} else if cycle > segCycle {
+		return 0, xerrors.WithMessage(orpc.ErrExtentBroken,
+			fmt.Sprintf("cycle getting bigger in the middle of segment, exp: %d, got: %d", segCycle, cycle))
+	}
+
+	return oid, nil
+}
+
 func (e *Extenter) traverseDirtyDeleteWAL() error {
 	lastSnap := e.getLastDMUSnap() // Must not be nil.
 
@@ -522,10 +651,9 @@ func (e *Extenter) traverseDirtyDeleteWAL() error {
 	return resetDirtyDelWALF(e.dirtyDeleteWAL)
 }
 
-// traverseGC will clean up all objects in DMU if their addresses
-// go ahead of GC dst cursor.
+// traverseGC will clean up all objects in DMU if their addresses go ahead of GC dst cursor.
 // see: https://g.tesamc.com/IT/zbuf/issues/250 for details
-// traverseGC will be done after load DMU snapshot.
+// traverseGC must be invoker after load DMU snapshot.
 func (e *Extenter) traverseGC() {
 
 	if e.gcDstSeg == -1 {
