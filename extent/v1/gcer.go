@@ -299,18 +299,9 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 			readOffset := segCursorToOffset(e.gcSrcSeg, int64(e.gcSrcCursor), int64(segSize))
 			oid, _, cycle, err3 := e.oHeaderReadAt(xio.ReqGCRead, readOffset, objHeaderBuf)
 			if err3 != nil {
-				// Objects are written sequentially, if meet unwritten, means reaching the end.
-				if errors.Is(err3, ErrUnwrittenSeg) {
-					err3 = nil
-					e.rwMutex.Lock()
-					e.gcSrcCursor = segSize
-					e.rwMutex.Unlock()
-					atomic.AddInt64(&e.dirtyUpdates, 1)
-					continue
-				}
 
-				if errors.Is(err3, ErrIllegalObjHeader) { // May reach dirty data, continue the next segment.
-					if e.gcSrcCursor+objHeaderSize+settings.MaxObjectSize > segSize {
+				if errors.Is(err3, ErrBrokenHeader) { // May reach dirty data, continue the next segment.
+					if xbytes.AlignSize(int64(e.gcSrcCursor+objHeaderSize+settings.MaxObjectSize), dmu.AlignSize) > int64(segSize) {
 						err3 = nil
 						e.rwMutex.Lock()
 						e.gcSrcCursor = segSize
