@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 	"unsafe"
 
@@ -383,104 +382,34 @@ func (e *Extenter) traverseWritableSeg() error {
 		offset := segCursorToOffset(int64(wseg), wcursor, segSize)
 		end := segCursorToOffset(int64(wseg), segSize, segSize)
 
-		err := e.traverseWritableSegOne(offset, end, buf, segCycle, i == nextIdx-1)
+		err := e.traverseWritableSegOne(offset, end, wcursor, buf, segCycle, i == nextIdx-1)
 		if err != nil {
 			if errors.Is(err, ErrMayLostWrite) {
 				if i+1 != nextIdx-1 { // Next one is not the last.
 					return xerrors.WithMessage(orpc.ErrExtentBroken, err.Error())
 				}
-				e.traverseFirstObjInSeg()
-			}
-		}
-
-		for offset <= end {
-			if offset >= end { // Reach segment end, traverse the next segment.
-				wcursor = 0
-				break
-			}
-			oid, _, cycle, err := e.objCheckAt(offset, buf)
-			if err != nil {
-				if errors.Is(err, ErrUnwrittenSeg) {
-					wcursor = 0 // Meet end, should start with 0 in next writable seg if there is one.
-					break
+				os, err2 := e.checkFirstObjInLastWritableSeg(int(e.getWsegByHistoryIdx(nextIdx-1)), buf)
+				if err2 != nil {
+					return err2
 				}
-
-				isIllegalHeader := errors.Is(err, ErrIllegalObjHeader)
-				if isIllegalHeader {
-					// Using EIO, easier to set Extenter state.
-					err = xerrors.WithMessage(syscall.EIO, err.Error())
-				}
-
-				var isInDMU bool // isInDMU means addr in DMU is the offset we're reading.
-				// DMU may have it (ahead of dmu snapshot header), because DMU makes snapshot async.
-				en := e.dmu.Search(uid.GetDigest(oid))
-				if en == 0 { // Not found.
-					isInDMU = false
+				if xbytes.AlignSize(e.writableCursor+objHeaderSize+int64(os), dmu.AlignSize) <= segSize {
+					return xerrors.WithMessage(orpc.ErrExtentBroken,
+						"first object in last writable seg could be put into previous one")
 				} else {
-					_, _, _, _, addr := dmu.ParseEntry(en)
-					if offset != int64(addr)*dmu.AlignSize {
-						isInDMU = false
-					} else {
-						isInDMU = true
-					}
+					err = nil
+					xlog.Warnf("ext: %d passed may lost checking, will be loaded if no more errors", e.meta.Id)
 				}
-
-				if i != nextIdx-1 { // Not last segment which may have un-synced index.
-					// We could ignore error in last probable chunk, the chance of deprecated incomplete chunk
-					// is much bigger than error I/O.
-					// https://g.tesamc.com/IT/zbuf/issues/220
-					if isIllegalHeader && end-offset < objHeaderSize+settings.MaxObjectSize { // Is the last probable chunk.
-						if isInDMU {
-							return err // DMU has it, we must return error.
-						} else {
-							wcursor = 0
-							break // Try next segment.
-						}
-					}
-					return err
-				}
-
-				// Last writable segment meet checksum mismatch may be caused by short write.
-				// If DMU doesn't have this oid we regard it's short write, if not return error.
-				// See: https://g.tesamc.com/IT/zbuf/issues/169 for details.
-				if errors.Is(err, orpc.ErrChecksumMismatch) ||
-					isIllegalHeader { // Meet dirty, means may haven't been written from this offset in this cycle.
-					if isInDMU {
-						return err
-					} else {
-						wcursor = 0
-						break // It will reach the traverse end, and states will be updated after traverse loop, we need it.
-					}
-				}
-				return err
-			}
-			// Write is sequential in each segment.
-			// When reach the cycle means reach the segment end or the left space wasn't enough for the object.
-			if cycle < segCycle { //	Meet garbage, try next segment.
-				wcursor = 0
-				break
-			} else if cycle > segCycle {
-				return xerrors.WithMessage(orpc.ErrExtentBroken,
-					fmt.Sprintf("cycle getting bigger in the middle of segment, exp: %d, got: %d", segCycle, cycle))
-			}
-			_, _, grains, digest, otype, _ := uid.ParseOID(oid)
-			err = e.dmu.Insert(digest, uint32(otype), grains, uint32(offset/dmu.AlignSize))
-			if errors.Is(err, orpc.ErrObjDigestExisted) { // Has synced in DMU.
-				err = nil
 			}
 			if err != nil {
 				return err
 			}
-			mov := xbytes.AlignSize(int64(uid.GrainsToBytes(grains)+objHeaderSize), dmu.AlignSize)
-			wcursor += mov
-			offset += mov
 		}
 
+		wcursor = 0
 	}
 
-	// Update extent writable segment & cursor.
+	// Update extent writable segment.
 	e.writableSeg = segInTraverse
-	e.writableCursor = wcursor
 
 	return nil
 }
@@ -497,9 +426,8 @@ var ErrMayLostWrite = errors.New("may lost write, need more checking")
 //
 // Return writable cursor after traverse.
 // If there is an error, any return values could be ignored.
-func (e *Extenter) traverseWritableSegOne(offset, end int64, buf []byte, segCycle uint32, isLast bool) (err error) {
+func (e *Extenter) traverseWritableSegOne(offset, end, cursor int64, buf []byte, segCycle uint32, isLast bool) (err error) {
 
-	var cursor int64
 	defer func() {
 		if err == nil {
 			e.writableCursor = cursor
@@ -508,36 +436,13 @@ func (e *Extenter) traverseWritableSegOne(offset, end int64, buf []byte, segCycl
 
 	for offset < end {
 
-		oid, _, cycle, err2 := e.objCheckAt(offset, buf) // Using check read in loading.
+		oid, err2 := e.checkObjInTraverse(offset, end, segCycle, buf, isLast)
 		if err2 != nil {
-			if errors.Is(err2, ErrBrokenHeader) {
-				if isLast {
-					// Actually we may meet silent data corruption(SDC) here,
-					// but we have to build a new different system to avoid this type of SDC (will degrade perf hugely),
-					// in ext.v1, we have to accept this truth.
-					break
-				}
-
-				// It's not the last writable segment,
-				// but left space is enough for writing any object, we must not have the next writable segment.
-				if end-offset > objHeaderSize+settings.MaxObjectSize {
-					err = xerrors.WithMessage(orpc.ErrLostWrite, "unexpected unwritten segment, must have been written")
-					return
-				}
-
-				err = ErrMayLostWrite // Need to check the next segment.
-				return
-			}
-
+			err = err2
 			return err2
 		}
-		// Write is sequential in each segment.
-		// If true means reach the segment end in its newest cycle or the left space wasn't enough for the next object.
-		if cycle < segCycle {
+		if oid == 0 { // Reach writable segment end (no new objects)
 			break
-		} else if cycle > segCycle {
-			return xerrors.WithMessage(orpc.ErrExtentBroken,
-				fmt.Sprintf("cycle getting bigger in the middle of segment, exp: %d, got: %d", segCycle, cycle))
 		}
 		_, _, grains, digest, otype, _ := uid.ParseOID(oid)
 		err2 = e.dmu.Insert(digest, uint32(otype), grains, uint32(offset/dmu.AlignSize))
@@ -545,6 +450,7 @@ func (e *Extenter) traverseWritableSegOne(offset, end int64, buf []byte, segCycl
 			err2 = nil
 		}
 		if err2 != nil {
+			err = err2
 			return err2
 		}
 		mov := xbytes.AlignSize(int64(uid.GrainsToBytes(grains)+objHeaderSize), dmu.AlignSize)
@@ -555,17 +461,21 @@ func (e *Extenter) traverseWritableSegOne(offset, end int64, buf []byte, segCycl
 	return nil
 }
 
-func (e *Extenter) traverseFirstObjInSeg(seg int, buf []byte) (size uint32, err error) {
+func (e *Extenter) checkFirstObjInLastWritableSeg(seg int, buf []byte) (size uint32, err error) {
 
 	cycle := e.header.nvh.SegCycles[seg]
 	segSize := int64(e.cfg.SegmentSize)
 	offset := segCursorToOffset(int64(seg), 0, segSize)
+	end := segCursorToOffset(int64(seg), segSize, segSize)
 
-	oid, _, cycle, err2 := e.objCheckAt(offset, buf) // Using check read in loading.
-	if err2 != nil {
-
+	oid, err := e.checkObjInTraverse(offset, end, cycle, buf, true)
+	if err != nil {
+		return 0, err
 	}
-
+	if oid == 0 {
+		return 0, nil
+	}
+	return uid.GetGrains(oid) * uid.GrainSize, nil
 }
 
 func (e *Extenter) checkObjInTraverse(offset, end int64, segCycle uint32, buf []byte, isLast bool) (uint64, error) {
@@ -582,7 +492,7 @@ func (e *Extenter) checkObjInTraverse(offset, end int64, segCycle uint32, buf []
 
 			// It's not the last writable segment,
 			// but left space is enough for writing any object, we must not have the next writable segment.
-			if end-offset > objHeaderSize+settings.MaxObjectSize {
+			if end-offset > xbytes.AlignSize(objHeaderSize+int64(settings.MaxObjectSize), dmu.AlignSize) {
 				err := xerrors.WithMessage(orpc.ErrLostWrite, "unexpected unwritten segment, must have been written")
 				return 0, err
 			}
