@@ -99,7 +99,7 @@ func (e *Extenter) updatesLoop() {
 
 			e.rwMutex.Lock()
 			// There is no enough space in this segment for this uploading.
-			if e.writableCursor+objHeaderSize+int64(len(ur.objData)) > segSize {
+			if xbytes.AlignSize(e.writableCursor+objHeaderSize+int64(len(ur.objData)), dmu.AlignSize) > segSize {
 				nextSeg, err := e.getNextWritableSeg(e.writableSeg)
 				if err != nil {
 					ur.done <- err
@@ -308,11 +308,9 @@ func (e *Extenter) preprocModifyRequest() error {
 // friendly for GC.
 var objPadding = directio.AlignedBlock(dmu.AlignSize)
 
-// objWriteAt writes with a buffer in a certain offset.
-// Using objWriteAt split big data chunk into buffer size, avoiding stall.
 // Returns written(include object_header & object_data & padding) & error.
 //
-// objWriteAt will fill up the the whole segment until reach the next one,
+// objWriteAt will fill up the whole segment until reach the next one,
 // helping to ensure there is only sequential writing, the I/O penalize in FTL GC inside NVMe device won't be triggered frequently,
 // unless we just miss the whole block in NVMe device.
 //
