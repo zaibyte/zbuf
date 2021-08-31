@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -59,17 +58,11 @@ var (
 	ErrBrokenHeader     = errors.New("object header is broken")
 )
 
-// emptyBuf is made for comparing object header is empty or not.
-var emptyBuf = make([]byte, objHeaderSize)
-
 func (h *objHeader) unmarshal(p []byte) error {
 	h.oid = binary.LittleEndian.Uint64(p[:8])
 
 	if h.oid == 0 {
-		if bytes.Equal(emptyBuf, p) {
-			return ErrUnwrittenSeg // Only the whole header is empty, regards reaching unwritten space.
-		}
-		return xerrors.WithMessage(orpc.ErrExtentBroken, "extent has dirty data or lost write, may caused by I/O internal error")
+		return ErrUnwrittenSeg // Only the whole header is empty, regards reaching unwritten space.
 	}
 
 	if binary.LittleEndian.Uint64(p[objHeaderMagicNumberOffset:objHeaderMagicNumberOffset+8]) !=
