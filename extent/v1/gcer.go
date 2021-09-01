@@ -300,7 +300,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 			oid, _, cycle, err3 := e.oHeaderReadAt(xio.ReqGCRead, readOffset, objHeaderBuf)
 			if err3 != nil {
 
-				if errors.Is(err3, ErrBrokenHeader) { // May reach dirty data, continue the next segment.
+				if errors.Is(err3, ErrHeaderBroken) { // May reach dirty data, continue the next segment.
 					if xbytes.AlignSize(int64(e.gcSrcCursor+objHeaderSize+settings.MaxObjectSize), dmu.AlignSize) > int64(segSize) {
 						err3 = nil
 						e.rwMutex.Lock()

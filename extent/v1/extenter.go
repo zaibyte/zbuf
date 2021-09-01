@@ -385,10 +385,9 @@ func (e *Extenter) traverseWritableSeg() error {
 		err := e.traverseWritableSegOne(offset, end, wcursor, buf, segCycle, i == nextIdx-1)
 		if err != nil {
 			if errors.Is(err, ErrMayLostWrite) {
-				if i+1 != nextIdx-1 { // Next one is not the last.
-					return xerrors.WithMessage(orpc.ErrExtentBroken, err.Error())
-				}
-				os, err2 := e.checkFirstObjInLastWritableSeg(int(e.getWsegByHistoryIdx(nextIdx-1)), buf)
+				// ErrMayLostWrite only be returned when it's not the last writable segment.
+				// So i+1 won't be out of range.
+				os, err2 := e.checkFirstObjInSeg(int(e.getWsegByHistoryIdx(i+1)), buf)
 				if err2 != nil {
 					return err2
 				}
@@ -461,13 +460,17 @@ func (e *Extenter) traverseWritableSegOne(offset, end, cursor int64, buf []byte,
 	return nil
 }
 
-func (e *Extenter) checkFirstObjInLastWritableSeg(seg int, buf []byte) (size uint32, err error) {
-
+// checkFirstObjInSeg checks first object in the segment, return the object's size if it has.
+// For checking previous segment which has ErrMayLostWrite.
+func (e *Extenter) checkFirstObjInSeg(seg int, buf []byte) (size uint32, err error) {
 	cycle := e.header.nvh.SegCycles[seg]
 	segSize := int64(e.cfg.SegmentSize)
 	offset := segCursorToOffset(int64(seg), 0, segSize)
 	end := segCursorToOffset(int64(seg), segSize, segSize)
 
+	// Set isLast true, for ignoring ErrHeaderBroken.
+	// We could find this error in later traversing, now we only care about the potential error
+	// in previous segment.
 	oid, err := e.checkObjInTraverse(offset, end, cycle, buf, true)
 	if err != nil {
 		return 0, err
@@ -482,7 +485,7 @@ func (e *Extenter) checkObjInTraverse(offset, end int64, segCycle uint32, buf []
 
 	oid, _, cycle, err2 := e.objCheckAt(offset, buf) // Using check read in loading.
 	if err2 != nil {
-		if errors.Is(err2, ErrBrokenHeader) {
+		if errors.Is(err2, ErrHeaderBroken) {
 			if isLast {
 				// Actually we may meet silent data corruption(SDC) here,
 				// but we have to build a new different system to avoid this type of SDC (will degrade perf hugely),

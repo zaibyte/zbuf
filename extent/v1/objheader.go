@@ -55,7 +55,7 @@ var (
 	// ErrUnwrittenSeg means left space from this offset hasn't been written (max object_size + header in this segment).
 	ErrUnwrittenSeg     = errors.New("reach unwritten space in segment")
 	ErrIllegalObjHeader = errors.New("illegal object header") // Caused by wrong magic number.
-	ErrBrokenHeader     = errors.New("object header is broken")
+	ErrHeaderBroken     = errors.New("object header is broken")
 )
 
 func (h *objHeader) unmarshal(p []byte) error {

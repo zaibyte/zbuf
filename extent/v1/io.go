@@ -360,7 +360,7 @@ func (e *Extenter) oHeaderReadAt(reqType uint64, offset int64, buf []byte) (oid 
 	objH := new(objHeader)
 	err = objH.unmarshal(buf[:objHeaderSize])
 	if err != nil {
-		err = xerrors.WithMessage(ErrBrokenHeader, err.Error())
+		err = xerrors.WithMessage(ErrHeaderBroken, err.Error())
 		xlog.Warnf("SDC potential, broken header: %s", err.Error())
 		return 0, 0, 0, err
 	}
