@@ -11,7 +11,6 @@ import (
 	"runtime"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"testing"
 
 	"g.tesamc.com/IT/zaipkg/xlog/xlogtest"
@@ -536,8 +535,8 @@ func TestExtenter_traverseWritableSegIllegalHeaderPass(t *testing.T) {
 	}
 }
 
-// Illegal header in the offset a chunk should be.
-func TestExtenter_traverseWritableSegIllegalHeaderFail(t *testing.T) {
+// Pollute header with empty oid, traverse should find lost write err.
+func TestExtenter_traverseWritableSegIllegalHeaderLostWrite(t *testing.T) {
 
 	cfg := GetDefaultConfig()
 	// For creating a 24MB segments file = 3 * 8 segments, two for writing, one is reserved.
@@ -574,7 +573,6 @@ func TestExtenter_traverseWritableSegIllegalHeaderFail(t *testing.T) {
 		oids[i] = oid
 	}
 
-	// Pollute first segment, should pass the traverse.
 	o2h := directio.AlignedBlock(4096)
 	_, err = ext.segsFile.ReadAt(o2h, 0)
 	if err != nil {
@@ -595,7 +593,7 @@ func TestExtenter_traverseWritableSegIllegalHeaderFail(t *testing.T) {
 		DiskMeta:   nil,
 		CloneJob:   nil,
 	})
-	if !errors.Is(err, syscall.EIO) {
+	if !errors.Is(err, orpc.ErrLostWrite) {
 		t.Fatalf("should be EIO, but got: %s", err.Error())
 	}
 }
