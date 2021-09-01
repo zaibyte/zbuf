@@ -21,7 +21,7 @@ build:
 	go build -o bin/extperf tools/extperf/main.go
 test:
     # testing...
-	go test -race -cover $(TEST_PKGS)
+	go test -tags memfs_test -race -cover $(TEST_PKGS)
 
 tidy:
 	@echo "go mod tidy"
