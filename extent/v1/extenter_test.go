@@ -457,8 +457,9 @@ func TestExtenter_traverseWritableSegPartSnap(t *testing.T) {
 }
 
 // Load extenter by traverse writable segments but there is illegal header in chunks.
-// And the illegal is allowed because there is no actually real chunk in that offset.
-// In this testing, we will simulate extenter but not create a real segemtns file for saving disk space allocation.
+// Expect passing loading:
+//
+// In this testing, we will simulate extenter but not create a real segments file for saving disk space allocation.
 func TestExtenter_traverseWritableSegIllegalHeaderPass(t *testing.T) {
 
 	cfg := GetDefaultConfig()
@@ -482,9 +483,8 @@ func TestExtenter_traverseWritableSegIllegalHeaderPass(t *testing.T) {
 	buf := make([]byte, settings.MaxObjectSize)
 
 	oids := make([]uint64, 2)
+	grains := 1024
 	for i := 0; i < 2; i++ {
-
-		grains := 1024
 		objData := buf[:grains*uid.GrainSize]
 		rand.Read(objData)
 		digest := xdigest.Sum32(objData)
@@ -496,14 +496,17 @@ func TestExtenter_traverseWritableSegIllegalHeaderPass(t *testing.T) {
 		oids[i] = oid
 	}
 
-	// Pollute first segment, should pass the traverse.
-	o2h := directio.AlignedBlock(4096)
-	_, err = ext.segsFile.ReadAt(o2h, 4096*1024+16*1024)
+	illegalHeader := directio.AlignedBlock(4096)
+	binary.LittleEndian.PutUint64(illegalHeader[0:], 1)
+	binary.LittleEndian.PutUint64(illegalHeader[objHeaderMagicNumberOffset:], objHeaderMagicNumber+1)
+
+	// Pollute first segment
+	_, err = ext.segsFile.WriteAt(illegalHeader, xbytes.AlignSize(int64(objHeaderSize+grains*uid.GrainSize), dmu.AlignSize))
 	if err != nil {
 		t.Fatal(err)
 	}
-	binary.LittleEndian.PutUint64(o2h[objHeaderMagicNumberOffset:], objHeaderMagicNumber+1)
-	_, err = ext.segsFile.WriteAt(o2h, 4096*1024+16*1024)
+	// Pollute Second segment
+	_, err = ext.segsFile.WriteAt(illegalHeader, 8*1024*1024+xbytes.AlignSize(int64(objHeaderSize+grains*uid.GrainSize), dmu.AlignSize))
 	if err != nil {
 		t.Fatal(err)
 	}

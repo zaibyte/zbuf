@@ -392,8 +392,11 @@ func (e *Extenter) traverseWritableSeg() error {
 					return err2
 				}
 				if xbytes.AlignSize(e.writableCursor+objHeaderSize+int64(os), dmu.AlignSize) <= segSize {
-					return xerrors.WithMessage(orpc.ErrExtentBroken,
-						"first object in last writable seg could be put into previous one")
+					err = xerrors.WithMessage(orpc.ErrExtentBroken, err.Error())
+					err = xerrors.WithMessage(err,
+						fmt.Sprintf("first object in next writable seg is: %d(include header,after align) could be put into previous one, left space: %d",
+							xbytes.AlignSize(objHeaderSize+int64(os), dmu.AlignSize), segSize-e.writableCursor))
+					return err
 				} else {
 					err = nil
 					xlog.Warnf("ext: %d passed may lost checking, will be loaded if no more errors", e.meta.Id)
@@ -428,9 +431,7 @@ var ErrMayLostWrite = errors.New("may lost write, need more checking")
 func (e *Extenter) traverseWritableSegOne(offset, end, cursor int64, buf []byte, segCycle uint32, isLast bool) (err error) {
 
 	defer func() {
-		if err == nil {
-			e.writableCursor = cursor
-		}
+		e.writableCursor = cursor
 	}()
 
 	for offset < end {
@@ -499,7 +500,7 @@ func (e *Extenter) checkObjInTraverse(offset, end int64, segCycle uint32, buf []
 				err := xerrors.WithMessage(orpc.ErrLostWrite, "unexpected unwritten segment, must have been written")
 				return 0, err
 			}
-			return 0, ErrMayLostWrite // Need to check the next segment.
+			return 0, xerrors.WithMessage(ErrMayLostWrite, err2.Error()) // Need to check the next segment.
 		}
 
 		return 0, err2
