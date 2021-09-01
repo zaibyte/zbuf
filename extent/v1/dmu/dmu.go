@@ -163,7 +163,7 @@ func (u *DMU) Insert(digest, otype, grains, addr uint32) error {
 	case nil:
 		u.addCnt()
 		return nil
-	case ErrIsFull:
+	default: // ErrIsFull
 		if u.isScaling() {
 			// In practice, it's rare to have such fast adding.
 			// Which means the caller's speed if fast than 'sequential traverse'.
@@ -190,8 +190,6 @@ func (u *DMU) Insert(digest, otype, grains, addr uint32) error {
 		go u.expand(int(idx))
 		u.addCnt()
 		return nil
-	default:
-		return err
 	}
 }
 
@@ -271,10 +269,12 @@ func (u *DMU) Remove(digest uint32) (has bool, addr uint32) {
 // UpdateOrInsert updates entry if found, if not found, inserting it.
 // It should be only used for testing.(e.g. performance testing)
 func (u *DMU) UpdateOrInsert(digest, otype, grains, addr uint32) error {
-	if !u.Update(digest, addr) {
-		return u.Insert(digest, otype, grains, addr)
+
+	updated := u.Update(digest, addr)
+	if updated {
+		return nil
 	}
-	return nil
+	return u.Insert(digest, otype, grains, addr)
 }
 
 // Update updates existed entry with new address,

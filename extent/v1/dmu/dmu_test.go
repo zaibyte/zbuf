@@ -258,6 +258,24 @@ func TestDMU_Expand(t *testing.T) {
 	assert.EqualError(t, err, orpc.ErrObjDigestExisted.Error())
 }
 
+func TestClose(t *testing.T) {
+
+	d := New(MinCap)
+	d.Close()
+
+	err := d.Insert(0, 0, 0, 0)
+	assert.True(t, errors.Is(err, orpc.ErrServiceClosed))
+
+	has, addr := d.Remove(0)
+	assert.False(t, has)
+	assert.Equal(t, uint32(0), addr)
+
+	err = d.UpdateOrInsert(0, 0, 0, 0)
+	assert.True(t, errors.Is(err, orpc.ErrServiceClosed))
+
+	assert.False(t, d.Update(0, 0))
+}
+
 type bench struct {
 	setup func(*testing.B, *DMU)
 	perG  func(b *testing.B, pb *testing.PB, i uint64, d *DMU)
