@@ -1,35 +1,40 @@
 package extent_test
 
 import (
-	"io/ioutil"
+	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
+	"g.tesamc.com/IT/zaipkg/vfs"
 	"g.tesamc.com/IT/zaipkg/xio"
+	"g.tesamc.com/IT/zaipkg/xmath/xrand"
+	"g.tesamc.com/IT/zbuf/extent"
 
 	"github.com/stretchr/testify/assert"
-
-	"g.tesamc.com/IT/zaipkg/vfs"
-	"g.tesamc.com/IT/zbuf/extent"
 )
 
 func TestCreateLoadBootSector(t *testing.T) {
-	extPath, err := ioutil.TempDir(os.TempDir(), "boot-sector")
+
+	fs := vfs.GetTestFS()
+
+	extPath := filepath.Join(os.TempDir(), "boot-sector", fmt.Sprintf("%d", xrand.Uint32()))
+
+	err := fs.MkdirAll(extPath, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(extPath)
+	defer fs.RemoveAll(extPath)
 
-	err = extent.CreateBootSector(vfs.DefaultFS, extPath, extent.Version1)
+	err = extent.CreateBootSector(fs, extPath, extent.Version1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	over, err := extent.LoadBootSector(vfs.DefaultFS, &xio.NopScheduler{}, extPath)
+	over, err := extent.LoadBootSector(fs, &xio.NopScheduler{}, extPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	assert.Equal(t, extent.Version1, over)
-
 }
