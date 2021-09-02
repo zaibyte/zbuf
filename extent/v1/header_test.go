@@ -1,14 +1,16 @@
 package v1
 
 import (
-	"io/ioutil"
+	"fmt"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"testing"
+
+	"g.tesamc.com/IT/zaipkg/xmath/xrand"
 
 	"g.tesamc.com/IT/zbuf/extent"
 
-	"g.tesamc.com/IT/zaipkg/vfs"
 	"g.tesamc.com/IT/zaipkg/xio"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 	"github.com/stretchr/testify/assert"
@@ -17,11 +19,15 @@ import (
 func TestCreateLoadHeader(t *testing.T) {
 	sched := new(xio.NopScheduler)
 
-	extDir, err := ioutil.TempDir(os.TempDir(), "extent-v1")
+	fs := testFS
+
+	extDir := filepath.Join(os.TempDir(), "ext.v1.creator", fmt.Sprintf("%d", xrand.Uint32()))
+
+	err := fs.MkdirAll(extDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vfs.GetTestFS().RemoveAll(extDir)
+	defer fs.RemoveAll(extDir)
 
 	cfg := GetDefaultConfig()
 	cfg.SegmentSize = 256 * 1024 // We don't take too much space only for non-I/O testing.
@@ -41,7 +47,7 @@ func TestCreateLoadHeader(t *testing.T) {
 	}
 	defer h.Close()
 
-	lh, err := LoadHeader(sched, vfs.GetFS(), extDir)
+	lh, err := LoadHeader(sched, testFS, extDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +89,7 @@ func TestCreateLoadHeader(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	lh, err = LoadHeader(sched, vfs.GetFS(), extDir)
+	lh, err = LoadHeader(sched, testFS, extDir)
 	if err != nil {
 		t.Fatal(err)
 	}

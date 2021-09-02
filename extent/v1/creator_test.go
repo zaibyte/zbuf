@@ -4,16 +4,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"io/ioutil"
+	"fmt"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"testing"
 
-	zai "g.tesamc.com/IT/zai/client"
+	"g.tesamc.com/IT/zaipkg/xmath/xrand"
+
 	"g.tesamc.com/IT/zaipkg/uid"
-	"g.tesamc.com/IT/zaipkg/vfs"
 	"g.tesamc.com/IT/zaipkg/xdigest"
-	"g.tesamc.com/IT/zaipkg/xio"
 	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
 	"g.tesamc.com/IT/zbuf/extent"
 	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
@@ -21,25 +21,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/templexxx/tsc"
 )
-
-type testCreatorSched struct {
-	sched xio.Scheduler
-}
-
-func (s *testCreatorSched) GetSched(diskID string) (xio.Scheduler, bool) {
-	return s.sched, true
-}
-
-func makeTestCreator(cfg *Config) *Creator {
-
-	return &Creator{
-		cfg:    cfg,
-		scheds: &testCreatorSched{sched: new(xio.NopScheduler)},
-		fs:     vfs.GetTestFS(),
-		zc:     zai.NopObjClient{},
-		boxID:  1,
-	}
-}
 
 func TestCreator_GetSize(t *testing.T) {
 	c := makeTestCreator(GetDefaultConfig())
@@ -49,11 +30,15 @@ func TestCreator_GetSize(t *testing.T) {
 
 func TestCreator_Create(t *testing.T) {
 
-	extDir, err := ioutil.TempDir(os.TempDir(), "ext.v1.creator")
+	fs := testFS
+
+	extDir := filepath.Join(os.TempDir(), "ext.v1.creator", fmt.Sprintf("%d", xrand.Uint32()))
+
+	err := fs.MkdirAll(extDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vfs.GetTestFS().RemoveAll(extDir)
+	defer fs.RemoveAll(extDir)
 
 	cfg := GetDefaultConfig()
 	cfg.SegmentSize = 256 * 1024 // We don't take too much space only for non-I/O testing.
@@ -86,11 +71,15 @@ func TestCreator_Create(t *testing.T) {
 
 // Testing Creator Loading Extenter after uploading some objects.
 func TestCreator_CreateLoad(t *testing.T) {
-	extDir, err := ioutil.TempDir(os.TempDir(), "ext.v1.creator")
+	fs := testFS
+
+	extDir := filepath.Join(os.TempDir(), "ext.v1.creator", fmt.Sprintf("%d", xrand.Uint32()))
+
+	err := fs.MkdirAll(extDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vfs.GetTestFS().RemoveAll(extDir)
+	defer fs.RemoveAll(extDir)
 
 	cfg := GetDefaultConfig()
 	cfg.SegmentSize = 256 * 1024 // We don't take too much space only for non-I/O testing.

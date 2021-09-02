@@ -17,7 +17,6 @@ import (
 	"g.tesamc.com/IT/zaipkg/directio"
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/uid"
-	"g.tesamc.com/IT/zaipkg/vfs"
 	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zaipkg/xdigest"
 
@@ -32,7 +31,7 @@ func TestExtenter_PutSameDigest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vfs.GetTestFS().RemoveAll(ext.extDir)
+	defer testFS.RemoveAll(ext.extDir)
 
 	ext.Start()
 	defer ext.Close()
@@ -69,7 +68,7 @@ func TestExtenter_PutGetObj(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vfs.GetTestFS().RemoveAll(ext.extDir)
+	defer testFS.RemoveAll(ext.extDir)
 
 	ext.Start()
 	defer ext.Close()
@@ -149,7 +148,7 @@ func testObjWriteReadCheckAt(t *testing.T, isCheck bool) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vfs.GetTestFS().RemoveAll(ext.extDir)
+	defer testFS.RemoveAll(ext.extDir)
 
 	ext.Start()
 	defer ext.Close()
@@ -242,7 +241,7 @@ func TestExtenter_RejectDirtyDelete(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vfs.GetTestFS().RemoveAll(ext.extDir)
+	defer testFS.RemoveAll(ext.extDir)
 
 	ext.Start()
 	defer ext.Close()
@@ -279,7 +278,7 @@ func TestExtenter_DeleteOneTooFast(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vfs.GetTestFS().RemoveAll(ext.extDir)
+	defer testFS.RemoveAll(ext.extDir)
 
 	ext.Start()
 	defer ext.Close()
@@ -322,7 +321,7 @@ func TestExtenter_DeleteOneReachMax(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vfs.GetTestFS().RemoveAll(ext.extDir)
+	defer testFS.RemoveAll(ext.extDir)
 
 	ext.Start()
 	defer ext.Close()
@@ -367,7 +366,7 @@ func TestExtenter_DeleteBatchTooFast(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vfs.GetTestFS().RemoveAll(ext.extDir)
+	defer testFS.RemoveAll(ext.extDir)
 
 	ext.Start()
 	defer ext.Close()
@@ -408,7 +407,7 @@ func TestExtenter_DeleteBatchReachMax(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vfs.GetTestFS().RemoveAll(ext.extDir)
+	defer testFS.RemoveAll(ext.extDir)
 
 	ext.Start()
 	defer ext.Close()
@@ -483,7 +482,7 @@ func TestExtenter_GetNextWritableSeg(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vfs.GetTestFS().RemoveAll(ext.extDir)
+	defer testFS.RemoveAll(ext.extDir)
 
 	last := ext.writableSeg
 	cnt := 0

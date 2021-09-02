@@ -5,36 +5,25 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
-	"io/ioutil"
 	"math/rand"
-	"os"
 	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
 
-	"g.tesamc.com/IT/zaipkg/xlog/xlogtest"
-
 	"g.tesamc.com/IT/zaipkg/config/settings"
 	"g.tesamc.com/IT/zaipkg/directio"
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/uid"
-	"g.tesamc.com/IT/zaipkg/vfs"
 	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zaipkg/xdigest"
 
 	// _ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
 	"g.tesamc.com/IT/zbuf/extent"
 	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
-	"g.tesamc.com/IT/zproto/pkg/metapb"
 	"github.com/stretchr/testify/assert"
 	"github.com/templexxx/tsc"
 )
-
-func init() {
-	xbytes.EnableDefault()
-	xlogtest.New(true)
-}
 
 func TestGetObjOffsetSize(t *testing.T) {
 	d := dmu.New(0)
@@ -66,7 +55,7 @@ func TestExtenter_DeleteObj(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vfs.GetTestFS().RemoveAll(ext.extDir)
+	defer testFS.RemoveAll(ext.extDir)
 
 	ext.Start()
 	defer ext.Close()
@@ -134,7 +123,7 @@ func TestExtenter_DeleteBatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vfs.GetTestFS().RemoveAll(ext.extDir)
+	defer testFS.RemoveAll(ext.extDir)
 
 	ext.Start()
 	defer ext.Close()
@@ -211,7 +200,7 @@ func TestExtenter_ModifyObjAddr(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vfs.GetTestFS().RemoveAll(ext.extDir)
+	defer testFS.RemoveAll(ext.extDir)
 
 	ext.Start()
 	defer ext.Close()
@@ -274,7 +263,7 @@ func TestExtenter_MeetFull(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vfs.GetTestFS().RemoveAll(ext.extDir)
+	defer testFS.RemoveAll(ext.extDir)
 
 	ext.Start()
 
@@ -313,7 +302,7 @@ func TestExtenter_traverseWritableSegNoSnap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vfs.GetTestFS().RemoveAll(ext.extDir)
+	defer testFS.RemoveAll(ext.extDir)
 
 	ext.Start()
 
@@ -387,7 +376,7 @@ func TestExtenter_traverseWritableSegPartSnap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vfs.GetTestFS().RemoveAll(ext.extDir)
+	defer testFS.RemoveAll(ext.extDir)
 
 	ext.Start()
 
@@ -468,7 +457,7 @@ func TestExtenter_traverseWritableSegIllegalHeaderPass(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vfs.GetTestFS().RemoveAll(ext.extDir)
+	defer testFS.RemoveAll(ext.extDir)
 
 	atomic.StoreInt64(&ext.isMakingDMUSnap, 1)
 
@@ -545,7 +534,7 @@ func TestExtenter_traverseWritableSegIllegalHeaderLostWrite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vfs.GetTestFS().RemoveAll(ext.extDir)
+	defer testFS.RemoveAll(ext.extDir)
 
 	atomic.StoreInt64(&ext.isMakingDMUSnap, 1)
 
@@ -596,50 +585,4 @@ func TestExtenter_traverseWritableSegIllegalHeaderLostWrite(t *testing.T) {
 	if !errors.Is(err, orpc.ErrLostWrite) {
 		t.Fatalf("should be EIO, but got: %s", err.Error())
 	}
-}
-
-func createTestExtByCreator(cfg *Config, c extent.Creator, cloneJob *metapb.CloneJob) (ext *Extenter, err error) {
-	extDir, err := ioutil.TempDir(os.TempDir(), "ext.v1.creator")
-	if err != nil {
-		return nil, err
-	}
-
-	e, err := c.Create(context.Background(), extDir, extent.CreateParams{
-		InstanceID: "1",
-		DiskID:     "1",
-		ExtID:      uid.MakeExtID(1, 1),
-		DiskMeta:   nil,
-		CloneJob:   cloneJob,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return e.(*Extenter), nil
-}
-
-func createTestExtenter(cfg *Config) (ext *Extenter, err error) {
-
-	extDir, err := ioutil.TempDir(os.TempDir(), "ext.v1.creator")
-	if err != nil {
-		return nil, err
-	}
-
-	return createTestExtenterWithDir(cfg, extDir)
-}
-
-func createTestExtenterWithDir(cfg *Config, extDir string) (ext *Extenter, err error) {
-
-	c := makeTestCreator(cfg)
-
-	e, err := c.Create(context.Background(), extDir, extent.CreateParams{
-		InstanceID: "1",
-		DiskID:     "1",
-		ExtID:      uid.MakeExtID(1, 1),
-		DiskMeta:   nil,
-		CloneJob:   nil,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return e.(*Extenter), nil
 }

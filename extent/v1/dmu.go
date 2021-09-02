@@ -260,6 +260,11 @@ func (e *Extenter) writeDMUSnap(done chan<- error, lastFn string) {
 	}
 	defer f.Close()
 
+	err = vfs.TryFAlloc(f, headerSize) // Pre-Allocate for avoiding memfs panic.
+	if err != nil {
+		return
+	}
+
 	h.f = f
 	h.fn = fn
 	h.createTS = createTS

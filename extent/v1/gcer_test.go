@@ -19,7 +19,6 @@ import (
 	"g.tesamc.com/IT/zaipkg/xbytes"
 
 	"g.tesamc.com/IT/zaipkg/uid"
-	"g.tesamc.com/IT/zaipkg/vfs"
 	"g.tesamc.com/IT/zaipkg/xdigest"
 
 	"github.com/willf/bloom"
@@ -39,7 +38,7 @@ func TestTryGC(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vfs.GetTestFS().RemoveAll(ext.extDir)
+	defer testFS.RemoveAll(ext.extDir)
 
 	ext.Start()
 	defer ext.Close()

@@ -4,16 +4,17 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
-	"io/ioutil"
+	"fmt"
 	"math/rand"
 	"os"
 	"path/filepath"
 	"sync/atomic"
 	"testing"
 
+	"g.tesamc.com/IT/zaipkg/xmath/xrand"
+
 	"g.tesamc.com/IT/zaipkg/orpc"
 
-	"g.tesamc.com/IT/zaipkg/vfs"
 	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zaipkg/xdigest"
 	"g.tesamc.com/IT/zbuf/extent"
@@ -168,7 +169,7 @@ func TestTraverseDirtyDeleteWALNoSnap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vfs.GetTestFS().RemoveAll(ext.extDir)
+	defer testFS.RemoveAll(ext.extDir)
 
 	ext.Start()
 
@@ -257,11 +258,14 @@ func TestTraverseDirtyDeleteWALNoSnap(t *testing.T) {
 // It'll take dozens us for dirtyDelete reset, seems ok.
 func BenchmarkResetDirtyDelete(b *testing.B) {
 
-	extDir, err := ioutil.TempDir(os.TempDir(), "ext.v1")
+	fs := testFS
+
+	extDir := filepath.Join(os.TempDir(), "ext.v1", fmt.Sprintf("%d", xrand.Uint32()))
+
+	err := fs.MkdirAll(extDir, 0700)
 	if err != nil {
 		b.Fatal(err)
 	}
-	fs := vfs.GetTestFS()
 	defer fs.RemoveAll(extDir)
 
 	dwf, err := fs.Create(filepath.Join(extDir, dirtyDelWalFileName))

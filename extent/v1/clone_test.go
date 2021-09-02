@@ -10,7 +10,6 @@ import (
 	"g.tesamc.com/IT/zaipkg/extutil"
 
 	"g.tesamc.com/IT/zaipkg/uid"
-	"g.tesamc.com/IT/zaipkg/vfs"
 	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zaipkg/xdigest"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
@@ -33,7 +32,7 @@ func TestExtenter_Clone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vfs.GetTestFS().RemoveAll(ext1.GetDir())
+	defer testFS.RemoveAll(ext1.GetDir())
 
 	ext1.Start()
 	defer ext1.Close()
@@ -90,7 +89,7 @@ func TestExtenter_Clone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vfs.GetTestFS().RemoveAll(ext2.GetDir())
+	defer testFS.RemoveAll(ext2.GetDir())
 
 	ext2.meta.Id = uid.MakeExtID(1, 2)
 
@@ -130,7 +129,7 @@ func TestExtenter_CloneBig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vfs.GetTestFS().RemoveAll(ext1.GetDir())
+	defer testFS.RemoveAll(ext1.GetDir())
 
 	ext1.Start()
 	defer ext1.Close()
@@ -178,7 +177,7 @@ func TestExtenter_CloneBig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vfs.GetTestFS().RemoveAll(ext2.GetDir())
+	defer testFS.RemoveAll(ext2.GetDir())
 
 	ext2.meta.Id = uid.MakeExtID(1, 2)
 

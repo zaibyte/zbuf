@@ -1,15 +1,17 @@
 package v1
 
 import (
-	"io/ioutil"
+	"fmt"
 	"os"
+	"path/filepath"
 	"sync/atomic"
 	"testing"
+
+	"g.tesamc.com/IT/zaipkg/xmath/xrand"
 
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 
 	"g.tesamc.com/IT/zaipkg/directio"
-	"g.tesamc.com/IT/zaipkg/vfs"
 	"g.tesamc.com/IT/zaipkg/xdigest"
 	"g.tesamc.com/IT/zaipkg/xio"
 	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
@@ -44,13 +46,16 @@ func TestDMUSnapEntryMakeParse(t *testing.T) {
 
 func TestWriteDMUTblSnap(t *testing.T) {
 
-	extDir, err := ioutil.TempDir(os.TempDir(), "ext.v1")
+	fs := testFS
+
+	extDir := filepath.Join(os.TempDir(), "ext.v1", fmt.Sprintf("%d", xrand.Uint32()))
+
+	err := fs.MkdirAll(extDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vfs.GetTestFS().RemoveAll(extDir)
+	defer fs.RemoveAll(extDir)
 
-	fs := vfs.GetFS()
 	createTS := tsc.UnixNano()
 	f, err := fs.Create(makeDMUSnapFp(extDir, createTS))
 	if err != nil {
@@ -84,7 +89,7 @@ func TestExtenter_DMUWriteLoad(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vfs.GetTestFS().RemoveAll(e.extDir)
+	defer testFS.RemoveAll(e.extDir)
 
 	ens := dmu.GenEntriesFast(dmu.MinCap + 1024) // Ensure we will have two tables.
 	for _, en := range ens {
@@ -122,7 +127,7 @@ func TestExtenter_DMUWriteLoad(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vfs.GetTestFS().RemoveAll(e2.extDir)
+	defer testFS.RemoveAll(e2.extDir)
 
 	err = e2.fs.Remove(e2.getLastDMUSnap().fn)
 	if err != nil {
