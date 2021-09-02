@@ -175,13 +175,14 @@ func (s *Server) updateAllExt(exts []*metapb.Extent) {
 					xlog.Warnf("cannot find creator for version %d", g.Version)
 					continue
 				}
-				e, err := c.Create(s.ctx, extDir, extent.CreateParams{
+
+				e, err := extent.CreateAll(s.ctx, c, extent.CreateParams{
 					InstanceID: s.instanceID,
 					DiskID:     meta.DiskId,
 					ExtID:      meta.Id,
 					DiskMeta:   s.zBufDisks.GetDiskMeta(meta.DiskId),
 					CloneJob:   meta.CloneJob,
-				})
+				}, s.fs, s.cfg.DataRoot)
 				if err != nil {
 					xlog.Error(fmt.Sprintf("failed to create ext: %d: %s", meta.Id, err.Error()))
 					s.handleDiskErr(err, meta.DiskId)
