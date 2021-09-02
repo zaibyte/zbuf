@@ -43,7 +43,6 @@ import (
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/templexxx/tsc"
 )
 
 type Extenter struct {
@@ -141,9 +140,6 @@ func (e *Extenter) GetMeta() *metapb.Extent {
 	e.rwMutex.RLock()
 	ext := proto.Clone(e.meta).(*metapb.Extent)
 	e.rwMutex.RUnlock()
-	// Set lastUpdate when get, we don't need accurate lastUpdate.
-	// It would be annoyed if we modify it in every changes.
-	ext.LastUpdate = tsc.UnixNano()
 	return ext
 }
 

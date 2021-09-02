@@ -8,7 +8,6 @@ import (
 	"g.tesamc.com/IT/zaipkg/xio"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
 	"github.com/gogo/protobuf/proto"
-	"github.com/templexxx/tsc"
 )
 
 // BrokenExtenter is an nop Extenter created
@@ -37,7 +36,6 @@ func (e *BrokenExtenter) GetMeta() *metapb.Extent {
 	e.rwMutex.RLock()
 	defer e.rwMutex.RUnlock()
 	ret := proto.Clone(e.meta).(*metapb.Extent)
-	ret.LastUpdate = tsc.UnixNano()
 	return ret
 }
 func (e *BrokenExtenter) UpdateMeta(m *metapb.Extent) {
