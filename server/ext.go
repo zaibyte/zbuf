@@ -152,7 +152,7 @@ func (s *Server) getExtState(extID uint32) (metapb.ExtentState, bool) {
 	return (*extutil.SyncExt)(m).GetState(), true
 }
 
-// updateAllExts udpates all extents by heartbeat response.
+// updateAllExts updates all extents by heartbeat response.
 func (s *Server) updateAllExt(exts []*metapb.Extent) {
 
 	for _, meta := range exts {
