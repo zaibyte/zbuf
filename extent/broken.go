@@ -10,8 +10,8 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
-// BrokenExtenter is an nop Extenter created
-// when zBuf could not found extent which is in the heartbeat response.
+// BrokenExtenter is a nop Extenter created
+// when zBuf could not find extent which is in the heartbeat response.
 type BrokenExtenter struct {
 	rwMutex *sync.RWMutex
 	meta    *metapb.Extent
