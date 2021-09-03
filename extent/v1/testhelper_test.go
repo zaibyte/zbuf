@@ -30,7 +30,7 @@ var (
 func createTestExtByCreator(cfg *Config, c extent.Creator, cloneJob *metapb.CloneJob) (ext *Extenter, err error) {
 	fs := testFS
 
-	extDir := filepath.Join(os.TempDir(), "ext.v1.creator", fmt.Sprintf("%d", xrand.Uint32()))
+	extDir := filepath.Join(os.TempDir(), "ext.v1", fmt.Sprintf("%d", xrand.Uint32()))
 
 	err = fs.MkdirAll(extDir, 0700)
 	if err != nil {
@@ -63,7 +63,7 @@ func createTestExtenter(cfg *Config) (ext *Extenter, err error) {
 
 	fs := testFS
 
-	extDir := filepath.Join(os.TempDir(), "ext.v1.creator", fmt.Sprintf("%d", xrand.Uint32()))
+	extDir := filepath.Join(os.TempDir(), "ext.v1", fmt.Sprintf("%d", xrand.Uint32()))
 
 	err = fs.MkdirAll(extDir, 0700)
 	if err != nil {
@@ -107,4 +107,9 @@ type testCreatorSched struct {
 
 func (s *testCreatorSched) GetSched(diskID string) (xio.Scheduler, bool) {
 	return s.sched, true
+}
+
+func cleanTestExt(ext *Extenter) {
+	ext.Close()
+	_ = testFS.RemoveAll(filepath.Join(os.TempDir(), "ext.v1"))
 }
