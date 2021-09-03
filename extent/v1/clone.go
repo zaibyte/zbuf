@@ -32,12 +32,14 @@ func (e *Extenter) InitCloneSource() {
 	}
 
 	d := e.dmu
-	_, usage := d.GetUsage()
+	// Capacity won't grow up, because extent has been sealed.
+	// We can't use usage here, because DMU may in expand process.
+	capacity, _ := d.GetUsage()
 
 	var oidsoid, total uint64
 	var err error
-	oids := make([]byte, xmath.AlignSize(int64(usage*8), uid.GrainSize)) // After sealed, the future usage only would get smaller (there may be deletion).
-	if len(oids) == 0 {                                                  // No object has been written to this extent.
+	oids := make([]byte, xmath.AlignSize(int64(capacity*8), uid.GrainSize))
+	if len(oids) == 0 { // No object has been written to this extent.
 		oidsoid = uid.MakeOID(e.boxID, 1, 0, 0, uid.NopObj)
 		total = 0
 	} else {
@@ -45,7 +47,7 @@ func (e *Extenter) InitCloneSource() {
 		t1 := dmu.GetTbl(d, 1)
 		cnt := e.getOIDsFromDMUTbl(t0, oids, 0)
 		cnt = e.getOIDsFromDMUTbl(t1, oids, cnt)                   // It's in sealed, don't worry tables changes.
-		oids = oids[:xmath.AlignSize(int64(cnt*8), uid.GrainSize)] // cnt must be <= usage, because no new objects allowed adding.
+		oids = oids[:xmath.AlignSize(int64(cnt*8), uid.GrainSize)] // cnt must be <= capacity, because no new objects allowed adding.
 
 		oidsoid, err = e.uploadOIDs(oids)
 		if err != nil {

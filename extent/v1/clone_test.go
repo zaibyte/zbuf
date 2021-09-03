@@ -6,6 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"g.tesamc.com/IT/zaipkg/xmath"
+	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
+
 	zai "g.tesamc.com/IT/zai/client"
 	"g.tesamc.com/IT/zaipkg/config/settings"
 	"g.tesamc.com/IT/zaipkg/extutil"
@@ -53,6 +56,59 @@ func TestCalcOidsOidPiece(t *testing.T) {
 	for _, c := range testCases {
 		assert.Equal(t, c.expect, calcOidsOidPiece(c.n), fmt.Sprintf("len: %d", c.n))
 	}
+}
+
+func TestGetOIDsFromDMUTblOneTbls(t *testing.T) {
+
+	ext, err := createTestExtenterMin()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ens := dmu.GenEntriesFast(1) // Must need two tables.
+	for _, en := range ens {
+		err = ext.dmu.Insert(en.Digest, en.Otype, en.Grains, en.Addr)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	capacity, _ := ext.dmu.GetUsage()
+
+	oids := make([]byte, xmath.AlignSize(int64(capacity*8), uid.GrainSize))
+	t0 := dmu.GetTbl(ext.dmu, 0)
+	t1 := dmu.GetTbl(ext.dmu, 1)
+	cnt := ext.getOIDsFromDMUTbl(t0, oids, 0)
+	cnt = ext.getOIDsFromDMUTbl(t1, oids, cnt)
+
+	assert.Equal(t, 1, cnt)
+}
+
+func TestGetOIDsFromDMUTblTwoTbls(t *testing.T) {
+
+	ext, err := createTestExtenterMin()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ens := dmu.GenEntriesFast(dmu.MinCap + 1024) // Must need two tables.
+	for _, en := range ens {
+		err = ext.dmu.Insert(en.Digest, en.Otype, en.Grains, en.Addr)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	capacity, _ := ext.dmu.GetUsage()
+
+	oids := make([]byte, xmath.AlignSize(int64(capacity*8), uid.GrainSize))
+	t0 := dmu.GetTbl(ext.dmu, 0)
+	t1 := dmu.GetTbl(ext.dmu, 1)
+	cnt := ext.getOIDsFromDMUTbl(t0, oids, 0)
+	cnt = ext.getOIDsFromDMUTbl(t1, oids, cnt)
+
+	assert.True(t, cnt >= dmu.MinCap+1024)
+	assert.True(t, dmu.MinCap+1024 <= capacity)
 }
 
 // It's basic clone testing:
