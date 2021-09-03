@@ -6,6 +6,8 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"g.tesamc.com/IT/zaipkg/xtest"
+
 	"g.tesamc.com/IT/zaipkg/orpc"
 	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
 
@@ -72,7 +74,45 @@ func TestDMU_Search(t *testing.T) {
 			actEn := dmu.Search(en.Digest)
 			checkSearchResult(t, actEn, ens[i])
 		}
+		dmu.Close()
+	}
+}
 
+// Ensure any entry could be found with capacity range [MinCap, MaxCap].
+func TestDMU_SearchFullRange(t *testing.T) {
+
+	if !xtest.IsPropEnabled() {
+		t.Skip("this testing have been run & cost too much time, skip it unless codes being changed")
+	}
+
+	start := MinCap
+
+	ens := GenEntriesFast(MaxCap)
+
+	for n := start; n <= MaxCap; n *= 2 {
+
+		dmu := New(n)
+
+		dmu.scale() // No expand for this test.
+
+		var cnt int64
+		for _, en := range ens {
+			err := dmu.Insert(en.Digest, en.Otype, en.Grains, en.Addr)
+			if err != nil {
+				break
+			}
+			cnt++
+			sen := dmu.Search(en.Digest)
+			checkSearchResultFast(t, sen, en)
+		}
+
+		for i, en := range ens {
+			if int64(i) >= cnt {
+				break
+			}
+			actEn := dmu.Search(en.Digest)
+			checkSearchResultFast(t, actEn, ens[i])
+		}
 		dmu.Close()
 	}
 }
@@ -82,6 +122,20 @@ func checkSearchResult(t *testing.T, actEn uint64, expEn EntryField) {
 	assert.Equal(t, expEn.Otype, otype)
 	assert.Equal(t, expEn.Grains, grains)
 	assert.Equal(t, expEn.Addr, addr)
+}
+
+// assert.Equal is too slow, using normal comparing.
+func checkSearchResultFast(t *testing.T, actEn uint64, expEn EntryField) {
+	_, _, otype, grains, addr := ParseEntry(actEn)
+	if expEn.Otype != otype {
+		t.Fatal("otype mismatched")
+	}
+	if expEn.Grains != grains {
+		t.Fatal("grains mismatched")
+	}
+	if expEn.Addr != addr {
+		t.Fatal("address mismatched")
+	}
 }
 
 func TestDMU_Remove(t *testing.T) {
