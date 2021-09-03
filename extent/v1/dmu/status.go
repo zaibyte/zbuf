@@ -1,6 +1,8 @@
 package dmu
 
-import "sync/atomic"
+import (
+	"sync/atomic"
+)
 
 // status struct(uint64):
 // 64                                                                                  58
@@ -26,6 +28,9 @@ func (u *DMU) close() {
 	sa := atomic.LoadUint64(&u.status)
 	sa = clrBit(sa, 63)
 	atomic.StoreUint64(&u.status, sa)
+
+	atomic.StorePointer(&u.cycle[0], nil)
+	atomic.StorePointer(&u.cycle[0], nil)
 }
 
 // create status when New a DMU.
