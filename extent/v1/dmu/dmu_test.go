@@ -15,6 +15,8 @@ import (
 func TestDMU_InsertTwice(t *testing.T) {
 
 	dmu := New(0)
+	defer dmu.Close()
+
 	err := dmu.Insert(2208466672, 1, 1, 1)
 	if err != nil {
 		t.Fatal(err)
@@ -27,6 +29,8 @@ func TestDMU_InsertTwice(t *testing.T) {
 func TestDMU_SearchZero(t *testing.T) {
 
 	dmu := New(0)
+	defer dmu.Close()
+
 	if dmu.Search(0) != 0 {
 		t.Fatal("should not find 0")
 	}
@@ -68,6 +72,8 @@ func TestDMU_Search(t *testing.T) {
 			actEn := dmu.Search(en.Digest)
 			checkSearchResult(t, actEn, ens[i])
 		}
+
+		dmu.Close()
 	}
 }
 
@@ -103,6 +109,7 @@ func TestDMU_Remove(t *testing.T) {
 		if usage != 0 {
 			t.Fatal("usage size mismatched")
 		}
+		dmu.Close()
 	}
 }
 
@@ -139,6 +146,8 @@ func TestDMU_Update(t *testing.T) {
 			en.Addr += 1
 			checkSearchResult(t, actEn, en)
 		}
+
+		dmu.Close()
 	}
 }
 
@@ -147,6 +156,8 @@ func TestDMU_Concurrent(t *testing.T) {
 
 	n := MinCap
 	dmu := New(n)
+	defer dmu.Close()
+
 	ens := GenEntriesFast(n * 2)
 	for i := range ens[:n] {
 		err := dmu.Insert(ens[i].Digest, ens[i].Otype, ens[i].Grains, ens[i].Addr)
@@ -210,6 +221,8 @@ func TestDMU_Concurrent(t *testing.T) {
 func TestDMU_InsertSameDigest(t *testing.T) {
 	n := MinCap
 	dmu := New(n)
+	defer dmu.Close()
+
 	ens := GenEntriesFast(1)
 	err := dmu.Insert(ens[0].Digest, ens[0].Otype, ens[0].Grains, ens[0].Addr)
 	if err != nil {
@@ -223,6 +236,8 @@ func TestDMU_InsertSameDigest(t *testing.T) {
 func TestDMU_Expand(t *testing.T) {
 	n := MinCap
 	dmu := New(n)
+	defer dmu.Close()
+
 	ens := GenEntriesFast(n)
 
 	dmu.scale()
@@ -282,6 +297,8 @@ type bench struct {
 
 func benchDMU(b *testing.B, bench bench) {
 	d := New(MinCap)
+	defer d.Close()
+
 	b.Run("", func(b *testing.B) {
 		if bench.setup != nil {
 			bench.setup(b, d)
