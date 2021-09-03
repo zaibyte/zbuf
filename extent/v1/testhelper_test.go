@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
+
 	zai "g.tesamc.com/IT/zai/client"
 	"g.tesamc.com/IT/zaipkg/uid"
 	"g.tesamc.com/IT/zaipkg/vfs"
@@ -46,6 +48,15 @@ func createTestExtByCreator(cfg *Config, c extent.Creator, cloneJob *metapb.Clon
 		return nil, err
 	}
 	return e.(*Extenter), nil
+}
+
+// createTestExtenter creates extent with min size.
+func createTestExtenterMin() (ext *Extenter, err error) {
+
+	cfg := GetDefaultConfig()
+	cfg.SegmentSize = dmu.AlignSize
+
+	return createTestExtenter(cfg)
 }
 
 func createTestExtenter(cfg *Config) (ext *Extenter, err error) {
