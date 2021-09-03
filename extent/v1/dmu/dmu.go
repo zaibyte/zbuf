@@ -388,11 +388,12 @@ func (u *DMU) expand(ri int) {
 
 			for {
 
+				u.Lock()
 				if !u.IsRunning() {
+					u.Unlock()
 					return
 				}
 
-				u.Lock()
 				err := u.tryInsert(digest, otype, grains, addr)
 				if err == nil {
 					u.Unlock()
