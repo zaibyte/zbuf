@@ -21,7 +21,6 @@ func TestDMU_InsertTwice(t *testing.T) {
 	}
 	err = dmu.Insert(2208466672, 1, 1, 1)
 	assert.EqualError(t, orpc.ErrObjDigestExisted, err.Error())
-
 	assert.NotEqual(t, 0, dmu.Search(2208466672))
 }
 

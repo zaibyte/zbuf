@@ -115,6 +115,7 @@ func calcOidsOidPiece(oidsN int) int {
 }
 
 // uploadOIDs uploading extent's oids list (in bytes) to Zai.
+// Only non-empty oids will be uploaded.
 func (e *Extenter) uploadOIDs(oids []byte) (oidsOID uint64, err error) {
 
 	syncMeta := (*extutil.SyncExt)(e.meta) // Using SyncExt for read/write concurrently easier.

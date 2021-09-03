@@ -23,7 +23,7 @@ func calcMask(tableCap uint32) uint32 {
 
 // CalcSlotCnt calculates the actual capacity of a table.
 // This capacity will add a bit extra slots for improving load factor hugely in some cases:
-// If there two keys being hashed to the highest position, the DMU will have to be expanded
+// If there are two keys being hashed to the highest position, the DMU will have to be expanded
 // if there is no extra space.
 func CalcSlotCnt(c int) int {
 	if c <= Neighbour {
