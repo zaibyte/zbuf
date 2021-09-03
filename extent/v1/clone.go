@@ -27,7 +27,7 @@ import (
 // It won't finish until extent is unhealthy or uploading oid successfully.
 func (e *Extenter) InitCloneSource() {
 
-	if !e.precheckInitCloneSrc() {
+	if !e.checkInitCloneSrc() {
 		return
 	}
 
@@ -57,8 +57,8 @@ func (e *Extenter) InitCloneSource() {
 	e.initCloneSrcDone(oidsoid, total)
 }
 
-// precheckInitCloneSrc checks extent's meta could do init clone job source or not.
-func (e *Extenter) precheckInitCloneSrc() bool {
+// checkInitCloneSrc checks extent's meta could do init clone job source or not.
+func (e *Extenter) checkInitCloneSrc() bool {
 
 	e.rwMutex.RLock()
 	defer e.rwMutex.RUnlock()
