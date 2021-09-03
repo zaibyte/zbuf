@@ -105,15 +105,21 @@ func (e *Extenter) initCloneSrcDone(oidsoid uint64, total uint64) {
 	e.rwMutex.Unlock()
 }
 
+// calcOidsOidPiece calculates how many pieces(objects) does oids need to complete uploading.
+func calcOidsOidPiece(oidsN int) int {
+	pieceCnt := oidsN / settings.MaxObjectSize
+	if oidsN-pieceCnt*settings.MaxObjectSize > 0 {
+		pieceCnt += 1
+	}
+	return pieceCnt
+}
+
 // uploadOIDs uploading extent's oids list (in bytes) to Zai.
 func (e *Extenter) uploadOIDs(oids []byte) (oidsOID uint64, err error) {
 
 	syncMeta := (*extutil.SyncExt)(e.meta) // Using SyncExt for read/write concurrently easier.
 
-	pieceCnt := len(oids) / settings.MaxObjectSize
-	if len(oids)-pieceCnt*settings.MaxObjectSize > 0 {
-		pieceCnt += 1
-	}
+	pieceCnt := calcOidsOidPiece(len(oids))
 
 	oks := make([]uint64, pieceCnt) // Any piece of oids uploaded will put its oid into here.
 	retry := &orpc.Retryer{

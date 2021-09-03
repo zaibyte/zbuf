@@ -1,20 +1,59 @@
 package v1
 
 import (
+	"fmt"
 	"math/rand"
 	"testing"
 	"time"
 
 	zai "g.tesamc.com/IT/zai/client"
-
+	"g.tesamc.com/IT/zaipkg/config/settings"
 	"g.tesamc.com/IT/zaipkg/extutil"
-
 	"g.tesamc.com/IT/zaipkg/uid"
 	"g.tesamc.com/IT/zaipkg/xbytes"
 	"g.tesamc.com/IT/zaipkg/xdigest"
 	"g.tesamc.com/IT/zproto/pkg/metapb"
+
+	"github.com/stretchr/testify/assert"
 	"github.com/templexxx/tsc"
 )
+
+func TestCalcOidsOidPiece(t *testing.T) {
+
+	testCases := []struct {
+		n      int
+		expect int
+	}{
+		{
+			0,
+			0,
+		},
+		{
+			1,
+			1,
+		},
+		{
+			settings.MaxObjectSize,
+			1,
+		},
+		{
+			settings.MaxObjectSize + 1,
+			2,
+		},
+		{
+			settings.MaxObjectSize * 2,
+			2,
+		},
+		{
+			settings.MaxObjectSize*2 + 1,
+			3,
+		},
+	}
+
+	for _, c := range testCases {
+		assert.Equal(t, c.expect, calcOidsOidPiece(c.n), fmt.Sprintf("len: %d", c.n))
+	}
+}
 
 // It's basic clone testing:
 // Create two extenter, one is clone src, one is clone dst.
