@@ -2,12 +2,12 @@ package dmu
 
 import (
 	"encoding/binary"
-	"math"
 	"math/bits"
 	"math/rand"
 	"sync/atomic"
 
-	"g.tesamc.com/IT/zaipkg/config/settings"
+	"g.tesamc.com/IT/zaipkg/xmath/xrand"
+
 	"g.tesamc.com/IT/zaipkg/uid"
 	"g.tesamc.com/IT/zaipkg/xdigest"
 	"github.com/templexxx/tsc"
@@ -82,41 +82,21 @@ func GenEntriesFast(cnt int) []EntryField {
 	return generatesEntries(cnt, true)
 }
 
-// GenEntriesSlow generates entries using rand bytes(with n length).
-func GenEntriesSlow(cnt int) []EntryField {
-
-	return generatesEntries(cnt, false)
-}
-
-func generatesEntries(cnt int, fast bool) []EntryField {
+func generatesEntries(cnt int, _fast bool) []EntryField {
 	rand.Seed(tsc.UnixNano())
 
 	ens := make([]EntryField, cnt)
 
 	digests := make(map[uint32]struct{})
 
-	seedBuf := make([]byte, settings.MaxObjectSize) // Max length.
-	rand.Seed(tsc.UnixNano())
-	rand.Read(seedBuf)
+	var j uint64 = 0
+	buf := make([]byte, 8)
 	for i := range ens {
 		for {
 
-			salt := rand.Intn(math.MaxInt64)
-
-			binary.LittleEndian.PutUint64(seedBuf[:8], uint64(salt))
-
-			var digest uint32
-			if !fast {
-				size := rand.Intn(settings.MaxObjectSize + 1)
-				if size < 8 {
-					size = 8
-				}
-
-				digest = xdigest.Sum32(seedBuf[:size])
-			} else {
-
-				digest = xdigest.Sum32(seedBuf[:8])
-			}
+			j++
+			binary.LittleEndian.PutUint64(buf, j)
+			digest := xdigest.Sum32(buf)
 
 			if _, ok := digests[digest]; ok {
 				continue
@@ -126,17 +106,17 @@ func generatesEntries(cnt int, fast bool) []EntryField {
 			break
 		}
 
-		otype := uint32(rand.Intn(uid.MaxOType + 1))
+		otype := xrand.Uint32n(uid.MaxOType + 1)
 		if otype == 0 {
 			otype = 1
 		}
 		ens[i].Otype = otype
-		grains := uint32(rand.Intn(maxGrains)) // Force updates testing will add grains by 1, for avoiding overflow, using maxGrains.
+		grains := xrand.Uint32n(maxGrains) // Force updates testing will add grains by 1, for avoiding overflow, using maxGrains.
 		if grains == 0 {
 			grains = 1
 		}
 		ens[i].Grains = grains
-		ens[i].Addr = uint32(rand.Intn(MaxAddr + 1))
+		ens[i].Addr = xrand.Uint32n(MaxAddr + 1)
 	}
 	return ens
 }
