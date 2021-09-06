@@ -129,6 +129,7 @@ func adjustCap(cap int) int {
 	}
 
 	cap = CalcSlotCnt(cap)
+
 	return cap
 }
 
@@ -223,7 +224,6 @@ func (u *DMU) Search(digest uint32) (entry uint64) {
 			}
 			tag, neighOff, _, _, _ := ParseEntry(e)
 			edigest := BackToDigest(tag, uint32(slotCnt), uint32(slot+i), neighOff)
-
 			if digest == edigest {
 				return e
 			}

@@ -87,7 +87,7 @@ func TestDMU_SearchFullRange(t *testing.T) {
 
 	start := MinCap
 
-	ens := GenEntriesFast(MaxCap)
+	ens := GenEntriesFast(MaxCap + Neighbour)
 
 	for n := start; n <= MaxCap; n *= 2 {
 
