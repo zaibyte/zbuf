@@ -292,7 +292,7 @@ func TestDMU_Expand(t *testing.T) {
 	dmu := New(n)
 	defer dmu.Close()
 
-	ens := GenEntriesFast(n)
+	ens := generatesEntries(n+Neighbour, true)
 
 	dmu.scale()
 

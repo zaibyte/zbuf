@@ -65,7 +65,7 @@ func TestDMUExpandSpeed(t *testing.T) {
 // capacity grow 2x could make the expanding work as expecting or not.
 //
 // Reference:
-// before expand: cap: 65536, first_mit_full: 63149; after expand: cap: 131072, first_mit_full: 126934
+// before expand: cap: 65599, first_mit_full: 61788; after expand: cap: 131135, first_mit_full: 124752
 func TestDMUExpandLoad(t *testing.T) {
 	if !xtest.IsPropEnabled() {
 		t.Skip("skip testing, because it only needs to be run once")
@@ -75,7 +75,7 @@ func TestDMUExpandLoad(t *testing.T) {
 	dmu := New(cnt)
 	dmu.scale()
 
-	ens := GenEntriesFast(cnt * 2)
+	ens := generatesEntries(cnt*2+Neighbour, false) // Fast way's result is too good.
 
 	mitFull := 0
 	for i, en := range ens {
@@ -99,12 +99,12 @@ func TestDMUExpandLoad(t *testing.T) {
 	}
 
 	fmt.Printf("before expand: cap: %d, first_mit_full: %d; "+
-		"after expand: cap: %d, first_mit_full: %d\n", cnt, mitFull, cnt*2, mitFull2)
+		"after expand: cap: %d, first_mit_full: %d\n", adjustCap(cnt), mitFull, adjustCap(cnt*2), mitFull2)
 
 }
 
 // Reference:
-// load_factor: avg: 0.92, min: 0.89(n: 33554432), max: 0.96(n: 65536)
+// load_factor: avg: 0.92, min: 0.88(n: 131135), max: 0.94(n: 262207)
 func TestMitFull(t *testing.T) {
 
 	if !xtest.IsPropEnabled() {
@@ -116,19 +116,19 @@ func TestMitFull(t *testing.T) {
 
 	rets := make(map[int]int)
 
-	ens := GenEntriesFast(end)
+	ens := generatesEntries(end+Neighbour, false)
 
 	for n := start; n <= end; n *= 2 {
-		tens := ens[:n]
-		okCnt := testMitFull(tens)
-		rets[n] = okCnt
+		tens := ens[:n+Neighbour]
+		okCnt := testMitFull(tens, n)
+		rets[adjustCap(n)] = okCnt
 	}
 
 	printMitFullRets(rets)
 }
 
-func testMitFull(ens []EntryField) int {
-	dmu := New(len(ens))
+func testMitFull(ens []EntryField, cap int) int {
+	dmu := New(cap)
 
 	dmu.scale()
 	for i, en := range ens {

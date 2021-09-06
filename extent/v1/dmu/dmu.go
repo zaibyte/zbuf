@@ -109,6 +109,16 @@ type DMU struct {
 // If cap is zero, using MinCap.
 func New(cap int) *DMU {
 
+	cap = adjustCap(cap)
+	tbl0 := make([]uint64, cap, cap) // Create one table at the beginning.
+
+	return &DMU{
+		status: createStatus(),
+		cycle:  [2]unsafe.Pointer{unsafe.Pointer(&tbl0)},
+	}
+}
+
+func adjustCap(cap int) int {
 	cap = int(nextPower2(uint64(cap)))
 
 	if cap < MinCap {
@@ -119,12 +129,7 @@ func New(cap int) *DMU {
 	}
 
 	cap = CalcSlotCnt(cap)
-	tbl0 := make([]uint64, cap, cap) // Create one table at the beginning.
-
-	return &DMU{
-		status: createStatus(),
-		cycle:  [2]unsafe.Pointer{unsafe.Pointer(&tbl0)},
-	}
+	return cap
 }
 
 // Close closes DMU and release the resource.

@@ -82,7 +82,7 @@ func GenEntriesFast(cnt int) []EntryField {
 	return generatesEntries(cnt, true)
 }
 
-func generatesEntries(cnt int, _fast bool) []EntryField {
+func generatesEntries(cnt int, fast bool) []EntryField {
 	rand.Seed(tsc.UnixNano())
 
 	ens := make([]EntryField, cnt)
@@ -94,9 +94,16 @@ func generatesEntries(cnt int, _fast bool) []EntryField {
 	for i := range ens {
 		for {
 
-			j++
-			binary.LittleEndian.PutUint64(buf, j)
-			digest := xdigest.Sum32(buf)
+			var digest uint32
+			if fast {
+				j++
+				binary.LittleEndian.PutUint64(buf, j)
+				digest = xdigest.Sum32(buf)
+			} else {
+				salt := rand.Uint64()
+				binary.LittleEndian.PutUint64(buf, salt)
+				digest = xdigest.Sum32(buf)
+			}
 
 			if _, ok := digests[digest]; ok {
 				continue
