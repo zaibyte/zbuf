@@ -11,7 +11,7 @@ import "math/bits"
 //
 // grains: 11bits, for Zai, maximum object is 4MB, 4KB/grain.
 //
-// otype: 2bit, object type. Because 0 is reserved for otype, so entry could not be 0.
+// otype: 2bit, object type.
 //
 // neigh_off: 6bits, neighborhood offset, helping to reconstruct digest back with tag and slot.
 //

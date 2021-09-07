@@ -41,7 +41,7 @@
 // 820KB (for all objects are 4MB) -
 // 205MB (for all objects is <= 16KB)
 //
-// In practice, most of objects in Tesamc are large, we could make a DMU with 2^16 capacity at the beginning,
+// In practice, most of the objects in Tesamc are large, we could make a DMU with 2^16 capacity at the beginning,
 // and because of the GC overhead, there will be 20% of slots in DMU are empty, which means 2^16 (512KB) is just
 // the DMU's memory usage. For a server with 4*8TB disks, 64MB is the total usage.
 
@@ -71,7 +71,7 @@ const Neighbour = 64
 const (
 	// MinCap is the start capacity, saving memory.
 	// The minimum capacity, DMU must have MinCap slots, otherwise the tag in entry will not have
-	// the ability to reconstruct the digest back.
+	// the ability to reconstruct the digest back. (We only keep 16bits of a 32bits digest for each entry)
 	//
 	// MinCap = max_extent_size / max_object_size
 	MinCap = 1 << 16

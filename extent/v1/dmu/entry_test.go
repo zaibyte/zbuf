@@ -38,6 +38,9 @@ func TestEntryMakeParse(t *testing.T) {
 		neighOff := uint32(rand.Intn(maxNeighOff + 1))
 		otype := uint32(rand.Intn(maxOtype + 1))
 		grains := uint32(rand.Intn(maxGrains + 1))
+		if grains == 0 {
+			grains = 1
+		}
 		addr := uint32(rand.Intn(MaxAddr + 1))
 
 		entry := MakeEntry(digest, neighOff, otype, grains, addr)
