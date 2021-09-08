@@ -6,6 +6,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	v2 "g.tesamc.com/IT/zbuf/extent/v2"
+
 	zai "g.tesamc.com/IT/zai/client"
 	"g.tesamc.com/IT/zaipkg/config/settings"
 	"g.tesamc.com/IT/zaipkg/orpc/otcp"
@@ -100,6 +102,7 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 
 	s.creators = map[uint16]extent.Creator{
 		extent.Version1: v1.NewCreator(&s.cfg.ExtV1Config, s.zBufDisks, s.fs, s.zc, s.cfg.App.BoxID),
+		extent.Version2: &v2.Creator{v1.NewCreator(&s.cfg.ExtV2Config, s.zBufDisks, s.fs, s.zc, s.cfg.App.BoxID)},
 	}
 
 	return s, nil

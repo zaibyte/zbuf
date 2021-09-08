@@ -49,6 +49,7 @@ type Cloner interface {
 
 const (
 	Version1 = settings.ExtV1
+	Version2 = settings.ExtV2
 )
 
 // GCer are methods collector of GC.

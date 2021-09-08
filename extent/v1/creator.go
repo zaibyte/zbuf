@@ -26,11 +26,11 @@ import (
 
 // Creator is ext.v1's Creator.
 type Creator struct {
-	cfg    *Config
-	scheds CreatorScheduler
-	fs     vfs.FS
-	zc     zai.ObjClient
-	boxID  uint32
+	Cfg     *Config
+	Scheds  CreatorScheduler
+	Fs      vfs.FS
+	ZClient zai.ObjClient
+	BoxID   uint32
 }
 
 type CreatorScheduler interface {
@@ -44,11 +44,11 @@ func NewCreator(cfg *Config, scheds CreatorScheduler, fs vfs.FS, zc zai.ObjClien
 	cfg.Adjust()
 
 	return &Creator{
-		cfg:    cfg,
-		scheds: scheds,
-		fs:     fs,
-		zc:     zc,
-		boxID:  boxID,
+		Cfg:     cfg,
+		Scheds:  scheds,
+		Fs:      fs,
+		ZClient: zc,
+		BoxID:   boxID,
 	}
 }
 
@@ -57,11 +57,11 @@ func NewCreator(cfg *Config, scheds CreatorScheduler, fs vfs.FS, zc zai.ObjClien
 // 2 for keeping space enough, actually it won't use that much, so it includes extra space taken by file system or others.
 func (c *Creator) GetSize() uint64 {
 
-	seg := uint64(c.cfg.SegmentSize * segmentCnt)
+	seg := uint64(c.Cfg.SegmentSize * segmentCnt)
 	header := uint64(headerSize)
 	boot := uint64(extent.BootSectorSize)
 	return seg + header + boot +
-		uint64(getMaxDMUSnapSize(uint64(c.cfg.SegmentSize), c.cfg.ReservedSeg))*2 + dirtyDeleteWALSize
+		uint64(getMaxDMUSnapSize(uint64(c.Cfg.SegmentSize), c.Cfg.ReservedSeg))*2 + dirtyDeleteWALSize
 }
 
 const (
@@ -77,7 +77,7 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 	if err != nil {
 		return extent.NewBrokenExtenter(&metapb.Extent{
 			Id:         params.ExtID,
-			Size_:      uint64(c.cfg.SegmentSize) * uint64(segmentCnt),
+			Size_:      uint64(c.Cfg.SegmentSize) * uint64(segmentCnt),
 			State:      metapb.ExtentState_Extent_Broken,
 			DiskId:     params.DiskID,
 			InstanceId: params.InstanceID,
@@ -88,7 +88,7 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 }
 
 func (c *Creator) create(ctx context.Context, extDir string, params extent.CreateParams) (extent.Extenter, error) {
-	sched, started := c.scheds.GetSched(params.DiskID)
+	sched, started := c.Scheds.GetSched(params.DiskID)
 	if sched == nil {
 		return nil, xerrors.WithMessage(orpc.ErrNotFound, fmt.Sprintf("failed to find disk: %s scheduler", params.DiskID))
 	}
@@ -106,7 +106,7 @@ func (c *Creator) create(ctx context.Context, extDir string, params extent.Creat
 		}
 	}
 
-	fs := c.fs
+	fs := c.Fs
 
 	state := metapb.ExtentState_Extent_ReadWrite
 	if params.CloneJob != nil {
@@ -118,8 +118,8 @@ func (c *Creator) create(ctx context.Context, extDir string, params extent.Creat
 	meta := &metapb.Extent{
 		Id:         params.ExtID,
 		State:      state,
-		Size_:      uint64(c.cfg.SegmentSize) * uint64(segmentCnt),
-		Avail:      (segmentCnt - uint64(c.cfg.ReservedSeg)) * uint64(c.cfg.SegmentSize),
+		Size_:      uint64(c.Cfg.SegmentSize) * uint64(segmentCnt),
+		Avail:      (segmentCnt - uint64(c.Cfg.ReservedSeg)) * uint64(c.Cfg.SegmentSize),
 		DiskId:     params.DiskID,
 		InstanceId: params.InstanceID,
 		LastUpdate: tsc.UnixNano(),
@@ -138,7 +138,7 @@ func (c *Creator) create(ctx context.Context, extDir string, params extent.Creat
 		h.Close()
 		return nil, err
 	}
-	err = vfs.TryFAlloc(segFile, int64(c.cfg.SegmentSize*segmentCnt))
+	err = vfs.TryFAlloc(segFile, int64(c.Cfg.SegmentSize*segmentCnt))
 	if err != nil {
 		_ = segFile.Close()
 		return nil, xerrors.WithMessage(err, "failed to alloc segments file")
@@ -166,8 +166,8 @@ func (c *Creator) create(ctx context.Context, extDir string, params extent.Creat
 	ctx2, cancel := context.WithCancel(ctx)
 
 	ext := &Extenter{
-		boxID:    c.boxID,
-		cfg:      c.cfg,
+		boxID:    c.BoxID,
+		cfg:      c.Cfg,
 		rwMutex:  new(sync.RWMutex),
 		fs:       fs,
 		extDir:   extDir,
@@ -186,12 +186,12 @@ func (c *Creator) create(ctx context.Context, extDir string, params extent.Creat
 		gcSrcSeg: -1,
 		gcDstSeg: -1,
 
-		updateChan:     make(chan *updateRequest, c.cfg.UpdatesPending),
+		updateChan:     make(chan *updateRequest, c.Cfg.UpdatesPending),
 		forceGC:        make(chan float64, 1),
 		dirtyDeleteWAL: dwf,
 
 		lastDMUSnap: unsafe.Pointer(new(dmuSnapHeader)),
-		zc:          c.zc,
+		zc:          c.ZClient,
 
 		ctx:    ctx2,
 		cancel: cancel,
@@ -208,7 +208,7 @@ func (c *Creator) create(ctx context.Context, extDir string, params extent.Creat
 
 	// At the beginning, we have one writable segment.
 	// Reserved is not avail either, but already subtract.
-	ext.meta.Avail -= uint64(c.cfg.SegmentSize)
+	ext.meta.Avail -= uint64(c.Cfg.SegmentSize)
 
 	return ext, nil
 }
@@ -218,7 +218,7 @@ func (c *Creator) create(ctx context.Context, extDir string, params extent.Creat
 func (c *Creator) CreateHeader(extDir string, state metapb.ExtentState, params extent.CreateParams) (*Header, error) {
 	h := new(Header)
 
-	sched, started := c.scheds.GetSched(params.DiskID)
+	sched, started := c.Scheds.GetSched(params.DiskID)
 	if sched == nil {
 		return nil, xerrors.WithMessage(orpc.ErrNotFound, fmt.Sprintf("failed to find disk: %s scheduler", params.DiskID))
 	}
@@ -227,7 +227,7 @@ func (c *Creator) CreateHeader(extDir string, state metapb.ExtentState, params e
 	}
 
 	h.iosched = sched
-	fs := c.fs
+	fs := c.Fs
 	f, err := fs.Create(filepath.Join(extDir, HeaderFileName))
 	if err != nil {
 		return nil, err
@@ -241,9 +241,9 @@ func (c *Creator) CreateHeader(extDir string, state metapb.ExtentState, params e
 
 	h.nvh = new(NVHeader)
 	h.nvh.State = int32(state)
-	h.nvh.SegSize = uint32(c.cfg.SegmentSize)
-	reservedSeg := c.cfg.ReservedSeg
-	h.nvh.ReservedSeg = uint8(c.cfg.ReservedSeg)
+	h.nvh.SegSize = uint32(c.Cfg.SegmentSize)
+	reservedSeg := c.Cfg.ReservedSeg
+	h.nvh.ReservedSeg = uint8(c.Cfg.ReservedSeg)
 	h.nvh.SegStates = make([]byte, segmentCnt)
 	for i := range h.nvh.SegStates {
 		if i < segmentCnt-reservedSeg {
@@ -279,7 +279,7 @@ func (c *Creator) Load(ctx context.Context, extDir string, params extent.CreateP
 		xlog.Errorf("load ext: %d failed: %s", params.ExtID, err.Error())
 		return extent.NewBrokenExtenter(&metapb.Extent{
 			Id:         params.ExtID,
-			Size_:      uint64(c.cfg.SegmentSize) * uint64(segmentCnt),
+			Size_:      uint64(c.Cfg.SegmentSize) * uint64(segmentCnt),
 			State:      metapb.ExtentState_Extent_Broken,
 			DiskId:     params.DiskID,
 			InstanceId: params.InstanceID,
@@ -291,9 +291,9 @@ func (c *Creator) Load(ctx context.Context, extDir string, params extent.CreateP
 
 func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateParams) (*Extenter, error) {
 
-	fs := c.fs
+	fs := c.Fs
 
-	sched, started := c.scheds.GetSched(params.DiskID)
+	sched, started := c.Scheds.GetSched(params.DiskID)
 	if sched == nil {
 		return nil, xerrors.WithMessage(orpc.ErrNotFound, fmt.Sprintf("failed to find disk: %s scheduler", params.DiskID))
 	}
@@ -324,8 +324,8 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 	meta := &metapb.Extent{
 		Id:         params.ExtID,
 		State:      metapb.ExtentState(h.nvh.State),
-		Size_:      uint64(c.cfg.SegmentSize) * uint64(segmentCnt),
-		Avail:      uint64(h.getReadySegCnt()) * uint64(c.cfg.SegmentSize),
+		Size_:      uint64(c.Cfg.SegmentSize) * uint64(segmentCnt),
+		Avail:      uint64(h.getReadySegCnt()) * uint64(c.Cfg.SegmentSize),
 		DiskId:     params.DiskID,
 		InstanceId: params.InstanceID,
 		LastUpdate: tsc.UnixNano(),
@@ -333,8 +333,8 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 	}
 
 	ext := &Extenter{
-		boxID:    c.boxID,
-		cfg:      c.cfg,
+		boxID:    c.BoxID,
+		cfg:      c.Cfg,
 		rwMutex:  new(sync.RWMutex),
 		fs:       fs,
 		extDir:   extDir,
@@ -351,12 +351,12 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 		gcSrcSeg: -1,
 		gcDstSeg: -1,
 
-		updateChan:     make(chan *updateRequest, c.cfg.UpdatesPending),
+		updateChan:     make(chan *updateRequest, c.Cfg.UpdatesPending),
 		dirtyDeleteWAL: dwf,
 		forceGC:        make(chan float64, 1),
 		lastDMUSnap:    unsafe.Pointer(new(dmuSnapHeader)),
 
-		zc: c.zc,
+		zc: c.ZClient,
 
 		ctx:    ctx2,
 		cancel: cancel,

@@ -93,11 +93,11 @@ func createTestExtenterWithDir(cfg *Config, extDir string) (ext *Extenter, err e
 func makeTestCreator(cfg *Config) *Creator {
 
 	return &Creator{
-		cfg:    cfg,
-		scheds: &testCreatorSched{sched: new(xio.NopScheduler)},
-		fs:     testFS,
-		zc:     zai.NopObjClient{},
-		boxID:  1,
+		Cfg:     cfg,
+		Scheds:  &testCreatorSched{sched: new(xio.NopScheduler)},
+		Fs:      testFS,
+		ZClient: zai.NopObjClient{},
+		BoxID:   1,
 	}
 }
 

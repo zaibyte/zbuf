@@ -38,7 +38,8 @@ type Config struct {
 
 	Scheduler sched.Config `toml:"scheduler"`
 
-	ExtV1Config v1.Config `toml:"ext_v_1_config"`
+	ExtV1Config v1.Config `toml:"ext_v1_config"`
+	ExtV2Config v1.Config `toml:"ext_v2_config"`
 
 	// GCDuration is the duration between two GCs,
 	// each disk will have a goroutine to do the GC job.
