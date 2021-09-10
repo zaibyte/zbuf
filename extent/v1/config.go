@@ -3,6 +3,8 @@ package v1
 import (
 	"time"
 
+	"g.tesamc.com/IT/zbuf/extent"
+
 	"g.tesamc.com/IT/zaipkg/config/settings"
 
 	"g.tesamc.com/IT/zaipkg/config"
@@ -111,7 +113,7 @@ func (cfg *Config) Adjust() {
 			cfg.UpdateOrInsert = false
 		}
 	}
-	config.Adjust(&cfg.SegmentSize, defaultSegmentSize)
+	config.Adjust(&cfg.SegmentSize, extent.DefaultV1SegmentSize)
 	config.Adjust(&cfg.ReservedSeg, defaultReservedSeg)
 	config.Adjust(&cfg.UpdatesPending, defaultUpdatesPending)
 	config.Adjust(&cfg.SizePerRead, defaultSizePerRead)

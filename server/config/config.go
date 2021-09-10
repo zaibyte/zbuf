@@ -19,6 +19,8 @@ package config
 import (
 	"runtime"
 
+	"g.tesamc.com/IT/zbuf/extent"
+
 	zai "g.tesamc.com/IT/zai/client"
 	"g.tesamc.com/IT/zaipkg/app"
 	"g.tesamc.com/IT/zaipkg/config"
@@ -93,4 +95,10 @@ func (c *Config) Adjust() {
 
 	config.Adjust(&c.ZaiConfig.KeeperConfig.ClusterID, c.App.KeeperClusterID)
 	config.Adjust(&c.ZaiConfig.KeeperConfig.InstanceID, c.App.InstanceID)
+
+	config.Adjust(&c.ExtV1Config.SegmentSize, extent.DefaultV1SegmentSize)
+	config.Adjust(&c.ExtV2Config.SegmentSize, extent.DefaultV2SegmentSize)
+	config.Adjust(&c.ExtV3Config.SegmentSize, extent.DefaultV3SegmentSize)
+	config.Adjust(&c.ExtV4Config.SegmentSize, extent.DefaultV4SegmentSize)
+	config.Adjust(&c.ExtV5Config.SegmentSize, extent.DefaultV5SegmentSize)
 }

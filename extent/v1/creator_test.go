@@ -24,8 +24,8 @@ import (
 
 func TestCreator_GetSize(t *testing.T) {
 	c := makeTestCreator(GetDefaultConfig())
-	// Expected after / 1GiB, equal segments file size(256GB).
-	assert.Equal(t, uint64(256), c.GetSize()/1024/1024/1024)
+	// Expected after / 1GiB, equal segments file size(1GB).
+	assert.Equal(t, uint64(1), c.GetSize()/1024/1024/1024)
 }
 
 func TestCreator_Create(t *testing.T) {

@@ -10,7 +10,7 @@ import (
 
 // Extenter is the collection of extent methods.
 type Extenter interface {
-	// Start start Extenter container, it won't any I/O error.
+	// Start starts Extenter container, it won't any I/O error.
 	Start()
 
 	// GetMeta gets a clone of Extenter's meta.
@@ -50,6 +50,9 @@ type Cloner interface {
 const (
 	Version1 = settings.ExtV1
 	Version2 = settings.ExtV2
+	Version3 = settings.ExtV3
+	Version4 = settings.ExtV4
+	Version5 = settings.ExtV5
 )
 
 // GCer are methods collector of GC.
