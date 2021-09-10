@@ -38,7 +38,7 @@ func TestExtenter_PutSameDigest(t *testing.T) {
 
 	buf := make([]byte, 4*uid.GrainSize)
 	binary.LittleEndian.PutUint64(buf[:8], 2048)
-	oid := uid.MakeOID(1, 1, 4, xdigest.Sum32(buf), uid.NormalObj)
+	oid := uid.MakeOID(1, 4, xdigest.Sum32(buf), uid.NormalObj)
 	err = ext.PutObj(1, oid, buf, false)
 	if err != nil {
 		t.Fatal(err)
@@ -54,7 +54,7 @@ func TestExtenter_PutSameDigest(t *testing.T) {
 	xbytes.PutAlignedBytes(getRet)
 
 	binary.LittleEndian.PutUint64(buf[:8], 2048)
-	oid = uid.MakeOID(1, 1, 4, xdigest.Sum32(buf), uid.NormalObj)
+	oid = uid.MakeOID(1, 4, xdigest.Sum32(buf), uid.NormalObj)
 	err = ext.PutObj(1, oid, buf, false)
 	if !errors.Is(err, orpc.ErrObjDigestExisted) {
 		t.Fatal("digest existed should be found")
@@ -93,7 +93,7 @@ func TestExtenter_PutGetObj(t *testing.T) {
 		}
 		objData := buf[:grains*uid.GrainSize]
 		rand.Read(objData)
-		oid := uid.MakeOID(1, 1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
+		oid := uid.MakeOID(1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
 		err = ext.PutObj(0, oid, objData, false)
 		if err != nil {
 			t.Fatal(err)
@@ -115,13 +115,15 @@ func TestExtenter_PutGetObj(t *testing.T) {
 
 	wg := new(sync.WaitGroup)
 	wg.Add(runtime.NumCPU())
+	errC := make(chan error, runtime.NumCPU())
 	for i := 0; i < runtime.NumCPU(); i++ {
 		go func() {
 			defer wg.Done()
 			for oid := range oids {
 				getRet, _, err2 := ext.GetObj(1, oid, false, 0, 0)
 				if err2 != nil {
-					t.Fatal(err2)
+					errC <- err2
+					return
 				}
 				xbytes.PutAlignedBytes(getRet)
 			}
@@ -129,6 +131,13 @@ func TestExtenter_PutGetObj(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+
+	close(errC)
+	for err := range errC {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 }
 
 func TestObjWriteReadAt(t *testing.T) {
@@ -175,7 +184,7 @@ func testObjWriteReadCheckAt(t *testing.T, isCheck bool) {
 		objData := buf[:grains*uid.GrainSize]
 		rand.Read(objData)
 		digest := xdigest.Sum32(objData)
-		oid := uid.MakeOID(1, 1, uint32(grains), digest, uid.NormalObj)
+		oid := uid.MakeOID(1, uint32(grains), digest, uid.NormalObj)
 		written, err2 := ext.objWriteAt(xio.ReqObjWrite, oid, offset, objData, writeBuf, 0)
 		if err2 != nil {
 			t.Fatal(err2)
@@ -207,6 +216,7 @@ func testObjWriteReadCheckAt(t *testing.T, isCheck bool) {
 
 	wg := new(sync.WaitGroup)
 	wg.Add(runtime.NumCPU())
+	errC := make(chan error, runtime.NumCPU())
 	for i := 0; i < runtime.NumCPU(); i++ {
 		go func() {
 			defer wg.Done()
@@ -215,14 +225,16 @@ func testObjWriteReadCheckAt(t *testing.T, isCheck bool) {
 					getRet := xbytes.GetAlignedBytes(int(uid.GetGrains(oid) * uid.GrainSize))
 					err2 := ext.objReadAt(xio.ReqObjRead, uid.GetDigest(oid), oids[oid], getRet)
 					if err2 != nil {
-						t.Fatal(err2)
+						errC <- err2
+						return
 					}
 					xbytes.PutAlignedBytes(getRet)
 				} else {
 					checkBuf := xbytes.GetAlignedBytes(int(ext.cfg.SizePerRead))
 					_, _, _, err2 := ext.objCheckAt(oids[oid], checkBuf)
 					if err2 != nil {
-						t.Fatal(err2)
+						errC <- err2
+						return
 					}
 					xbytes.PutAlignedBytes(checkBuf)
 				}
@@ -231,6 +243,13 @@ func testObjWriteReadCheckAt(t *testing.T, isCheck bool) {
 		}()
 	}
 	wg.Wait()
+
+	close(errC)
+	for err := range errC {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 }
 
 // Try to add object which digest is as same as an object which just deleted(but not sync to DMU snapshot).
@@ -256,7 +275,7 @@ func TestExtenter_RejectDirtyDelete(t *testing.T) {
 
 	objData := buf[:grains*uid.GrainSize]
 	rand.Read(objData)
-	oid := uid.MakeOID(1, 1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
+	oid := uid.MakeOID(1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
 	err = ext.PutObj(0, oid, objData, false)
 	if err != nil {
 		t.Fatal(err)
@@ -296,7 +315,7 @@ func TestExtenter_DeleteOneTooFast(t *testing.T) {
 
 		objData := buf
 		rand.Read(objData)
-		oid := uid.MakeOID(1, 1, 1, xdigest.Sum32(objData), uid.NormalObj)
+		oid := uid.MakeOID(1, 1, xdigest.Sum32(objData), uid.NormalObj)
 		err = ext.PutObj(0, oid, objData, false)
 		if err != nil {
 			t.Fatal(err)
@@ -337,7 +356,7 @@ func TestExtenter_DeleteOneReachMax(t *testing.T) {
 
 		objData := buf
 		rand.Read(objData)
-		oid := uid.MakeOID(1, 1, 1, xdigest.Sum32(objData), uid.NormalObj)
+		oid := uid.MakeOID(1, 1, xdigest.Sum32(objData), uid.NormalObj)
 		err = ext.PutObj(0, oid, objData, false)
 		if err != nil {
 			t.Fatal(err)
@@ -384,7 +403,7 @@ func TestExtenter_DeleteBatchTooFast(t *testing.T) {
 
 		objData := buf
 		rand.Read(objData)
-		oid := uid.MakeOID(1, 1, 1, xdigest.Sum32(objData), uid.NormalObj)
+		oid := uid.MakeOID(1, 1, xdigest.Sum32(objData), uid.NormalObj)
 		err = ext.PutObj(0, oid, objData, false)
 		if err != nil {
 			t.Fatal(err)
@@ -423,7 +442,7 @@ func TestExtenter_DeleteBatchReachMax(t *testing.T) {
 
 		objData := buf
 		rand.Read(objData)
-		oid := uid.MakeOID(1, 1, 1, xdigest.Sum32(objData), uid.NormalObj)
+		oid := uid.MakeOID(1, 1, xdigest.Sum32(objData), uid.NormalObj)
 		err = ext.PutObj(0, oid, objData, false)
 		if err != nil {
 			t.Fatal(err)

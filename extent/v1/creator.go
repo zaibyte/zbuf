@@ -30,7 +30,6 @@ type Creator struct {
 	Scheds  CreatorScheduler
 	Fs      vfs.FS
 	ZClient zai.ObjClient
-	BoxID   uint32
 }
 
 type CreatorScheduler interface {
@@ -39,7 +38,7 @@ type CreatorScheduler interface {
 }
 
 // NewCreator creates an ext.v1 Creator.
-func NewCreator(cfg *Config, scheds CreatorScheduler, fs vfs.FS, zc zai.ObjClient, boxID uint32) *Creator {
+func NewCreator(cfg *Config, scheds CreatorScheduler, fs vfs.FS, zc zai.ObjClient) *Creator {
 
 	cfg.Adjust()
 
@@ -48,7 +47,6 @@ func NewCreator(cfg *Config, scheds CreatorScheduler, fs vfs.FS, zc zai.ObjClien
 		Scheds:  scheds,
 		Fs:      fs,
 		ZClient: zc,
-		BoxID:   boxID,
 	}
 }
 
@@ -166,7 +164,6 @@ func (c *Creator) create(ctx context.Context, extDir string, params extent.Creat
 	ctx2, cancel := context.WithCancel(ctx)
 
 	ext := &Extenter{
-		boxID:    c.BoxID,
 		cfg:      c.Cfg,
 		rwMutex:  new(sync.RWMutex),
 		fs:       fs,
@@ -333,7 +330,6 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 	}
 
 	ext := &Extenter{
-		boxID:    c.BoxID,
 		cfg:      c.Cfg,
 		rwMutex:  new(sync.RWMutex),
 		fs:       fs,

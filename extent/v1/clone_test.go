@@ -64,8 +64,9 @@ func TestGetOIDsFromDMUTblOneTbls(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer cleanTestExt(ext)
 
-	ens := dmu.GenEntriesFast(1) // Must need two tables.
+	ens := dmu.GenEntriesFast(1) // Must only one table.
 	for _, en := range ens {
 		err = ext.dmu.Insert(en.Digest, en.Otype, en.Grains, en.Addr)
 		if err != nil {
@@ -90,6 +91,7 @@ func TestGetOIDsFromDMUTblTwoTbls(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer cleanTestExt(ext)
 
 	ens := dmu.GenEntriesFast(dmu.MinCap + 1024) // Must need two tables.
 	for _, en := range ens {
@@ -121,7 +123,7 @@ func TestExtenter_Clone(t *testing.T) {
 	mz := zai.NewMemZai()
 
 	c := makeTestCreator(cfg)
-	c.zc = mz
+	c.ZClient = mz
 
 	ext1, err := createTestExtByCreator(cfg, c, nil)
 	if err != nil {
@@ -150,7 +152,7 @@ func TestExtenter_Clone(t *testing.T) {
 		}
 		objData := buf[:grains*uid.GrainSize]
 		rand.Read(objData)
-		oid := uid.MakeOID(1, 1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
+		oid := uid.MakeOID(1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
 		err = ext1.PutObj(0, oid, objData, false)
 		if err != nil {
 			t.Fatal(err)
@@ -218,7 +220,7 @@ func TestExtenter_CloneBig(t *testing.T) {
 	mz := zai.NewMemZai()
 
 	c := makeTestCreator(cfg)
-	c.zc = mz
+	c.ZClient = mz
 
 	ext1, err := createTestExtByCreator(cfg, c, nil)
 	if err != nil {
@@ -240,7 +242,7 @@ func TestExtenter_CloneBig(t *testing.T) {
 		grains := 3
 		objData := buf[:grains*uid.GrainSize]
 		rand.Read(objData)
-		oid := uid.MakeOID(1, 1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
+		oid := uid.MakeOID(1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
 		err = ext1.PutObj(0, oid, objData, false)
 		if err != nil {
 			t.Fatal(err)

@@ -56,13 +56,13 @@ func TestTryGC(t *testing.T) {
 			break
 		}
 
-		grains := rand.Intn(int(maxGrains))
+		grains := rand.Intn(maxGrains)
 		if grains == 0 {
 			grains = 1
 		}
 		objData := buf[:grains*uid.GrainSize]
 		binary.LittleEndian.PutUint64(objData, uint64(i))
-		oid := uid.MakeOID(1, 1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
+		oid := uid.MakeOID(1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
 		err = ext.PutObj(0, oid, objData, false)
 		if err != nil {
 			t.Fatal(err)

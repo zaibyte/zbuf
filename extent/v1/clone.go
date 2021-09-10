@@ -40,7 +40,7 @@ func (e *Extenter) InitCloneSource() {
 	var err error
 	oids := make([]byte, xmath.AlignSize(int64(capacity*8), uid.GrainSize))
 	if len(oids) == 0 { // No object has been written to this extent.
-		oidsoid = uid.MakeOID(e.boxID, 1, 0, 0, uid.NopObj)
+		oidsoid = uid.MakeOID(1, 0, 0, uid.NopObj)
 		total = 0
 	} else {
 		t0 := dmu.GetTbl(d, 0)
@@ -120,18 +120,23 @@ func calcOidsOidPiece(oidsN int) int {
 // Only non-empty oids will be uploaded.
 func (e *Extenter) uploadOIDs(oids []byte) (oidsOID uint64, err error) {
 
-	syncMeta := (*extutil.SyncExt)(e.meta) // Using SyncExt for read/write concurrently easier.
+	// Using SyncExt for read/write concurrently easier.
+	// Uploading will keep trying until succeed, we need to exit loop when the states changed (not as expected).
+	syncMeta := (*extutil.SyncExt)(e.meta)
 
 	pieceCnt := calcOidsOidPiece(len(oids))
 
 	oks := make([]uint64, pieceCnt) // Any piece of oids uploaded will put its oid into here.
+
 	retry := &orpc.Retryer{
 		MinSleep: 100 * time.Millisecond,
 		MaxTried: 10,
 		MaxSleep: 15 * time.Second,
 	}
 
-	for i := 0; ; i++ { // Try it until meet unrecoverable error.
+	// Keep trying it until meet unrecoverable error.
+	// Using iteration to control retry duration.
+	for i := 0; ; i++ {
 
 		if syncMeta.GetState() != metapb.ExtentState_Extent_Sealed {
 			xlog.Warn(fmt.Sprintf("init clone source wanted ext: %d, being: %s but got: %s",
@@ -214,7 +219,7 @@ func (e *Extenter) getOIDsFromDMUTbl(tbl []uint64, oids []byte, offset int) int 
 	for i := range tbl {
 		en := atomic.LoadUint64(&tbl[i])
 		if en != 0 {
-			oid := entryToOID(e.boxID, uint32(groupID), en, uint32(len(tbl)), uint32(i))
+			oid := entryToOID(groupID, en, uint32(len(tbl)), uint32(i))
 			binary.LittleEndian.PutUint64(oids[offset*8:offset*8+8], oid)
 			offset++
 		}
@@ -222,11 +227,11 @@ func (e *Extenter) getOIDsFromDMUTbl(tbl []uint64, oids []byte, offset int) int 
 	return offset
 }
 
-func entryToOID(boxID, groupID uint32, entry uint64, slotCnt, slot uint32) uint64 {
+func entryToOID(groupID uint32, entry uint64, slotCnt, slot uint32) uint64 {
 
 	tag, neighOff, otype, grains, _ := dmu.ParseEntry(entry)
 	digest := dmu.BackToDigest(tag, slotCnt, slot, neighOff)
-	return uid.MakeOID(boxID, groupID, grains, digest, uint8(otype))
+	return uid.MakeOID(groupID, grains, digest, uint8(otype))
 }
 
 // precheckTryClone checks clone job states, return true if we should do clone.
@@ -388,7 +393,7 @@ func (e *Extenter) doCloneJob(ctx context.Context, oidsoid, total uint64) {
 
 		oid := binary.LittleEndian.Uint64(oids[i*8 : i*8+8])
 
-		_, _, grains2, digest, _, _ := uid.ParseOID(oid)
+		_, grains2, digest, _, _ := uid.ParseOID(oid)
 		if e.dmu.Search(digest) != 0 { // Already has.
 			continue
 		}

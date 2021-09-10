@@ -97,7 +97,6 @@ func makeTestCreator(cfg *Config) *Creator {
 		Scheds:  &testCreatorSched{sched: new(xio.NopScheduler)},
 		Fs:      testFS,
 		ZClient: zai.NopObjClient{},
-		BoxID:   1,
 	}
 }
 

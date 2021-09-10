@@ -48,8 +48,6 @@ import (
 type Extenter struct {
 	isRunning int64
 
-	boxID uint32
-
 	cfg *Config
 
 	// Using a lock here won't break down performance,
@@ -283,7 +281,7 @@ func (e *Extenter) preprocGetReq() error {
 }
 
 func getObjOffsetSize(d *dmu.DMU, oid uint64) (has bool, digest uint32, offset int64, size int) {
-	_, _, _, digest, _, _ = uid.ParseOID(oid)
+	_, _, digest, _, _ = uid.ParseOID(oid)
 	entry := d.Search(digest)
 	if entry == 0 {
 
@@ -440,7 +438,7 @@ func (e *Extenter) traverseWritableSegOne(offset, end, cursor int64, buf []byte,
 		if oid == 0 { // Reach writable segment end (no new objects)
 			break
 		}
-		_, _, grains, digest, otype, _ := uid.ParseOID(oid)
+		_, grains, digest, otype, _ := uid.ParseOID(oid)
 		err2 = e.dmu.Insert(digest, uint32(otype), grains, uint32(offset/dmu.AlignSize))
 		if errors.Is(err2, orpc.ErrObjDigestExisted) { // Has synced in DMU.
 			err2 = nil

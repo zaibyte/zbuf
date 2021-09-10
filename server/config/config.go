@@ -40,6 +40,9 @@ type Config struct {
 
 	ExtV1Config v1.Config `toml:"ext_v1_config"`
 	ExtV2Config v1.Config `toml:"ext_v2_config"`
+	ExtV3Config v1.Config `toml:"ext_v3_config"`
+	ExtV4Config v1.Config `toml:"ext_v4_config"`
+	ExtV5Config v1.Config `toml:"ext_v5_config"`
 
 	// GCDuration is the duration between two GCs,
 	// each disk will have a goroutine to do the GC job.
@@ -87,4 +90,7 @@ func (c *Config) Adjust() {
 
 	config.Adjust(&c.App.GOMAXPROCS, DefaultGOMAXPROCS)
 	runtime.GOMAXPROCS(c.App.GOMAXPROCS) // TODO maybe 512 if you got lots of cores and NVMe SSD
+
+	config.Adjust(&c.ZaiConfig.KeeperConfig.ClusterID, c.App.KeeperClusterID)
+	config.Adjust(&c.ZaiConfig.KeeperConfig.InstanceID, c.App.InstanceID)
 }

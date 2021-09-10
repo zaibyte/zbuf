@@ -39,7 +39,7 @@ func (r *Runner) createExtents() (err error) {
 	}
 
 	cfg.Adjust()
-	c := v1.NewCreator(cfg, r.disks, fs, zai.NopObjClient{}, 1)
+	c := v1.NewCreator(cfg, r.disks, fs, zai.NopObjClient{})
 
 	idx := 0
 	for _, diskID := range diskIDs {
@@ -75,7 +75,7 @@ func randFillObj(nKB int64) {
 	testObj = make([]byte, nKB*1024)
 	rand.Read(testObj)
 	testObjDigest = xdigest.Sum32(testObj)
-	testObjOID = uid.MakeOID(1, 1, uint32(nKB/4), testObjDigest, uid.NormalObj)
+	testObjOID = uid.MakeOID(1, uint32(nKB/4), testObjDigest, uid.NormalObj)
 }
 
 // prepareRead ensure every extent has one object.
@@ -95,7 +95,7 @@ func (r *Runner) prepareRead() {
 
 			for j := 0; j < cntInThread; j++ {
 				binary.LittleEndian.PutUint64(buf[:8], uint64(j))
-				oid := uid.MakeOID(1, 1, uint32(r.cfg.BlockSize*1024/uid.GrainSize), xdigest.Sum32(buf), uid.NormalObj)
+				oid := uid.MakeOID(1, uint32(r.cfg.BlockSize*1024/uid.GrainSize), xdigest.Sum32(buf), uid.NormalObj)
 				err := ext.PutObj(0, oid, buf, false)
 				if err != nil {
 					log.Fatal("prepare objects failed", err)

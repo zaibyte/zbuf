@@ -101,8 +101,8 @@ func Create(ctx context.Context, cfg *config.Config) (*Server, error) {
 		s.cfg.DataRoot, &s.cfg.Scheduler)
 
 	s.creators = map[uint16]extent.Creator{
-		extent.Version1: v1.NewCreator(&s.cfg.ExtV1Config, s.zBufDisks, s.fs, s.zc, s.cfg.App.BoxID),
-		extent.Version2: &v2.Creator{v1.NewCreator(&s.cfg.ExtV2Config, s.zBufDisks, s.fs, s.zc, s.cfg.App.BoxID)},
+		extent.Version1: v1.NewCreator(&s.cfg.ExtV1Config, s.zBufDisks, s.fs, s.zc),
+		extent.Version2: &v2.Creator{v1.NewCreator(&s.cfg.ExtV2Config, s.zBufDisks, s.fs, s.zc)},
 	}
 
 	return s, nil

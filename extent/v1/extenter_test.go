@@ -39,7 +39,7 @@ func TestGetObjOffsetSize(t *testing.T) {
 	}
 
 	for _, en := range ens {
-		oid := uid.MakeOID(1, 1, en.Grains, en.Digest, uint8(en.Otype))
+		oid := uid.MakeOID(1, en.Grains, en.Digest, uint8(en.Otype))
 		has, digest, offset, size := getObjOffsetSize(d, oid)
 		assert.True(t, has)
 		assert.Equal(t, en.Digest, digest)
@@ -79,7 +79,7 @@ func TestExtenter_DeleteObj(t *testing.T) {
 		}
 		objData := buf[:grains*uid.GrainSize]
 		rand.Read(objData)
-		oid := uid.MakeOID(1, 1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
+		oid := uid.MakeOID(1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
 		err = ext.PutObj(0, oid, objData, false)
 		if err != nil {
 			t.Fatal(err)
@@ -101,19 +101,29 @@ func TestExtenter_DeleteObj(t *testing.T) {
 
 	wg := new(sync.WaitGroup)
 	wg.Add(runtime.NumCPU())
+
+	errC := make(chan error, runtime.NumCPU())
 	for i := 0; i < runtime.NumCPU(); i++ {
 		go func() {
 			defer wg.Done()
 			for oid := range oids {
 				_, _, err2 := ext.GetObj(1, oid, false, 0, 0)
 				if !errors.Is(err2, orpc.ErrNotFound) {
-					t.Fatal(err2)
+					errC <- err2
+					return
 				}
 			}
 
 		}()
 	}
 	wg.Wait()
+
+	close(errC)
+	for err := range errC {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 }
 
 func TestExtenter_DeleteBatch(t *testing.T) {
@@ -147,7 +157,7 @@ func TestExtenter_DeleteBatch(t *testing.T) {
 		}
 		objData := buf[:grains*uid.GrainSize]
 		rand.Read(objData)
-		oid := uid.MakeOID(1, 1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
+		oid := uid.MakeOID(1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
 		err = ext.PutObj(0, oid, objData, false)
 		if err != nil {
 			t.Fatal(err)
@@ -179,18 +189,27 @@ func TestExtenter_DeleteBatch(t *testing.T) {
 
 	wg := new(sync.WaitGroup)
 	wg.Add(runtime.NumCPU())
+	errC := make(chan error, runtime.NumCPU())
 	for j := 0; j < runtime.NumCPU(); j++ {
 		go func() {
 			defer wg.Done()
 			for oid := range oids {
 				_, _, err2 := ext.GetObj(1, oid, false, 0, 0)
 				if !errors.Is(err2, orpc.ErrNotFound) {
-					t.Fatal(err2)
+					errC <- err2
+					return
 				}
 			}
 		}()
 	}
 	wg.Wait()
+
+	close(errC)
+	for err := range errC {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 }
 
 func TestExtenter_ModifyObjAddr(t *testing.T) {
@@ -224,7 +243,7 @@ func TestExtenter_ModifyObjAddr(t *testing.T) {
 		}
 		objData := buf[:grains*uid.GrainSize]
 		rand.Read(objData)
-		oid := uid.MakeOID(1, 1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
+		oid := uid.MakeOID(1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
 		err = ext.PutObj(0, oid, objData, false)
 		if err != nil {
 			t.Fatal(err)
@@ -277,7 +296,7 @@ func TestExtenter_MeetFull(t *testing.T) {
 
 		binary.LittleEndian.PutUint64(buf, uint64(i))
 		objData := buf
-		oid := uid.MakeOID(1, 1, 1, xdigest.Sum32(objData), uid.NormalObj)
+		oid := uid.MakeOID(1, 1, xdigest.Sum32(objData), uid.NormalObj)
 		err = ext.PutObj(0, oid, objData, false)
 		if err != nil {
 			t.Fatal(err, i)
@@ -285,7 +304,7 @@ func TestExtenter_MeetFull(t *testing.T) {
 	}
 
 	binary.LittleEndian.PutUint64(buf, 256)
-	oid := uid.MakeOID(1, 1, 1, xdigest.Sum32(buf), uid.NormalObj)
+	oid := uid.MakeOID(1, 1, xdigest.Sum32(buf), uid.NormalObj)
 	err = ext.PutObj(0, oid, buf, false)
 	if !errors.Is(err, orpc.ErrExtentFull) {
 		t.Fatal("should be full, but: ", err)
@@ -329,7 +348,7 @@ func TestExtenter_traverseWritableSegNoSnap(t *testing.T) {
 		}
 		objData := buf[:grains*uid.GrainSize]
 		rand.Read(objData)
-		oid := uid.MakeOID(1, 1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
+		oid := uid.MakeOID(1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
 		err = ext.PutObj(0, oid, objData, false)
 		if err != nil {
 			t.Fatal(err)
@@ -408,7 +427,7 @@ func TestExtenter_traverseWritableSegPartSnap(t *testing.T) {
 		}
 		objData := buf[:grains*uid.GrainSize]
 		rand.Read(objData)
-		oid := uid.MakeOID(1, 1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
+		oid := uid.MakeOID(1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
 		err = ext.PutObj(0, oid, objData, false)
 		if err != nil {
 			t.Fatal(err)
@@ -476,7 +495,7 @@ func TestExtenter_traverseWritableSegIllegalHeaderPass(t *testing.T) {
 		objData := buf[:grains*uid.GrainSize]
 		rand.Read(objData)
 		digest := xdigest.Sum32(objData)
-		oid := uid.MakeOID(1, 1, uint32(grains), digest, uid.NormalObj)
+		oid := uid.MakeOID(1, uint32(grains), digest, uid.NormalObj)
 		err2 := ext.PutObj(1, oid, objData, false)
 		if err2 != nil {
 			t.Fatal(err2)
@@ -554,7 +573,7 @@ func TestExtenter_traverseWritableSegIllegalHeaderLostWrite(t *testing.T) {
 		objData := buf[:grains*uid.GrainSize]
 		rand.Read(objData)
 		digest := xdigest.Sum32(objData)
-		oid := uid.MakeOID(1, 1, uint32(grains), digest, uid.NormalObj)
+		oid := uid.MakeOID(1, uint32(grains), digest, uid.NormalObj)
 		err2 := ext.PutObj(1, oid, objData, false)
 		if err2 != nil {
 			t.Fatal(err2)

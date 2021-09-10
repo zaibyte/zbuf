@@ -173,18 +173,22 @@ func TestDMU_Update(t *testing.T) {
 		ens := GenEntriesFast(n)
 		dmu := New(n)
 
+		errC := make(chan error, 1)
+
 		wg := new(sync.WaitGroup)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for i, en := range ens {
+			for _, en := range ens {
 				err := dmu.Insert(en.Digest, en.Otype, en.Grains, en.Addr)
 				if err != nil {
-					t.Fatal(err, i, n)
+					errC <- err
+					return
 				}
 
 				if !dmu.Update(en.Digest, en.Addr+1) {
-					t.Fatal("should find")
+					errC <- errors.New("should find")
+					return
 				}
 
 				actEn := dmu.Search(en.Digest)
@@ -194,6 +198,14 @@ func TestDMU_Update(t *testing.T) {
 		}()
 
 		wg.Wait()
+
+		close(errC)
+
+		for err := range errC {
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
 
 		for _, en := range ens {
 			actEn := dmu.Search(en.Digest)
@@ -220,6 +232,8 @@ func TestDMU_Concurrent(t *testing.T) {
 		}
 	}
 
+	errC := make(chan error, 2)
+
 	wg := new(sync.WaitGroup)
 	wg.Add(3)
 	go func() {
@@ -228,7 +242,8 @@ func TestDMU_Concurrent(t *testing.T) {
 		for i := range insertEns {
 			err := dmu.Insert(insertEns[i].Digest, insertEns[i].Otype, insertEns[i].Grains, insertEns[i].Addr)
 			if err != nil {
-				t.Fatal(err)
+				errC <- err
+				return
 			}
 		}
 	}()
@@ -237,7 +252,8 @@ func TestDMU_Concurrent(t *testing.T) {
 		updateEns := ens[0:1024]
 		for i := range updateEns {
 			if !dmu.Update(updateEns[i].Digest, updateEns[i].Addr+1) {
-				t.Fatal("should find")
+				errC <- errors.New("should find")
+				return
 			}
 		}
 	}()
@@ -249,6 +265,14 @@ func TestDMU_Concurrent(t *testing.T) {
 		}
 	}()
 	wg.Wait()
+
+	close(errC)
+
+	for err := range errC {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	_, usage := dmu.GetUsage()
 	if usage != n {
@@ -374,7 +398,7 @@ func BenchmarkContainsMostlyHits(b *testing.B) {
 	benchDMU(b, bench{
 		setup: func(_ *testing.B, d *DMU) {
 			for i := uint32(1); i <= hits; i++ {
-				_ = d.Insert(uint32(i), 1, 1, 1)
+				_ = d.Insert(i, 1, 1, 1)
 			}
 		},
 

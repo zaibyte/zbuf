@@ -88,7 +88,7 @@ func makeDelBatchWALChunk(oids []uint64, ts uint64, buf []byte) int64 {
 	binary.LittleEndian.PutUint32(buf[1:5], uint32(len(oids)))
 	binary.LittleEndian.PutUint64(buf[5:13], ts)
 	for i, oid := range oids {
-		_, _, _, digest, _, _ := uid.ParseOID(oid)
+		_, _, digest, _, _ := uid.ParseOID(oid)
 		binary.LittleEndian.PutUint32(buf[i*4+13:i*4+13+4], digest)
 	}
 	n := xbytes.AlignSize(13+int64(len(oids))*4+4, directio.BlockSize)

@@ -94,15 +94,11 @@ func (s *Server) preCheckReq(reqid, oid uint64, extID uint32) (ext extent.Extent
 
 	var groupID uint32
 	if oid != 0 {
-		groupID, err = isValidOID(s.cfg.App.BoxID, oid)
-		if err != nil {
-			xlog.ErrorID(reqid, err.Error())
-			return nil, err
-		}
+		groupID = uid.GetGroupIDFromOID(oid)
 	}
 
 	gid, _ := uid.ParseExtID(extID)
-	if uint32(gid) != groupID {
+	if gid != groupID {
 		err = xerrors.WithMessage(orpc.ErrBadRequest,
 			fmt.Sprintf("unexpected groupID, exp: %d, act: %d", groupID, gid))
 		xlog.ErrorID(reqid, err.Error())
@@ -134,16 +130,4 @@ func (s *Server) preCheckReq(reqid, oid uint64, extID uint32) (ext extent.Extent
 	}
 
 	return ext, nil
-}
-
-func isValidOID(expBoxID uint32, oid uint64) (groupID uint32, err error) {
-	boxID, groupID, _, _, _, err := uid.ParseOID(oid)
-	if err != nil {
-		return 0, err
-	}
-	if boxID != expBoxID {
-		return 0, xerrors.WithMessage(orpc.ErrBadRequest,
-			fmt.Sprintf("unexpected boxID, exp: %d, act: %d", expBoxID, boxID))
-	}
-	return groupID, nil
 }

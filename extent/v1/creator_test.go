@@ -106,7 +106,7 @@ func TestCreator_CreateLoad(t *testing.T) {
 	rand.Read(buf)
 	for i := 0; i < cnt; i++ {
 		binary.LittleEndian.PutUint64(buf[:8], uint64(i))
-		oid := uid.MakeOID(1, 1, 1, xdigest.Sum32(buf), uid.NormalObj)
+		oid := uid.MakeOID(1, 1, xdigest.Sum32(buf), uid.NormalObj)
 		err = ext.PutObj(0, oid, buf, false)
 		if err != nil {
 			t.Fatal(err)

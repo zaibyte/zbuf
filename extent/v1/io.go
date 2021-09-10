@@ -81,7 +81,7 @@ func (e *Extenter) updatesLoop() {
 				continue
 			}
 
-			_, _, grains, digest, otype, _ := uid.ParseOID(ur.oid) // ignore err here, because the oid should have been checked.
+			_, grains, digest, otype, _ := uid.ParseOID(ur.oid) // ignore err here, because the oid should have been checked.
 
 			binary.LittleEndian.PutUint32(digestBuf, digest)
 
@@ -178,7 +178,7 @@ func (e *Extenter) updatesLoop() {
 					continue
 				}
 			}
-			_, _, grains, digest, _, _ := uid.ParseOID(ur.oid)
+			_, grains, digest, _, _ := uid.ParseOID(ur.oid)
 
 			if e.dmu.Search(digest) == 0 {
 				ur.done <- orpc.ErrNotFound
@@ -237,7 +237,7 @@ func (e *Extenter) updatesLoop() {
 			}
 
 			for _, oid := range ur.oids {
-				_, _, grains, digest, _, _ := uid.ParseOID(oid)
+				_, grains, digest, _, _ := uid.ParseOID(oid)
 				rHas, rAddr := e.dmu.Remove(digest)
 				if rHas {
 					binary.LittleEndian.PutUint32(digestBuf, digest)
@@ -257,7 +257,7 @@ func (e *Extenter) updatesLoop() {
 			continue
 
 		case modReqResetAddr:
-			_, _, _, digest, _, _ := uid.ParseOID(ur.oid)
+			_, _, digest, _, _ := uid.ParseOID(ur.oid)
 			if e.dmu.Update(digest, ur.newAddr) {
 				atomic.AddInt64(&e.dirtyUpdates, 1)
 			}
@@ -390,7 +390,7 @@ func (e *Extenter) objCheckAt(offset int64, buf []byte) (oid uint64, grains uint
 		return
 	}
 
-	_, _, _, digest, _, _ := uid.ParseOID(oid)
+	_, _, digest, _, _ := uid.ParseOID(oid)
 
 	err = e.objCheckReadAt(xio.ReqObjRead, digest, grains, offset, buf, true)
 	if err != nil {

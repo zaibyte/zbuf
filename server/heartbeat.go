@@ -82,8 +82,8 @@ func (s *Server) sendExtsHeartbeat() {
 
 func (s *Server) keeperRequestHeader() *keeperpb.RequestHeader {
 	return &keeperpb.RequestHeader{
-		BoxId:    uint64(s.cfg.App.BoxID),
-		SenderId: s.instanceID,
+		ClusterId: s.cfg.App.KeeperClusterID,
+		SenderId:  s.instanceID,
 	}
 }
 

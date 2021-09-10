@@ -196,7 +196,7 @@ func TestTraverseDirtyDeleteWALNoSnap(t *testing.T) {
 		}
 		objData := buf[:grains*uid.GrainSize]
 		rand.Read(objData)
-		oid := uid.MakeOID(1, 1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
+		oid := uid.MakeOID(1, uint32(grains), xdigest.Sum32(objData), uid.NormalObj)
 		err = ext.PutObj(0, oid, objData, false)
 		if err != nil {
 			t.Fatal(err)

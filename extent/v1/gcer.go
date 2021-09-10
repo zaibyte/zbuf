@@ -332,7 +332,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 				return gcDeadInterval, false
 			}
 
-			_, _, grains, digest, _, _ := uid.ParseOID(oid)
+			_, grains, digest, _, _ := uid.ParseOID(oid)
 			objSize := grains * uid.GrainSize
 
 			mov := uint32(xbytes.AlignSize(int64(objSize+objHeaderSize), dmu.AlignSize))

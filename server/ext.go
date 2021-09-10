@@ -160,7 +160,7 @@ func (s *Server) updateAllExt(exts []*metapb.Extent) {
 		extDir := extent.MakeExtDir(meta.Id, sdisk.MakeDiskDir(meta.DiskId, s.cfg.DataRoot))
 		if !ok { // Local don't have.
 			if meta.Created == 0 { // Haven't been created, creating it.
-				gid := uint32(uid.GetGroupID(meta.Id))
+				gid := uid.GetGroupID(meta.Id)
 				// Check to keeper, keeper must have this group.
 				// I've made a mistake here that removing version in metapb.Extent,
 				// and the cost of adding back is heavy (Extent is everywhere),
