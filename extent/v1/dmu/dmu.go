@@ -55,6 +55,8 @@ import (
 	"time"
 	"unsafe"
 
+	"g.tesamc.com/IT/zaipkg/xmath"
+
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/xerrors"
 	"g.tesamc.com/IT/zaipkg/xlog"
@@ -119,7 +121,7 @@ func New(cap int) *DMU {
 }
 
 func adjustCap(cap int) int {
-	cap = int(nextPower2(uint64(cap)))
+	cap = int(xmath.NextPower2(uint64(cap)))
 
 	if cap < MinCap {
 		cap = MinCap

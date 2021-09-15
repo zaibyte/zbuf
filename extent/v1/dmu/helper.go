@@ -2,7 +2,6 @@ package dmu
 
 import (
 	"encoding/binary"
-	"math/bits"
 	"math/rand"
 	"sync/atomic"
 
@@ -59,14 +58,6 @@ func GetTbl(dmu *DMU, idx int) []uint64 {
 	}
 
 	return *(*[]uint64)(p)
-}
-
-func nextPower2(n uint64) uint64 {
-	if n <= 1 {
-		return 1
-	}
-
-	return 1 << (64 - bits.LeadingZeros64(n-1)) // TODO may use BSR instruction.
 }
 
 type EntryField struct {
