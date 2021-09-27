@@ -84,8 +84,6 @@ func main() {
 		cancel()
 	}()
 
-	tsc.ResetEnabled(true) // There is no sequence events in ZBuf server rely on clock.
-
 	rand.Seed(tsc.UnixNano())
 
 	go systimemon.StartMonitor(ctx, tsc.UnixNano, func() { // HLC clock doesn't like backward.

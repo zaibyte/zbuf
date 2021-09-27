@@ -11,12 +11,11 @@ require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/google/uuid v1.2.0
 	github.com/julienschmidt/httprouter v1.2.0
-	github.com/panjf2000/ants/v2 v2.4.4-0.20210318172516-2e763f12162d // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/cast v1.3.1
 	github.com/stretchr/testify v1.6.1
 	github.com/templexxx/cpu v0.0.8-0.20210423085042-1c810926b5dd
-	github.com/templexxx/tsc v0.0.3
+	github.com/templexxx/tsc v1.0.1
 	github.com/willf/bitset v1.1.11 // indirect
 	github.com/willf/bloom v2.0.3+incompatible
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
