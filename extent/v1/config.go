@@ -18,15 +18,7 @@ const (
 	// 4MB size per read is chosen by the testing result.
 	// Discussion here: https://g.tesamc.com/IT/zbuf/issues/209#issuecomment-761
 	defaultSizePerRead = typeutil.ByteSize(4 * 1024 * 1024)
-	// By default, the size of segment is 1GB, which means the extent size is 256GB.
-	// For a 8TB NVMe driver(raw capacity), in real world, there will be space for over-provisioning & other things.
-	// So we have about less than 30 extents on each disk.
-	//
-	// It's obvious that the bigger extent, the lower rate of losing group when there are broken disks.
-	// But we can't make it too bigger either, because we may lose the property of distributed repairing,
-	// we hope if there is a broken disk, more disks could help to reconstruct the data, it'll reduce the
-	// load of reconstruction on disks in avg. and speeding up the process.
-	defaultSegmentSize = typeutil.ByteSize(1024 * 1024 * 1024) // 1GiB.
+
 	// Each extent has the same segment count: 256.
 	// Warn:
 	// Don't change it, because in present there are some hard codes are using 256 directly.

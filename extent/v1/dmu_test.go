@@ -7,6 +7,8 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"g.tesamc.com/IT/zaipkg/typeutil"
+
 	"g.tesamc.com/IT/zaipkg/xmath/xrand"
 
 	"g.tesamc.com/IT/zproto/pkg/metapb"
@@ -23,7 +25,7 @@ import (
 
 func TestGetMaxDMUSnapSize(t *testing.T) {
 
-	assert.Equal(t, 143.47, xmath.Round(getMaxDMUSnapSize(uint64(defaultSegmentSize),
+	assert.Equal(t, 143.47, xmath.Round(getMaxDMUSnapSize(uint64(typeutil.ByteSize(1024*1024*1024)),
 		defaultReservedSeg)/1024/1024, 2))
 }
 
