@@ -72,6 +72,14 @@ func CreateAll(ctx context.Context, c Creator, params CreateParams,
 		return
 	}
 
+	if !vfs.IsDirExisted(fs, filepath.Join(dataRoot, extDirName)) {
+		// Create home path.
+		err = fs.MkdirAll(filepath.Join(dataRoot, extDirName), 0755)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	err = fs.MkdirAll(extDir, 0755)
 	if err != nil {
 		return
