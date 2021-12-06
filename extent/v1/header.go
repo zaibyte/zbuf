@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"path/filepath"
 
+	"g.tesamc.com/IT/zaipkg/xbytes"
+
 	"g.tesamc.com/IT/zaipkg/directio"
 	"g.tesamc.com/IT/zaipkg/orpc"
 	"g.tesamc.com/IT/zaipkg/vfs"
@@ -81,7 +83,8 @@ func LoadHeader(sched xio.Scheduler, fs vfs.FS, extDir string) (*Header, error) 
 // [NVHeader_Len(4), NVHeader, checksum(4)]
 func (h *Header) Store(state metapb.ExtentState, cloneJob *metapb.CloneJob) error {
 
-	b := directio.AlignedBlock(headerSize)
+	b := xbytes.GetAlignedBytes(headerSize)
+	defer xbytes.PutAlignedBytes(b)
 
 	h.nvh.State = int32(state)
 	h.nvh.CloneJob = cloneJob
