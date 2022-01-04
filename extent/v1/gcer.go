@@ -208,6 +208,10 @@ func (e *Extenter) preprocGC() error {
 // avoiding inconsistent issue.
 func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duration, hasCheckedSnap bool) {
 
+	if ratio == 0 {
+		ratio = e.cfg.GCRatio
+	}
+
 	ctx, cancel := context.WithCancel(e.ctx)
 	defer cancel()
 
