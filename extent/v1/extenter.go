@@ -25,24 +25,24 @@ import (
 	"time"
 	"unsafe"
 
-	zai "g.tesamc.com/IT/zai/client"
-	"g.tesamc.com/IT/zaipkg/config/settings"
-	"g.tesamc.com/IT/zaipkg/directio"
-	"g.tesamc.com/IT/zaipkg/diskutil"
-	"g.tesamc.com/IT/zaipkg/extutil"
-	"g.tesamc.com/IT/zaipkg/orpc"
-	"g.tesamc.com/IT/zaipkg/uid"
-	"g.tesamc.com/IT/zaipkg/vdisk"
-	"g.tesamc.com/IT/zaipkg/vfs"
-	"g.tesamc.com/IT/zaipkg/xbytes"
-	"g.tesamc.com/IT/zaipkg/xerrors"
-	"g.tesamc.com/IT/zaipkg/xio"
-	"g.tesamc.com/IT/zaipkg/xlog"
-	"g.tesamc.com/IT/zbuf/extent"
-	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
-	"g.tesamc.com/IT/zproto/pkg/metapb"
+	zai "github.com/zaibyte/zai/client"
+	"github.com/zaibyte/zaipkg/config/settings"
+	"github.com/zaibyte/zaipkg/directio"
+	"github.com/zaibyte/zaipkg/diskutil"
+	"github.com/zaibyte/zaipkg/extutil"
+	"github.com/zaibyte/zaipkg/orpc"
+	"github.com/zaibyte/zaipkg/uid"
+	"github.com/zaibyte/zaipkg/vdisk"
+	"github.com/zaibyte/zaipkg/vfs"
+	"github.com/zaibyte/zaipkg/xbytes"
+	"github.com/zaibyte/zaipkg/xerrors"
+	"github.com/zaibyte/zaipkg/xio"
+	"github.com/zaibyte/zaipkg/xlog"
+	"github.com/zaibyte/zbuf/extent"
+	"github.com/zaibyte/zbuf/extent/v1/dmu"
+	"github.com/zaibyte/zproto/pkg/metapb"
 
-	"github.com/gogo/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 type Extenter struct {
@@ -74,6 +74,7 @@ type Extenter struct {
 	writableSeg    int64
 	writableCursor int64
 
+	gcing    int64
 	forceGC  chan float64
 	gcSrcSeg int64
 	gcDstSeg int64
@@ -346,7 +347,7 @@ func (e *Extenter) callModify(reqType uint64, oid uint64, oids []uint64, newAddr
 // traverseWritableSeg traverse writable segments to reconstruct DMU, it starts at writable cursor.
 // It will check un-synced objects integrity at the same time.
 //
-// Design & Details see: https://g.tesamc.com/IT/zbuf/issues/296
+// Design & Details see: https://github.com/zaibyte/zbuf/issues/296
 func (e *Extenter) traverseWritableSeg() error {
 
 	lastSnap := e.getLastDMUSnap() // Must not be nil.
@@ -560,7 +561,7 @@ func (e *Extenter) traverseDirtyDeleteWAL() error {
 }
 
 // traverseGC will clean up all objects in DMU if their addresses go ahead of GC dst cursor.
-// see: https://g.tesamc.com/IT/zbuf/issues/250 for details
+// see: https://github.com/zaibyte/zbuf/issues/250 for details
 // traverseGC must be invoker after load DMU snapshot.
 func (e *Extenter) traverseGC() {
 

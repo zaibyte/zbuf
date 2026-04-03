@@ -3,13 +3,13 @@ package v1
 import (
 	"encoding/binary"
 
-	"g.tesamc.com/IT/zaipkg/directio"
-	"g.tesamc.com/IT/zaipkg/orpc"
-	"g.tesamc.com/IT/zaipkg/uid"
-	"g.tesamc.com/IT/zaipkg/vfs"
-	"g.tesamc.com/IT/zaipkg/xbytes"
-	"g.tesamc.com/IT/zaipkg/xdigest"
-	"g.tesamc.com/IT/zaipkg/xerrors"
+	"github.com/zaibyte/zaipkg/directio"
+	"github.com/zaibyte/zaipkg/orpc"
+	"github.com/zaibyte/zaipkg/uid"
+	"github.com/zaibyte/zaipkg/vfs"
+	"github.com/zaibyte/zaipkg/xbytes"
+	"github.com/zaibyte/zaipkg/xdigest"
+	"github.com/zaibyte/zaipkg/xerrors"
 
 	"github.com/willf/bloom"
 )
@@ -70,7 +70,7 @@ const (
 	delWALChunkMinSize = directio.BlockSize
 )
 
-// Del WAL Chunk format(https://g.tesamc.com/IT/zbuf/issues/153):
+// Del WAL Chunk format(https://github.com/zaibyte/zbuf/issues/153):
 //
 // Local struct, from low bits -> high bits.
 // type, cnt, ts, digests, padding, checksum

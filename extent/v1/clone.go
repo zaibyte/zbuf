@@ -8,19 +8,19 @@ import (
 	"sync/atomic"
 	"time"
 
-	"g.tesamc.com/IT/zaipkg/xdigest"
+	"github.com/zaibyte/zaipkg/xdigest"
 
-	"g.tesamc.com/IT/zaipkg/xmath"
+	"github.com/zaibyte/zaipkg/xmath"
 
-	"g.tesamc.com/IT/zaipkg/extutil"
+	"github.com/zaibyte/zaipkg/extutil"
 
-	"g.tesamc.com/IT/zaipkg/config/settings"
-	"g.tesamc.com/IT/zaipkg/orpc"
-	"g.tesamc.com/IT/zaipkg/uid"
-	"g.tesamc.com/IT/zaipkg/xerrors"
-	"g.tesamc.com/IT/zaipkg/xlog"
-	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
-	"g.tesamc.com/IT/zproto/pkg/metapb"
+	"github.com/zaibyte/zaipkg/config/settings"
+	"github.com/zaibyte/zaipkg/orpc"
+	"github.com/zaibyte/zaipkg/uid"
+	"github.com/zaibyte/zaipkg/xerrors"
+	"github.com/zaibyte/zaipkg/xlog"
+	"github.com/zaibyte/zbuf/extent/v1/dmu"
+	"github.com/zaibyte/zproto/pkg/metapb"
 )
 
 // InitCloneSource sets extent to sealed and makes the set of all OIDs in this extent and put the set as a new object in Zai.

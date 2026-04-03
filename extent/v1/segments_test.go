@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
+	"github.com/zaibyte/zbuf/extent/v1/dmu"
 )
 
 func TestAddrToSeg(t *testing.T) {

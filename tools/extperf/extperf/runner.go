@@ -8,12 +8,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"g.tesamc.com/IT/zaipkg/vdisk"
-	sdisk "g.tesamc.com/IT/zaipkg/vdisk/svr"
-	"g.tesamc.com/IT/zaipkg/vfs"
-	"g.tesamc.com/IT/zaipkg/xio/sched"
-	"g.tesamc.com/IT/zbuf/extent"
 	"github.com/elastic/go-hdrhistogram"
+	"github.com/zaibyte/zaipkg/vdisk"
+	sdisk "github.com/zaibyte/zaipkg/vdisk/svr"
+	"github.com/zaibyte/zaipkg/vfs"
+	"github.com/zaibyte/zaipkg/xio/sched"
+	"github.com/zaibyte/zbuf/extent"
 
 	"github.com/templexxx/tsc"
 )

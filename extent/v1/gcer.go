@@ -10,18 +10,18 @@ import (
 	"syscall"
 	"time"
 
-	"g.tesamc.com/IT/zaipkg/config/settings"
-	"g.tesamc.com/IT/zaipkg/directio"
-	"g.tesamc.com/IT/zaipkg/extutil"
-	"g.tesamc.com/IT/zaipkg/orpc"
-	"g.tesamc.com/IT/zaipkg/uid"
-	"g.tesamc.com/IT/zaipkg/xbytes"
-	"g.tesamc.com/IT/zaipkg/xerrors"
-	"g.tesamc.com/IT/zaipkg/xio"
-	"g.tesamc.com/IT/zaipkg/xlog"
-	"g.tesamc.com/IT/zaipkg/xtime"
-	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
-	"g.tesamc.com/IT/zproto/pkg/metapb"
+	"github.com/zaibyte/zaipkg/config/settings"
+	"github.com/zaibyte/zaipkg/directio"
+	"github.com/zaibyte/zaipkg/extutil"
+	"github.com/zaibyte/zaipkg/orpc"
+	"github.com/zaibyte/zaipkg/uid"
+	"github.com/zaibyte/zaipkg/xbytes"
+	"github.com/zaibyte/zaipkg/xerrors"
+	"github.com/zaibyte/zaipkg/xio"
+	"github.com/zaibyte/zaipkg/xlog"
+	"github.com/zaibyte/zaipkg/xtime"
+	"github.com/zaibyte/zbuf/extent/v1/dmu"
+	"github.com/zaibyte/zproto/pkg/metapb"
 
 	"github.com/willf/bloom"
 )
@@ -131,8 +131,16 @@ func deepGCDMUTbl(tbl []uint64, used []uint32, seen *bloom.BloomFilter, segSize 
 	}
 }
 
+func (e *Extenter) isGCing() bool {
+	return atomic.LoadInt64(&e.gcing) == 1
+}
+
 // DoGC is waiting for caller's GC order with GC ratio.
-func (e *Extenter) DoGC(ratio float64) {
+func (e *Extenter) DoGC(ratio float64, isDeep bool) {
+
+	if e.isGCing() {
+		return
+	}
 
 	select {
 	case e.forceGC <- ratio:
@@ -203,7 +211,7 @@ func (e *Extenter) preprocGC() error {
 	return nil
 }
 
-// tryGC will try to GC the extent if there are segments marked need to GC.
+// tryGC will try to GC the extent if there are segments marked need GC.
 // We use before-after checking to ensure DMU snapshot has caught up the GC src&dst changing,
 // avoiding inconsistent issue.
 func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duration, hasCheckedSnap bool) {
@@ -352,7 +360,7 @@ func (e *Extenter) tryGC(ratio float64, snapChecked bool) (interval time.Duratio
 
 			_, _, _, _, nowAddr := dmu.ParseEntry(entry)
 			// It must have been GC already when meets it's not equal to readOffset, and the DMU is go ahead of source cursor.
-			// See https://g.tesamc.com/IT/zbuf/issues/142 for details.
+			// See https://github.com/zaibyte/zbuf/issues/142 for details.
 			// After invoking traverseGC, it must not happen.
 			//
 			// And it could be a bug or data corruption.
@@ -534,7 +542,7 @@ func (e *Extenter) getGCSrcCandidates(ratio float64) []gcCandidate {
 		}
 
 		// The segment must be sealed & not in the writable history which haven't synced to the snapshot.
-		// If we GC the un-flushed segments, it'll break the logic of loading writable history segments in present.
+		// If we run GC on the un-flushed segments, it'll break the logic of loading writable history segments in present.
 		//
 		// It may pause the whole GC process, but won't cause serious delay.(The cost of snapshot isn't high, should be
 		// finished fastly.)

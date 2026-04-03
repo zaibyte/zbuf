@@ -6,10 +6,10 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"g.tesamc.com/IT/zaipkg/xtest"
+	"github.com/zaibyte/zaipkg/xtest"
 
-	"g.tesamc.com/IT/zaipkg/orpc"
-	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
+	"github.com/zaibyte/zaipkg/orpc"
+	_ "github.com/zaibyte/zaipkg/xlog/xlogtest"
 
 	"github.com/stretchr/testify/assert"
 )

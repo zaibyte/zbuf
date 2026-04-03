@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"g.tesamc.com/IT/zaipkg/vfs"
-	"g.tesamc.com/IT/zaipkg/xio"
-	"g.tesamc.com/IT/zaipkg/xmath/xrand"
-	"g.tesamc.com/IT/zbuf/extent"
+	"github.com/zaibyte/zaipkg/vfs"
+	"github.com/zaibyte/zaipkg/xio"
+	"github.com/zaibyte/zaipkg/xmath/xrand"
+	"github.com/zaibyte/zbuf/extent"
 
 	"github.com/stretchr/testify/assert"
 )

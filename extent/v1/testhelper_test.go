@@ -6,17 +6,17 @@ import (
 	"os"
 	"path/filepath"
 
-	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
+	"github.com/zaibyte/zbuf/extent/v1/dmu"
 
-	zai "g.tesamc.com/IT/zai/client"
-	"g.tesamc.com/IT/zaipkg/uid"
-	"g.tesamc.com/IT/zaipkg/vfs"
-	"g.tesamc.com/IT/zaipkg/xbytes"
-	"g.tesamc.com/IT/zaipkg/xio"
-	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
-	"g.tesamc.com/IT/zaipkg/xmath/xrand"
-	"g.tesamc.com/IT/zbuf/extent"
-	"g.tesamc.com/IT/zproto/pkg/metapb"
+	zai "github.com/zaibyte/zai/client"
+	"github.com/zaibyte/zaipkg/uid"
+	"github.com/zaibyte/zaipkg/vfs"
+	"github.com/zaibyte/zaipkg/xbytes"
+	"github.com/zaibyte/zaipkg/xio"
+	_ "github.com/zaibyte/zaipkg/xlog/xlogtest"
+	"github.com/zaibyte/zaipkg/xmath/xrand"
+	"github.com/zaibyte/zbuf/extent"
+	"github.com/zaibyte/zproto/pkg/metapb"
 )
 
 func init() {

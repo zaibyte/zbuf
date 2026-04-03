@@ -5,10 +5,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"g.tesamc.com/IT/zaipkg/xtest"
-
-	"g.tesamc.com/IT/zaipkg/xbytes"
-	"g.tesamc.com/IT/zbuf/extent"
+	"github.com/zaibyte/zaipkg/xbytes"
+	"github.com/zaibyte/zbuf/extent"
 
 	"github.com/templexxx/cpu"
 	"github.com/templexxx/tsc"
@@ -80,7 +78,8 @@ func (j *jober) get(oid uint64) (bool, int64) {
 
 	if j.isDoNothing {
 		start := tsc.UnixNano()
-		xtest.DoNothing(10)
+		for i := 0; i < 10; i++ {
+		}
 		cost := tsc.UnixNano() - start
 		return true, cost
 	}

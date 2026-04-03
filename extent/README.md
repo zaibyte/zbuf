@@ -6,6 +6,18 @@ Extent is the data structure on local storage device.
 Ext.v1 - Ext.v5 are Ext.v1's derivatives, they share the same mechanism but with different settings for satisfying various
 I/O models.
 
+## I/O controller
+
+The simplest way to control the I/O behavior is to manage it inside each extent. But the cost of thousands extents' controllers would be high.
+It'll swallow precious CPU & memory resource and bring unexpected heavy context switch overhead.
+
+Besides the resource controlling, the consistency is a more serious issue that cannot be ignored.
+
+### Implementation
+
+1. Updater
+2. Scrubber
+
 ## Performance
 
 hundreds thousands IOPS nearly reach hardware limitation.
@@ -91,4 +103,4 @@ percentiles (nsec):
 | 99.99th=[2549759]
 ```
 
-details in this [issue](https://g.tesamc.com/IT/zbuf/issues/191)
+details in this [issue](https://github.com/zaibyte/zbuf/issues/191)

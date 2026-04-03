@@ -3,10 +3,10 @@ package extent
 import (
 	"sync"
 
-	"g.tesamc.com/IT/zaipkg/orpc"
-	"g.tesamc.com/IT/zaipkg/xio"
-	"g.tesamc.com/IT/zproto/pkg/metapb"
-	"github.com/gogo/protobuf/proto"
+	"github.com/zaibyte/zaipkg/orpc"
+	"github.com/zaibyte/zaipkg/xio"
+	"github.com/zaibyte/zproto/pkg/metapb"
+	"google.golang.org/protobuf/proto"
 )
 
 // BrokenExtenter is a nop Extenter created
@@ -64,7 +64,7 @@ func (e *BrokenExtenter) DeleteBatch(reqid uint64, oids []uint64) error {
 	return orpc.ErrExtentBroken
 }
 
-func (e *BrokenExtenter) DoGC(ratio float64) {
+func (e *BrokenExtenter) DoGC(ratio float64, isDeep bool) {
 	return
 }
 

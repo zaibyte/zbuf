@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"g.tesamc.com/IT/zaipkg/orpc"
-	"g.tesamc.com/IT/zaipkg/xdigest"
-	"g.tesamc.com/IT/zaipkg/xerrors"
+	"github.com/zaibyte/zaipkg/orpc"
+	"github.com/zaibyte/zaipkg/xdigest"
+	"github.com/zaibyte/zaipkg/xerrors"
 )
 
 const (
@@ -32,7 +32,7 @@ type objHeader struct {
 	cycle uint32
 
 	// extID & offset helps to avoiding misdirected write.
-	// See: https://g.tesamc.com/IT/zbuf/issues/219 for details.
+	// See: https://github.com/zaibyte/zbuf/issues/219 for details.
 	extID  uint32
 	offset int64
 }

@@ -55,7 +55,7 @@ a central server(e.g. Keeper) easily.
 
 ####Data Integrity
 
-Follow the Data Integrity Design Principle strictly which described in [Docs](https://g.tesamc.com/IT/zai-docs)
+Follow the Data Integrity Design Principle strictly which described in [Docs](https://github.com/zaibyte/zai-docs)
 
 ###Garbage Collection
 

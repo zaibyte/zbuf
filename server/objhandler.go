@@ -4,17 +4,17 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"g.tesamc.com/IT/zaipkg/extutil"
+	"github.com/zaibyte/zaipkg/extutil"
 
-	"g.tesamc.com/IT/zproto/pkg/metapb"
+	"github.com/zaibyte/zproto/pkg/metapb"
 
-	"g.tesamc.com/IT/zbuf/extent"
+	"github.com/zaibyte/zbuf/extent"
 
-	"g.tesamc.com/IT/zaipkg/xlog"
+	"github.com/zaibyte/zaipkg/xlog"
 
-	"g.tesamc.com/IT/zaipkg/orpc"
-	"g.tesamc.com/IT/zaipkg/uid"
-	"g.tesamc.com/IT/zaipkg/xerrors"
+	"github.com/zaibyte/zaipkg/orpc"
+	"github.com/zaibyte/zaipkg/uid"
+	"github.com/zaibyte/zaipkg/xerrors"
 )
 
 var _osvr orpc.ServerHandler = new(Server)

@@ -5,15 +5,15 @@ import (
 	"math/rand"
 	"path/filepath"
 
-	"g.tesamc.com/IT/zaipkg/xio"
+	"github.com/zaibyte/zaipkg/xio"
 
-	"g.tesamc.com/IT/zaipkg/orpc"
-	"g.tesamc.com/IT/zaipkg/xerrors"
+	"github.com/zaibyte/zaipkg/orpc"
+	"github.com/zaibyte/zaipkg/xerrors"
 
-	"g.tesamc.com/IT/zaipkg/directio"
-	"g.tesamc.com/IT/zaipkg/vfs"
-	"g.tesamc.com/IT/zaipkg/xdigest"
 	"github.com/templexxx/tsc"
+	"github.com/zaibyte/zaipkg/directio"
+	"github.com/zaibyte/zaipkg/vfs"
+	"github.com/zaibyte/zaipkg/xdigest"
 )
 
 const (

@@ -19,14 +19,14 @@ package config
 import (
 	"runtime"
 
-	"g.tesamc.com/IT/zbuf/extent"
+	"github.com/zaibyte/zbuf/extent"
 
-	zai "g.tesamc.com/IT/zai/client"
-	"g.tesamc.com/IT/zaipkg/app"
-	"g.tesamc.com/IT/zaipkg/config"
-	"g.tesamc.com/IT/zaipkg/typeutil"
-	"g.tesamc.com/IT/zaipkg/xio/sched"
-	v1 "g.tesamc.com/IT/zbuf/extent/v1"
+	zai "github.com/zaibyte/zai/client"
+	"github.com/zaibyte/zaipkg/app"
+	"github.com/zaibyte/zaipkg/config"
+	"github.com/zaibyte/zaipkg/typeutil"
+	"github.com/zaibyte/zaipkg/xio/sched"
+	v1 "github.com/zaibyte/zbuf/extent/v1"
 )
 
 // Config is the ZBuf server configuration.

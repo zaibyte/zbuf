@@ -6,16 +6,16 @@ import (
 	"math/rand"
 	"sync"
 
-	"g.tesamc.com/IT/zaipkg/directio"
+	"github.com/zaibyte/zaipkg/directio"
 
-	"g.tesamc.com/IT/zaipkg/typeutil"
+	"github.com/zaibyte/zaipkg/typeutil"
 
-	zai "g.tesamc.com/IT/zai/client"
-	"g.tesamc.com/IT/zaipkg/uid"
-	"g.tesamc.com/IT/zaipkg/vfs"
-	"g.tesamc.com/IT/zaipkg/xdigest"
-	"g.tesamc.com/IT/zbuf/extent"
-	v1 "g.tesamc.com/IT/zbuf/extent/v1"
+	zai "github.com/zaibyte/zai/client"
+	"github.com/zaibyte/zaipkg/uid"
+	"github.com/zaibyte/zaipkg/vfs"
+	"github.com/zaibyte/zaipkg/xdigest"
+	"github.com/zaibyte/zbuf/extent"
+	v1 "github.com/zaibyte/zbuf/extent/v1"
 
 	"github.com/templexxx/tsc"
 )

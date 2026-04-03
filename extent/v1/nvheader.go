@@ -4,7 +4,9 @@ import (
 	"encoding/binary"
 	"time"
 
-	"g.tesamc.com/IT/zproto/pkg/metapb"
+	"google.golang.org/protobuf/proto"
+
+	"github.com/zaibyte/zproto/pkg/metapb"
 )
 
 // NVHeader Non-Volatile Header is the part of Header will be synced to non-volatile device.
@@ -81,7 +83,7 @@ func (h *NVHeader) Unmarshal(b []byte) (err error) {
 		return nil
 	}
 	h.CloneJob = new(metapb.CloneJob)
-	return h.CloneJob.Unmarshal(b[3601:])
+	return proto.Unmarshal(b[3601:], h.CloneJob)
 }
 
 // MarshalTo encodes o as NVHeader into buf and returns the number of bytes written.
@@ -106,11 +108,12 @@ func (h *NVHeader) MarshalTo(b []byte) (n int, err error) {
 	}
 
 	if h.CloneJob != nil {
-		nn, err2 := h.CloneJob.MarshalTo(b[3601:])
+		data, err2 := proto.Marshal(h.CloneJob)
 		if err2 != nil {
 			return 0, err2
 		}
-		return 3601 + nn, nil
+		copy(b[3601:], data)
+		return 3601 + len(data), nil
 	}
 
 	return 3601, nil

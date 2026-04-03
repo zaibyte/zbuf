@@ -7,20 +7,20 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"g.tesamc.com/IT/zaipkg/typeutil"
+	"github.com/zaibyte/zaipkg/typeutil"
 
-	"g.tesamc.com/IT/zaipkg/xmath/xrand"
+	"github.com/zaibyte/zaipkg/xmath/xrand"
 
-	"g.tesamc.com/IT/zproto/pkg/metapb"
+	"github.com/zaibyte/zproto/pkg/metapb"
 
-	"g.tesamc.com/IT/zaipkg/directio"
-	"g.tesamc.com/IT/zaipkg/xdigest"
-	"g.tesamc.com/IT/zaipkg/xio"
-	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
-	"g.tesamc.com/IT/zaipkg/xmath"
-	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
 	"github.com/stretchr/testify/assert"
 	"github.com/templexxx/tsc"
+	"github.com/zaibyte/zaipkg/directio"
+	"github.com/zaibyte/zaipkg/xdigest"
+	"github.com/zaibyte/zaipkg/xio"
+	_ "github.com/zaibyte/zaipkg/xlog/xlogtest"
+	"github.com/zaibyte/zaipkg/xmath"
+	"github.com/zaibyte/zbuf/extent/v1/dmu"
 )
 
 func TestGetMaxDMUSnapSize(t *testing.T) {

@@ -41,7 +41,7 @@
 // 820KB (for all objects are 4MB) -
 // 205MB (for all objects is <= 16KB)
 //
-// In practice, most of the objects in Tesamc are large, we could make a DMU with 2^16 capacity at the beginning,
+// In practice, if most of the objects are large, we could make a DMU with 2^16 capacity at the beginning,
 // and because of the GC overhead, there will be 20% of slots in DMU are empty, which means 2^16 (512KB) is just
 // the DMU's memory usage. For a server with 4*8TB disks, 64MB is the total usage.
 
@@ -55,11 +55,11 @@ import (
 	"time"
 	"unsafe"
 
-	"g.tesamc.com/IT/zaipkg/xmath"
+	"github.com/zaibyte/zaipkg/xmath"
 
-	"g.tesamc.com/IT/zaipkg/orpc"
-	"g.tesamc.com/IT/zaipkg/xerrors"
-	"g.tesamc.com/IT/zaipkg/xlog"
+	"github.com/zaibyte/zaipkg/orpc"
+	"github.com/zaibyte/zaipkg/xerrors"
+	"github.com/zaibyte/zaipkg/xlog"
 
 	"github.com/templexxx/cpu"
 )
@@ -121,7 +121,7 @@ func New(cap int) *DMU {
 }
 
 func adjustCap(cap int) int {
-	cap = int(xmath.NextPower2(uint64(cap)))
+	cap = int(xmath.NextPow2(uint64(cap)))
 
 	if cap < MinCap {
 		cap = MinCap

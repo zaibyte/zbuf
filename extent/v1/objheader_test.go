@@ -6,7 +6,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"g.tesamc.com/IT/zaipkg/orpc"
+	"github.com/zaibyte/zaipkg/orpc"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/templexxx/tsc"

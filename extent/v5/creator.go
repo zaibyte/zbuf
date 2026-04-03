@@ -1,8 +1,8 @@
 package v5
 
 import (
-	"g.tesamc.com/IT/zbuf/extent"
-	v1 "g.tesamc.com/IT/zbuf/extent/v1"
+	"github.com/zaibyte/zbuf/extent"
+	v1 "github.com/zaibyte/zbuf/extent/v1"
 )
 
 type Creator struct {

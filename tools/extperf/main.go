@@ -6,11 +6,11 @@ import (
 	"os"
 	"runtime"
 
-	"g.tesamc.com/IT/zaipkg/config"
-	"g.tesamc.com/IT/zaipkg/xbytes"
-	"g.tesamc.com/IT/zaipkg/xerrors"
-	"g.tesamc.com/IT/zaipkg/xlog/xlogtest"
-	"g.tesamc.com/IT/zbuf/tools/extperf/extperf"
+	"github.com/zaibyte/zaipkg/config"
+	"github.com/zaibyte/zaipkg/xbytes"
+	"github.com/zaibyte/zaipkg/xerrors"
+	"github.com/zaibyte/zaipkg/xlog/xlogtest"
+	"github.com/zaibyte/zbuf/tools/extperf/extperf"
 )
 
 const _appName = "zbuf-ext-perf"

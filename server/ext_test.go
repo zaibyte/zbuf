@@ -7,10 +7,10 @@ import (
 	"sort"
 	"testing"
 
-	sdisk "g.tesamc.com/IT/zaipkg/vdisk/svr"
 	"github.com/google/uuid"
+	sdisk "github.com/zaibyte/zaipkg/vdisk/svr"
 
-	"g.tesamc.com/IT/zaipkg/vfs"
+	"github.com/zaibyte/zaipkg/vfs"
 
 	"github.com/spf13/cast"
 	"github.com/stretchr/testify/assert"

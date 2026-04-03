@@ -8,16 +8,16 @@ import (
 
 	"github.com/templexxx/tsc"
 
-	"g.tesamc.com/IT/zaipkg/orpc"
-	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
-	"g.tesamc.com/IT/zaipkg/xtest"
+	"github.com/zaibyte/zaipkg/orpc"
+	_ "github.com/zaibyte/zaipkg/xlog/xlogtest"
+	"github.com/zaibyte/zaipkg/xtest"
 )
 
 // TestDMUExpandSpeed tries to measure the speed of expanding.
 // About 50ns/entry.
 //
 // I've found a unexpected full error:
-// https://g.tesamc.com/IT/zbuf/issues/206
+// https://github.com/zaibyte/zbuf/issues/206
 func TestDMUExpandSpeed(t *testing.T) {
 
 	if !xtest.IsPropEnabled() {

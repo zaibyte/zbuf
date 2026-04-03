@@ -1,6 +1,6 @@
 package extent
 
-import "g.tesamc.com/IT/zaipkg/config/settings"
+import "github.com/zaibyte/zaipkg/config/settings"
 
 const (
 	DefaultV1SegmentSize = settings.DefaultV1SegmentSize

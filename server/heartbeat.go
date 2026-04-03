@@ -5,11 +5,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"g.tesamc.com/IT/zaipkg/config/settings"
-	"g.tesamc.com/IT/zaipkg/xlog"
-	"g.tesamc.com/IT/zaipkg/xtime"
-	"g.tesamc.com/IT/zproto/pkg/keeperpb"
-	"g.tesamc.com/IT/zproto/pkg/metapb"
+	"github.com/zaibyte/zaipkg/config/settings"
+	"github.com/zaibyte/zaipkg/xlog"
+	"github.com/zaibyte/zaipkg/xtime"
+	"github.com/zaibyte/zproto/pkg/keeperpb"
+	"github.com/zaibyte/zproto/pkg/metapb"
 
 	"github.com/templexxx/tsc"
 )

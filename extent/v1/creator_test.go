@@ -10,13 +10,13 @@ import (
 	"path/filepath"
 	"testing"
 
-	"g.tesamc.com/IT/zaipkg/xmath/xrand"
+	"github.com/zaibyte/zaipkg/xmath/xrand"
 
-	"g.tesamc.com/IT/zaipkg/uid"
-	"g.tesamc.com/IT/zaipkg/xdigest"
-	_ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
-	"g.tesamc.com/IT/zbuf/extent"
-	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
+	"github.com/zaibyte/zaipkg/uid"
+	"github.com/zaibyte/zaipkg/xdigest"
+	_ "github.com/zaibyte/zaipkg/xlog/xlogtest"
+	"github.com/zaibyte/zbuf/extent"
+	"github.com/zaibyte/zbuf/extent/v1/dmu"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/templexxx/tsc"

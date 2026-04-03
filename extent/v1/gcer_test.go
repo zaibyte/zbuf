@@ -12,18 +12,18 @@ import (
 	"testing"
 	"time"
 
-	"g.tesamc.com/IT/zaipkg/typeutil"
+	"github.com/zaibyte/zaipkg/typeutil"
 
-	"g.tesamc.com/IT/zaipkg/xtime"
+	"github.com/zaibyte/zaipkg/xtime"
 
-	"g.tesamc.com/IT/zaipkg/xbytes"
+	"github.com/zaibyte/zaipkg/xbytes"
 
-	"g.tesamc.com/IT/zaipkg/uid"
-	"g.tesamc.com/IT/zaipkg/xdigest"
+	"github.com/zaibyte/zaipkg/uid"
+	"github.com/zaibyte/zaipkg/xdigest"
 
 	"github.com/willf/bloom"
 
-	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
+	"github.com/zaibyte/zbuf/extent/v1/dmu"
 
 	"github.com/stretchr/testify/assert"
 

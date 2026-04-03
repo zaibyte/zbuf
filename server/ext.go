@@ -7,19 +7,19 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"g.tesamc.com/IT/zaipkg/uid"
+	"github.com/zaibyte/zaipkg/uid"
 
-	"g.tesamc.com/IT/zaipkg/extutil"
+	"github.com/zaibyte/zaipkg/extutil"
 
-	"g.tesamc.com/IT/zproto/pkg/metapb"
+	"github.com/zaibyte/zproto/pkg/metapb"
 
-	sdisk "g.tesamc.com/IT/zaipkg/vdisk/svr"
+	sdisk "github.com/zaibyte/zaipkg/vdisk/svr"
 
-	"g.tesamc.com/IT/zaipkg/xlog"
+	"github.com/zaibyte/zaipkg/xlog"
 
-	"g.tesamc.com/IT/zbuf/extent"
+	"github.com/zaibyte/zbuf/extent"
 
-	"g.tesamc.com/IT/zaipkg/vfs"
+	"github.com/zaibyte/zaipkg/vfs"
 
 	"github.com/spf13/cast"
 )

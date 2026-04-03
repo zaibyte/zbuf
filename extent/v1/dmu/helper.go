@@ -5,11 +5,11 @@ import (
 	"math/rand"
 	"sync/atomic"
 
-	"g.tesamc.com/IT/zaipkg/xmath/xrand"
+	"github.com/zaibyte/zaipkg/xmath/xrand"
 
-	"g.tesamc.com/IT/zaipkg/uid"
-	"g.tesamc.com/IT/zaipkg/xdigest"
 	"github.com/templexxx/tsc"
+	"github.com/zaibyte/zaipkg/uid"
+	"github.com/zaibyte/zaipkg/xdigest"
 )
 
 // calcMask calculates mask for slot = hash & mask.

@@ -3,9 +3,9 @@ package server
 import (
 	"fmt"
 
-	"g.tesamc.com/IT/zaipkg/diskutil"
-	"g.tesamc.com/IT/zaipkg/xlog"
-	"g.tesamc.com/IT/zproto/pkg/metapb"
+	"github.com/zaibyte/zaipkg/diskutil"
+	"github.com/zaibyte/zaipkg/xlog"
+	"github.com/zaibyte/zproto/pkg/metapb"
 )
 
 // handleDiskErr handles disk I/O errors for non object I/O.

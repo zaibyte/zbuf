@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"g.tesamc.com/IT/zaipkg/xtest"
-	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
+	"github.com/zaibyte/zaipkg/xtest"
+	"github.com/zaibyte/zbuf/extent/v1/dmu"
 )
 
 // Reference:

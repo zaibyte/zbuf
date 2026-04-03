@@ -7,21 +7,21 @@ import (
 	"sync"
 	"unsafe"
 
-	"g.tesamc.com/IT/zaipkg/xlog"
+	"google.golang.org/protobuf/proto"
 
-	"github.com/gogo/protobuf/proto"
+	"github.com/zaibyte/zaipkg/xlog"
 
 	"github.com/templexxx/tsc"
 
-	"g.tesamc.com/IT/zaipkg/orpc"
+	"github.com/zaibyte/zaipkg/orpc"
 
-	zai "g.tesamc.com/IT/zai/client"
-	"g.tesamc.com/IT/zaipkg/vfs"
-	"g.tesamc.com/IT/zaipkg/xerrors"
-	"g.tesamc.com/IT/zaipkg/xio"
-	"g.tesamc.com/IT/zbuf/extent"
-	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
-	"g.tesamc.com/IT/zproto/pkg/metapb"
+	zai "github.com/zaibyte/zai/client"
+	"github.com/zaibyte/zaipkg/vfs"
+	"github.com/zaibyte/zaipkg/xerrors"
+	"github.com/zaibyte/zaipkg/xio"
+	"github.com/zaibyte/zbuf/extent"
+	"github.com/zaibyte/zbuf/extent/v1/dmu"
+	"github.com/zaibyte/zproto/pkg/metapb"
 )
 
 // Creator is ext.v1's Creator.
@@ -35,6 +35,13 @@ type Creator struct {
 type CreatorScheduler interface {
 	// GetSched gets scheduler by diskID and started or not.
 	GetSched(diskID string) (xio.Scheduler, bool)
+}
+
+func cloneCloneJob(job *metapb.CloneJob) *metapb.CloneJob {
+	if job == nil {
+		return nil
+	}
+	return proto.Clone(job).(*metapb.CloneJob)
 }
 
 // NewCreator creates an ext.v1 Creator.
@@ -75,7 +82,7 @@ func (c *Creator) Create(ctx context.Context, extDir string, params extent.Creat
 	if err != nil {
 		return extent.NewBrokenExtenter(&metapb.Extent{
 			Id:         params.ExtID,
-			Size_:      uint64(c.Cfg.SegmentSize) * uint64(segmentCnt),
+			Size:       uint64(c.Cfg.SegmentSize) * uint64(segmentCnt),
 			State:      metapb.ExtentState_Extent_Broken,
 			DiskId:     params.DiskID,
 			InstanceId: params.InstanceID,
@@ -98,7 +105,7 @@ func (c *Creator) create(ctx context.Context, extDir string, params extent.Creat
 	// What we only need to care about is the extent allocation.
 	taken := c.GetSize()
 	if params.DiskMeta != nil { // In testing, it's nil.
-		if taken > params.DiskMeta.Size_-params.DiskMeta.GetUsed() {
+		if taken > params.DiskMeta.Size-params.DiskMeta.GetUsed() {
 			return nil, xerrors.WithMessage(orpc.ErrInternalServer, fmt.Sprintf("disk: %s has no enough space: %d"+
 				" for creating ext: %d", params.DiskID, taken, params.ExtID))
 		}
@@ -116,12 +123,12 @@ func (c *Creator) create(ctx context.Context, extDir string, params extent.Creat
 	meta := &metapb.Extent{
 		Id:         params.ExtID,
 		State:      state,
-		Size_:      uint64(c.Cfg.SegmentSize) * uint64(segmentCnt),
+		Size:       uint64(c.Cfg.SegmentSize) * uint64(segmentCnt),
 		Avail:      (segmentCnt - uint64(c.Cfg.ReservedSeg)) * uint64(c.Cfg.SegmentSize),
 		DiskId:     params.DiskID,
 		InstanceId: params.InstanceID,
 		LastUpdate: tsc.UnixNano(),
-		CloneJob:   proto.Clone(params.CloneJob).(*metapb.CloneJob),
+		CloneJob:   cloneCloneJob(params.CloneJob),
 	}
 
 	params.CloneJob = meta.CloneJob // Using clone in meta for next header persistence.
@@ -276,7 +283,7 @@ func (c *Creator) Load(ctx context.Context, extDir string, params extent.CreateP
 		xlog.Errorf("load ext: %d failed: %s", params.ExtID, err.Error())
 		return extent.NewBrokenExtenter(&metapb.Extent{
 			Id:         params.ExtID,
-			Size_:      uint64(c.Cfg.SegmentSize) * uint64(segmentCnt),
+			Size:       uint64(c.Cfg.SegmentSize) * uint64(segmentCnt),
 			State:      metapb.ExtentState_Extent_Broken,
 			DiskId:     params.DiskID,
 			InstanceId: params.InstanceID,
@@ -321,12 +328,12 @@ func (c *Creator) load(ctx context.Context, extDir string, params extent.CreateP
 	meta := &metapb.Extent{
 		Id:         params.ExtID,
 		State:      metapb.ExtentState(h.nvh.State),
-		Size_:      uint64(c.Cfg.SegmentSize) * uint64(segmentCnt),
+		Size:       uint64(c.Cfg.SegmentSize) * uint64(segmentCnt),
 		Avail:      uint64(h.getReadySegCnt()) * uint64(c.Cfg.SegmentSize),
 		DiskId:     params.DiskID,
 		InstanceId: params.InstanceID,
 		LastUpdate: tsc.UnixNano(),
-		CloneJob:   proto.Clone(h.nvh.CloneJob).(*metapb.CloneJob),
+		CloneJob:   cloneCloneJob(h.nvh.CloneJob),
 	}
 
 	ext := &Extenter{

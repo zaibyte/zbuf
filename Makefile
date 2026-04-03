@@ -1,18 +1,11 @@
-GOVER_MAJOR := $(shell go version | sed -E -e "s/.*go([0-9]+)[.]([0-9]+).*/\1/")
-GOVER_MINOR := $(shell go version | sed -E -e "s/.*go([0-9]+)[.]([0-9]+).*/\2/")
-GO115 := $(shell [ $(GOVER_MAJOR) -gt 1 ] || [ $(GOVER_MAJOR) -eq 1 ] && [ $(GOVER_MINOR) -ge 15 ]; echo $$?)
-ifeq ($(GO115), 1)
-    $(error "go below 1.15 does not support")
-endif
-
-ZAI_PKG := g.tesamc.com/IT/zaipkg
+ZAI_PKG := github.com/zaibyte/zaipkg
 
 LDFLAGS += -X "$(ZAI_PKG)/version.ReleaseVersion=$(shell git describe --tags --dirty)"
 LDFLAGS += -X "$(ZAI_PKG)/version.GitHash=$(shell git rev-parse HEAD)"
 LDFLAGS += -X "$(ZAI_PKG)/version.GitBranch=$(shell git rev-parse --abbrev-ref HEAD)"
 
 TEST_PKGS := $(shell find . -iname "*_test.go" -exec dirname {} \; | \
-                     uniq | sed -e "s/^\./g.tesamc.com\/IT\/zbuf/")
+                     uniq | sed -e "s/^\./github.com\/zaibyte\/zbuf/")
 
 all: test build
 

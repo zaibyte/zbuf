@@ -11,17 +11,17 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"g.tesamc.com/IT/zaipkg/xmath/xrand"
+	"github.com/zaibyte/zaipkg/xmath/xrand"
 
-	"g.tesamc.com/IT/zaipkg/orpc"
+	"github.com/zaibyte/zaipkg/orpc"
 
-	"g.tesamc.com/IT/zaipkg/xbytes"
-	"g.tesamc.com/IT/zaipkg/xdigest"
-	"g.tesamc.com/IT/zbuf/extent"
+	"github.com/zaibyte/zaipkg/xbytes"
+	"github.com/zaibyte/zaipkg/xdigest"
+	"github.com/zaibyte/zbuf/extent"
 
-	"g.tesamc.com/IT/zaipkg/uid"
 	"github.com/stretchr/testify/assert"
 	"github.com/templexxx/tsc"
+	"github.com/zaibyte/zaipkg/uid"
 )
 
 // TestDirtyDelete tries to test the filter inside the dirtyDelete struct.

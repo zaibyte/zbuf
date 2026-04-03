@@ -1,7 +1,7 @@
 package v1
 
 import (
-	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
+	"github.com/zaibyte/zbuf/extent/v1/dmu"
 )
 
 // Segments file layout on local file system:

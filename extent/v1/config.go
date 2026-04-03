@@ -3,12 +3,12 @@ package v1
 import (
 	"time"
 
-	"g.tesamc.com/IT/zbuf/extent"
+	"github.com/zaibyte/zbuf/extent"
 
-	"g.tesamc.com/IT/zaipkg/config/settings"
+	"github.com/zaibyte/zaipkg/config/settings"
 
-	"g.tesamc.com/IT/zaipkg/config"
-	"g.tesamc.com/IT/zaipkg/typeutil"
+	"github.com/zaibyte/zaipkg/config"
+	"github.com/zaibyte/zaipkg/typeutil"
 )
 
 // There are default configs for eva.
@@ -16,7 +16,7 @@ const (
 	defaultUpdatesPending = 512 // Each extent has 512 pending put, same as default Scheduler pending.
 
 	// 4MB size per read is chosen by the testing result.
-	// Discussion here: https://g.tesamc.com/IT/zbuf/issues/209#issuecomment-761
+	// Discussion here: https://github.com/zaibyte/zbuf/issues/209#issuecomment-761
 	defaultSizePerRead = typeutil.ByteSize(4 * 1024 * 1024)
 
 	// Each extent has the same segment count: 256.
@@ -95,7 +95,7 @@ type Config struct {
 	GCScanInterval typeutil.Duration `toml:"gc_scan_interval"`
 	// DeepGCInterval is the interval of deep GC, which will traverse the whole DMU to get the accurate removed for
 	// each segment.
-	// See: https://g.tesamc.com/IT/zbuf/issues/150#issuecomment-578 for deailts.
+	// See: https://github.com/zaibyte/zbuf/issues/150#issuecomment-578 for deailts.
 	DeepGCInterval typeutil.Duration `toml:"deep_gc_interval"`
 }
 

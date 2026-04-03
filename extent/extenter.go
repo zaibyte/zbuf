@@ -1,11 +1,11 @@
 package extent
 
 import (
-	"g.tesamc.com/IT/zaipkg/config/settings"
+	"github.com/zaibyte/zaipkg/config/settings"
 
-	"g.tesamc.com/IT/zaipkg/xio"
+	"github.com/zaibyte/zaipkg/xio"
 
-	"g.tesamc.com/IT/zproto/pkg/metapb"
+	"github.com/zaibyte/zproto/pkg/metapb"
 )
 
 // Extenter is the collection of extent methods.
@@ -59,5 +59,6 @@ const (
 type GCer interface {
 	// DoGC tries to trigger GC with a certain ratio,
 	// it's non-block, and you could call it anytime.
-	DoGC(ratio float64)
+	// ratio could be 0, which means trigger GC with default ratio.
+	DoGC(ratio float64, isDeep bool)
 }

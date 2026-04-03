@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"g.tesamc.com/IT/zaipkg/vfs"
 	"github.com/spf13/cast"
+	"github.com/zaibyte/zaipkg/vfs"
 
-	"g.tesamc.com/IT/zaipkg/vdisk"
-	sdisk "g.tesamc.com/IT/zaipkg/vdisk/svr"
-	"g.tesamc.com/IT/zproto/pkg/metapb"
+	"github.com/zaibyte/zaipkg/vdisk"
+	sdisk "github.com/zaibyte/zaipkg/vdisk/svr"
+	"github.com/zaibyte/zproto/pkg/metapb"
 )
 
 // .

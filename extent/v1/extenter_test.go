@@ -11,18 +11,18 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"g.tesamc.com/IT/zaipkg/config/settings"
-	"g.tesamc.com/IT/zaipkg/directio"
-	"g.tesamc.com/IT/zaipkg/orpc"
-	"g.tesamc.com/IT/zaipkg/uid"
-	"g.tesamc.com/IT/zaipkg/xbytes"
-	"g.tesamc.com/IT/zaipkg/xdigest"
+	"github.com/zaibyte/zaipkg/config/settings"
+	"github.com/zaibyte/zaipkg/directio"
+	"github.com/zaibyte/zaipkg/orpc"
+	"github.com/zaibyte/zaipkg/uid"
+	"github.com/zaibyte/zaipkg/xbytes"
+	"github.com/zaibyte/zaipkg/xdigest"
 
-	// _ "g.tesamc.com/IT/zaipkg/xlog/xlogtest"
-	"g.tesamc.com/IT/zbuf/extent"
-	"g.tesamc.com/IT/zbuf/extent/v1/dmu"
+	// _ "github.com/zaibyte/zaipkg/xlog/xlogtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/templexxx/tsc"
+	"github.com/zaibyte/zbuf/extent"
+	"github.com/zaibyte/zbuf/extent/v1/dmu"
 )
 
 func TestGetObjOffsetSize(t *testing.T) {
